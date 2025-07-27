@@ -1,0 +1,33 @@
+name: tb_frontend
+description: "A new Flutter project."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.5.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  easy_debounce: ^2.0.3
+  google_fonts: ^6.2.1
+  provider: ^6.1.5
+  flutter_map: ^6.1.0
+  latlong2: ^0.9.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/tbisita_logo.png
+    - assets/images/doc1.png
+    - assets/images/doc2.png
+    - assets/images/doc3.png
+    - assets/images/map1.png

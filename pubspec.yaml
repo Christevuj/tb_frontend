@@ -27,6 +27,7 @@ flutter:
 
   assets:
     - assets/images/tbisita_logo.png
+    - assets/images/tbisita_logo1.png
     - assets/images/doc1.png
     - assets/images/doc2.png
     - assets/images/doc3.png

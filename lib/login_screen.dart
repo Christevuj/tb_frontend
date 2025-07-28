@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:tb_frontend/guest/glanding_page.dart'; // adjust path if needed
-
+import 'package:tb_frontend/patient/planding_page.dart';
+import 'package:tb_frontend/accounts/patient_create1.dart'; // <-- Added for SignupScreen
 
 class TBisitaLoginScreen extends StatefulWidget {
   const TBisitaLoginScreen({super.key});
@@ -56,9 +57,7 @@ class _TBisitaLoginScreenState extends State<TBisitaLoginScreen> {
                   ),
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _obscureText
-                          ? Icons.visibility_off
-                          : Icons.visibility,
+                      _obscureText ? Icons.visibility_off : Icons.visibility,
                     ),
                     onPressed: () {
                       setState(() {
@@ -92,10 +91,13 @@ class _TBisitaLoginScreenState extends State<TBisitaLoginScreen> {
                 height: 50,
                 child: ElevatedButton(
                   onPressed: () {
-                    // TODO: Handle login
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (context) => const PlandingPage()),
+                    );
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFF4C72),
+                    backgroundColor: Colors.redAccent,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
@@ -110,22 +112,20 @@ class _TBisitaLoginScreenState extends State<TBisitaLoginScreen> {
               const SizedBox(height: 15),
 
               // Guest Mode
-Center(
-  child: TextButton(
-    onPressed: () {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const GlandingPage()),
-      );
-    },
-    child: const Text(
-      'Guest Mode',
-      style: TextStyle(color: Color(0xFFFF4C72)),
-    ),
-  ),
-),
-
-
+              Center(
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (context) => const GlandingPage()),
+                    );
+                  },
+                  child: const Text(
+                    'Guest Mode',
+                    style: TextStyle(color: Colors.redAccent),
+                  ),
+                ),
+              ),
 
               const Spacer(),
 
@@ -138,10 +138,13 @@ Center(
                     children: [
                       TextSpan(
                         text: 'Sign up',
-                        style: const TextStyle(color: Color(0xFFFF4C72)),
+                        style: const TextStyle(color: Colors.redAccent),
                         recognizer: TapGestureRecognizer()
                           ..onTap = () {
-                            // TODO: Navigate to Sign up screen
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const SignupScreen()),
+                            );
                           },
                       ),
                     ],

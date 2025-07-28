@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:tb_frontend/guest/glanding_page.dart';
 import 'package:tb_frontend/guest/gconsultant.dart';
 import 'package:tb_frontend/guest/gappointment.dart';
-import 'package:tb_frontend/login_screen.dart'; // ✅ Import your login screen
+import 'package:tb_frontend/login_screen.dart'; 
 
-class CustomDrawer extends StatelessWidget {
+class PatientDrawer extends StatelessWidget {
   final String currentRoute;
 
-  const CustomDrawer({super.key, required this.currentRoute});
+  const PatientDrawer({super.key, required this.currentRoute});
 
   @override
   Widget build(BuildContext context) {
@@ -52,6 +52,41 @@ class CustomDrawer extends StatelessWidget {
             ),
             _buildDrawerItem(
               context,
+              icon: Icons.calendar_today,
+              label: 'My Appointment',
+              destination: const Placeholder(),
+              isActive: currentRoute == 'my_appointment',
+            ),
+            _buildDrawerItem(
+              context,
+              icon: Icons.assignment_turned_in_outlined,
+              label: 'Post Appointment',
+              destination: const Placeholder(),
+              isActive: currentRoute == 'post_appointment',
+            ),
+            _buildDrawerItem(
+              context,
+              icon: Icons.message_outlined,
+              label: 'Messages',
+              destination: const Placeholder(),
+              isActive: currentRoute == 'messages',
+            ),
+            _buildDrawerItem(
+              context,
+              icon: Icons.local_hospital_outlined,
+              label: 'TB Dots Program',
+              destination: const Placeholder(),
+              isActive: currentRoute == 'tb_dots_program',
+            ),
+            _buildDrawerItem(
+              context,
+              icon: Icons.account_circle_outlined,
+              label: 'My Account',
+              destination: const Placeholder(),
+              isActive: currentRoute == 'account',
+            ),
+            _buildDrawerItem(
+              context,
               icon: Icons.apartment,
               label: 'TB Dots Facilities',
               destination: const Placeholder(),
@@ -64,7 +99,7 @@ class CustomDrawer extends StatelessWidget {
               destination: const Placeholder(),
               isActive: currentRoute == 'terms',
             ),
-            const Spacer(), // ✅ Push logout to bottom
+            const Spacer(),
             const Divider(),
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.red),
@@ -76,11 +111,11 @@ class CustomDrawer extends StatelessWidget {
                 ),
               ),
               onTap: () {
-                Navigator.pop(context); // close the drawer
+                Navigator.pop(context);
                 Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(builder: (_) => const TBisitaLoginScreen()),
-                  (Route<dynamic> route) => false, // clear navigation stack
+                  (Route<dynamic> route) => false,
                 );
               },
             ),

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:tb_frontend/guest/gmenu.dart'; // Make sure CustomDrawer is defined here
+import 'package:tb_frontend/guest/gmenu.dart';
 import 'package:tb_frontend/guest/gviewdoctor.dart';
 
 class Gappointment extends StatelessWidget {
@@ -189,9 +189,11 @@ class DoctorCard extends StatelessWidget {
                       const Icon(Icons.location_on, size: 14, color: Colors.grey),
                       const SizedBox(width: 2),
                       Expanded(
-                        child: Text(location,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 12)),
+                        child: Text(
+                          location,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 12),
+                        ),
                       ),
                     ],
                   ),

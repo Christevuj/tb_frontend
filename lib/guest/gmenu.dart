@@ -69,11 +69,11 @@ class CustomDrawer extends StatelessWidget {
             const Spacer(), // ✅ Push logout to bottom
             const Divider(),
             ListTile(
-              leading: const Icon(Icons.logout, color: Colors.red),
+              leading: const Icon(Icons.logout, color: Color(0xFFF44336)),
               title: const Text(
                 'Logout',
                 style: TextStyle(
-                  color: Colors.red,
+                  color: Color(0xFFF44336),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -101,7 +101,7 @@ class CustomDrawer extends StatelessWidget {
     required bool isActive,
   }) {
     return Container(
-      color: isActive ? Colors.pinkAccent : Colors.transparent,
+      color: isActive ? const Color(0xFFFF4081) : Colors.transparent,
       child: ListTile(
         leading: Icon(icon, color: isActive ? Colors.white : Colors.black),
         title: Text(

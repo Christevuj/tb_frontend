@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:tb_frontend/guest/glanding_page.dart';
 import 'package:tb_frontend/guest/gconsultant.dart';
 import 'package:tb_frontend/guest/gappointment.dart';
-import 'package:tb_frontend/login_screen.dart'; // ✅ Import your login screen
+import 'package:tb_frontend/login_screen.dart';
+import 'package:tb_frontend/guest/gtbfacility.dart';
 
 class CustomDrawer extends StatelessWidget {
   final String currentRoute;
@@ -54,9 +55,10 @@ class CustomDrawer extends StatelessWidget {
               context,
               icon: Icons.apartment,
               label: 'TB Dots Facilities',
-              destination: const Placeholder(),
+              destination: const GtbfacilityPage(),
               isActive: currentRoute == 'facilities',
             ),
+
             _buildDrawerItem(
               context,
               icon: Icons.info_outline,

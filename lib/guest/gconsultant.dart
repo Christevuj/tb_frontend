@@ -77,6 +77,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   @override
   void dispose() {
     _quickFadeController.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
@@ -101,7 +102,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       _greetingDone = true;
     });
 
-    _quickFadeController.forward(); // trigger quick question animation
+    _quickFadeController.forward();
   }
 
   void _addMessage(Map<String, String> message) {
@@ -144,8 +145,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     }
   }
 
-  Widget _buildMessage(
-      Map<String, String> message, Animation<double> animation) {
+  Widget _buildMessage(Map<String, String> message, Animation<double> animation) {
     final isUser = message['role'] == 'user';
     final isTyping = message['content'] == '' && !isUser;
 
@@ -205,9 +205,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 onPressed: () => _sendMessage(question),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xE0F44336),
-                  foregroundColor: const Color.fromARGB(255, 255, 255, 255),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(18),
                   ),
@@ -228,12 +227,19 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       child: Row(
         children: [
           Expanded(
-            child: TextField(
-              controller: _controller,
-              onSubmitted: (_) => _sendMessage(),
-              decoration: const InputDecoration(
-                hintText: 'Type your message...',
-                border: OutlineInputBorder(),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: TextField(
+                controller: _controller,
+                onSubmitted: (_) => _sendMessage(),
+                decoration: const InputDecoration(
+                  hintText: 'Type your message...',
+                  border: InputBorder.none,
+                ),
               ),
             ),
           ),
@@ -263,10 +269,19 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: const CustomDrawer(currentRoute: ''), // ← Linked to gmenu.dart
       appBar: AppBar(
-        title:
-            const Text('AI Consultant', style: TextStyle(color: Colors.white)),
+        title: const Text(
+          'AI Consultant',
+          style: TextStyle(color: Colors.white),
+        ),
         backgroundColor: const Color(0xFFF44336),
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu, color: Colors.white),
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
+        ),
       ),
       body: Column(
         children: [

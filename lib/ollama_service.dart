@@ -2,7 +2,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 Stream<String> streamMessageFromOllama(String userMessage) async* {
-  final url = Uri.parse('http://localhost:11434/api/chat');
+  // Use 10.0.2.2 to access localhost from Android emulator
+  final url = Uri.parse('http://10.0.2.2:11434/api/chat');
   final headers = {'Content-Type': 'application/json'};
 
   final request = http.Request('POST', url)

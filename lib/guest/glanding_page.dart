@@ -40,7 +40,7 @@ class GlandingPage extends StatelessWidget {
               child: const TextField(
                 decoration: InputDecoration(
                   icon: Icon(Icons.search),
-                  hintText: 'Mangita og Doctor',
+                  hintText: 'Search a Doctor',
                   border: InputBorder.none,
                 ),
               ),
@@ -75,7 +75,7 @@ class GlandingPage extends StatelessWidget {
                     );
                   },
                   child: const Text(
-                    'Tan-awa Tanan',
+                    'View All',
                     style: TextStyle(color: Colors.redAccent),
                   ),
                 ),
@@ -203,7 +203,7 @@ class GlandingPage extends StatelessWidget {
               );
             },
             child: const Text(
-              'TAN-AWA',
+              'View Details',
               style: TextStyle(color: Colors.white, fontSize: 12),
             ),
           ),

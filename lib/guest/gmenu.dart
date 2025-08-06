@@ -36,6 +36,7 @@ class CustomDrawer extends StatelessWidget {
               label: 'Home',
               destination: const GlandingPage(),
               isActive: currentRoute == 'home',
+              routeName: 'home',
             ),
             _buildDrawerItem(
               context,
@@ -43,6 +44,7 @@ class CustomDrawer extends StatelessWidget {
               label: 'AI Consultant',
               destination: const GConsultant(),
               isActive: currentRoute == 'consultant',
+              routeName: 'consultant',
             ),
             _buildDrawerItem(
               context,
@@ -50,6 +52,7 @@ class CustomDrawer extends StatelessWidget {
               label: 'Book Appointment',
               destination: const Gappointment(),
               isActive: currentRoute == 'appointment',
+              routeName: 'appointment',
             ),
             _buildDrawerItem(
               context,
@@ -57,16 +60,17 @@ class CustomDrawer extends StatelessWidget {
               label: 'TB Dots Facilities',
               destination: const GtbfacilityPage(),
               isActive: currentRoute == 'facilities',
+              routeName: 'facilities',
             ),
-
             _buildDrawerItem(
               context,
               icon: Icons.info_outline,
               label: 'Terms & Conditions',
               destination: const Placeholder(),
               isActive: currentRoute == 'terms',
+              routeName: 'terms',
             ),
-            const Spacer(), // ✅ Push logout to bottom
+            const Spacer(),
             const Divider(),
             ListTile(
               leading: const Icon(Icons.logout, color: Color(0xFFF44336)),
@@ -78,11 +82,11 @@ class CustomDrawer extends StatelessWidget {
                 ),
               ),
               onTap: () {
-                Navigator.pop(context); // close the drawer
+                Navigator.pop(context);
                 Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(builder: (_) => const TBisitaLoginScreen()),
-                  (Route<dynamic> route) => false, // clear navigation stack
+                  (Route<dynamic> route) => false,
                 );
               },
             ),
@@ -99,6 +103,7 @@ class CustomDrawer extends StatelessWidget {
     required String label,
     required Widget destination,
     required bool isActive,
+    required String routeName,
   }) {
     return Container(
       color: isActive ? const Color(0xFFFF4081) : Colors.transparent,
@@ -112,12 +117,13 @@ class CustomDrawer extends StatelessWidget {
           ),
         ),
         onTap: () {
-          Navigator.pop(context);
           if (!isActive) {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (_) => destination),
             );
+          } else {
+            Navigator.pop(context); // Just close drawer
           }
         },
       ),

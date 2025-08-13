@@ -65,7 +65,7 @@ class OnboardingScreen extends StatelessWidget {
                     Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(
-                          builder: (context) => TBisitaLoginScreen()),
+                          builder: (context) => const TBisitaLoginScreen()),
                     );
                   },
                   style: ElevatedButton.styleFrom(
@@ -93,7 +93,7 @@ class OnboardingScreen extends StatelessWidget {
                   Navigator.pushReplacement(
                     context,
                     MaterialPageRoute(
-                        builder: (context) => TBisitaLoginScreen()),
+                        builder: (context) => const TBisitaLoginScreen()),
                   );
                 },
                 child: const Text(
@@ -119,8 +119,9 @@ class OnboardingScreen extends StatelessWidget {
       height: 8,
       width: isActive ? 20 : 8,
       decoration: BoxDecoration(
-        color:
-            isActive ? const Color(0xFFFF4C72) : const Color(0xFFFFC0CB), // pink
+        color: isActive
+            ? const Color(0xFFFF4C72)
+            : const Color(0xFFFFC0CB), // pink
         borderRadius: BorderRadius.circular(10),
       ),
     );

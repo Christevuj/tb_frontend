@@ -5,10 +5,120 @@ import 'package:tb_frontend/guest/gappointment.dart';
 import 'package:tb_frontend/login_screen.dart';
 import 'package:tb_frontend/guest/gtbfacility.dart';
 
+// ------------------ MAIN WRAPPER WITH NAVBAR & DRAWER ------------------
+class GuestMainWrapper extends StatefulWidget {
+  final int initialIndex;
+  const GuestMainWrapper({super.key, this.initialIndex = 0});
+
+  @override
+  State<GuestMainWrapper> createState() => _GuestMainWrapperState();
+}
+
+class _GuestMainWrapperState extends State<GuestMainWrapper> {
+  int _selectedIndex = 0;
+
+  final List<Widget> _pages = const [
+    GlandingPage(),
+    GConsultant(),
+    Gappointment(),
+    GtbfacilityPage(),
+  ];
+
+  final List<String> _routeNames = [
+    'home',
+    'consultant',
+    'appointment',
+    'facilities',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIndex = widget.initialIndex;
+  }
+
+  void _onNavTap(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
+  void _onDrawerTap(int index) {
+    Navigator.pop(context); // close drawer
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      drawer: CustomDrawer(
+        currentRoute: _routeNames[_selectedIndex],
+        onDrawerTap: _onDrawerTap, // pass callback
+      ),
+      body: _pages[_selectedIndex],
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, -2),
+            )
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _navBarItem(Icons.home, "Home", 0),
+            _navBarItem(Icons.smart_toy, "Consultant", 1),
+            _navBarItem(Icons.book_online_outlined, "Appointment", 2),
+            _navBarItem(Icons.apartment, "Facilities", 3),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _navBarItem(IconData icon, String label, int index) {
+    final isSelected = _selectedIndex == index;
+    return GestureDetector(
+      onTap: () => _onNavTap(index),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12.0), // spacing
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon,
+                size: 28, color: isSelected ? Colors.pinkAccent : Colors.grey),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: isSelected ? Colors.pinkAccent : Colors.grey,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ------------------ DRAWER ------------------
 class CustomDrawer extends StatelessWidget {
   final String currentRoute;
+  final Function(int) onDrawerTap;
 
-  const CustomDrawer({super.key, required this.currentRoute});
+  const CustomDrawer({
+    super.key,
+    required this.currentRoute,
+    required this.onDrawerTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -34,41 +144,36 @@ class CustomDrawer extends StatelessWidget {
               context,
               icon: Icons.home,
               label: 'Home',
-              destination: const GlandingPage(),
+              index: 0,
               isActive: currentRoute == 'home',
-              routeName: 'home',
             ),
             _buildDrawerItem(
               context,
               icon: Icons.smart_toy,
               label: 'AI Consultant',
-              destination: const GConsultant(),
+              index: 1,
               isActive: currentRoute == 'consultant',
-              routeName: 'consultant',
             ),
             _buildDrawerItem(
               context,
               icon: Icons.book_online_outlined,
               label: 'Book Appointment',
-              destination: const Gappointment(),
+              index: 2,
               isActive: currentRoute == 'appointment',
-              routeName: 'appointment',
             ),
             _buildDrawerItem(
               context,
               icon: Icons.apartment,
               label: 'TB Dots Facilities',
-              destination: const GtbfacilityPage(),
+              index: 3,
               isActive: currentRoute == 'facilities',
-              routeName: 'facilities',
             ),
             _buildDrawerItem(
               context,
               icon: Icons.info_outline,
               label: 'Terms & Conditions',
-              destination: const Placeholder(),
+              index: 4, // Use a unique index if needed
               isActive: currentRoute == 'terms',
-              routeName: 'terms',
             ),
             const Spacer(),
             const Divider(),
@@ -101,9 +206,8 @@ class CustomDrawer extends StatelessWidget {
     BuildContext context, {
     required IconData icon,
     required String label,
-    required Widget destination,
+    required int index,
     required bool isActive,
-    required String routeName,
   }) {
     return Container(
       color: isActive ? const Color(0xFFFF4081) : Colors.transparent,
@@ -118,12 +222,9 @@ class CustomDrawer extends StatelessWidget {
         ),
         onTap: () {
           if (!isActive) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => destination),
-            );
+            onDrawerTap(index);
           } else {
-            Navigator.pop(context); // Just close drawer
+            Navigator.pop(context);
           }
         },
       ),

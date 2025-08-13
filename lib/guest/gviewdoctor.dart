@@ -13,11 +13,13 @@ class GViewDoctor extends StatelessWidget {
             children: [
               // Top Banner + Back Button
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
                 child: Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.redAccent),
+                      icon:
+                          const Icon(Icons.arrow_back, color: Colors.redAccent),
                       onPressed: () => Navigator.pop(context),
                     ),
                     const SizedBox(width: 10),
@@ -64,14 +66,13 @@ class GViewDoctor extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      Expanded(
+                      const Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          children: const [
+                          children: [
                             Text('Dr. Miguel Rosales',
                                 style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16)),
+                                    fontWeight: FontWeight.bold, fontSize: 16)),
                             SizedBox(height: 4),
                             Text('MD, Pulmonologist',
                                 style: TextStyle(fontSize: 13)),
@@ -96,7 +97,8 @@ class GViewDoctor extends StatelessWidget {
                       Column(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
                               color: Colors.amber,
                               borderRadius: BorderRadius.circular(4),
@@ -105,7 +107,8 @@ class GViewDoctor extends StatelessWidget {
                               children: [
                                 Icon(Icons.star, size: 14, color: Colors.white),
                                 SizedBox(width: 2),
-                                Text('4.2', style: TextStyle(color: Colors.white)),
+                                Text('4.2',
+                                    style: TextStyle(color: Colors.white)),
                               ],
                             ),
                           ),
@@ -134,7 +137,8 @@ class GViewDoctor extends StatelessWidget {
                             ),
                             child: const Column(
                               children: [
-                                Text('Patient', style: TextStyle(color: Colors.white)),
+                                Text('Patient',
+                                    style: TextStyle(color: Colors.white)),
                                 SizedBox(height: 8),
                                 Text('500+',
                                     style: TextStyle(
@@ -150,12 +154,13 @@ class GViewDoctor extends StatelessWidget {
                           child: Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: Color(0xFFFFA726),
+                              color: const Color(0xFFFFA726),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Column(
                               children: [
-                                Text('Experience', style: TextStyle(color: Colors.white)),
+                                Text('Experience',
+                                    style: TextStyle(color: Colors.white)),
                                 SizedBox(height: 8),
                                 Text('08 Year +',
                                     style: TextStyle(

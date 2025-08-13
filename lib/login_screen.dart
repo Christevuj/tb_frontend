@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
-import 'package:tb_frontend/guest/glanding_page.dart'; // adjust path if needed
+import 'package:tb_frontend/guest/gmenu.dart'; // <-- Added this import
 import 'package:tb_frontend/patient/planding_page.dart';
-import 'package:tb_frontend/accounts/patient_create1.dart'; // <-- Added for SignupScreen
+import 'package:tb_frontend/accounts/patient_create1.dart'; // <-- For SignupScreen
 
 class TBisitaLoginScreen extends StatefulWidget {
   const TBisitaLoginScreen({super.key});
@@ -93,7 +93,8 @@ class _TBisitaLoginScreenState extends State<TBisitaLoginScreen> {
                   onPressed: () {
                     Navigator.pushReplacement(
                       context,
-                      MaterialPageRoute(builder: (context) => const PlandingPage()),
+                      MaterialPageRoute(
+                          builder: (context) => const PlandingPage()),
                     );
                   },
                   style: ElevatedButton.styleFrom(
@@ -117,7 +118,9 @@ class _TBisitaLoginScreenState extends State<TBisitaLoginScreen> {
                   onPressed: () {
                     Navigator.pushReplacement(
                       context,
-                      MaterialPageRoute(builder: (context) => const GlandingPage()),
+                      MaterialPageRoute(
+                        builder: (context) => const GuestMainWrapper(),
+                      ),
                     );
                   },
                   child: const Text(
@@ -143,7 +146,8 @@ class _TBisitaLoginScreenState extends State<TBisitaLoginScreen> {
                           ..onTap = () {
                             Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (context) => const SignupScreen()),
+                              MaterialPageRoute(
+                                  builder: (context) => const SignupScreen()),
                             );
                           },
                       ),

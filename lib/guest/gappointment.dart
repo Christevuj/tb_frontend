@@ -1,122 +1,125 @@
 import 'package:flutter/material.dart';
-import 'package:tb_frontend/guest/gmenu.dart';
 import 'package:tb_frontend/guest/gviewdoctor.dart';
+import 'package:tb_frontend/guest/glanding_page.dart';
 
 class Gappointment extends StatelessWidget {
   const Gappointment({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      drawer: const CustomDrawer(currentRoute: 'appointment'),
-      appBar: AppBar(
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu, color: Colors.pink),
+    return SafeArea(
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.pink),
             onPressed: () {
-              Scaffold.of(context).openDrawer();
+              Navigator.of(context).pop();
             },
           ),
+          title: const Text(
+            'Book Appointment',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          centerTitle: true,
+          backgroundColor: Colors.white,
+          elevation: 0,
         ),
-        title: const Text(
-          'Book Appointment',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        centerTitle: true,
         backgroundColor: Colors.white,
-        elevation: 0,
-      ),
-      backgroundColor: Colors.white,
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: ListView(
-          children: [
-            const SizedBox(height: 10),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 10),
 
-            // Search bar
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: Colors.grey.shade400),
-                borderRadius: BorderRadius.circular(30),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                children: [
-                  const Expanded(
-                    child: TextField(
-                      decoration: InputDecoration(
-                        hintText: "Search doctors",
-                        border: InputBorder.none,
+              // Search bar
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border.all(color: Colors.grey.shade400),
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: TextField(
+                        decoration: InputDecoration(
+                          hintText: "Search doctors",
+                          border: InputBorder.none,
+                        ),
                       ),
                     ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.search, color: Colors.pink),
-                    onPressed: () {},
-                  ),
-                ],
+                    IconButton(
+                      icon: const Icon(Icons.search, color: Colors.pink),
+                      onPressed: () {},
+                    ),
+                  ],
+                ),
               ),
-            ),
 
-            const SizedBox(height: 20),
-            const Text("Favorite Doctors", style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
+              const SizedBox(height: 20),
+              const Text("Favorite Doctors",
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 10),
 
-            const DoctorCard(
-              image: 'assets/images/doc1.png',
-              name: 'Dr. Zubaear Rahim',
-              specialty: 'MD, Pulmonologist',
-              location: 'Davao Doctors Hospital',
-              rating: '4.5',
-              isFavorite: true,
-            ),
-            const DoctorCard(
-              image: 'assets/images/doc2.png',
-              name: 'Dr. Arlyn Santos',
-              specialty: 'MD, Pulmonologist',
-              location: 'Chest Center',
-              rating: '3.9',
-              isFavorite: true,
-            ),
+              const DoctorCard(
+                image: 'assets/images/doc1.png',
+                name: 'Dr. Zubaear Rahim',
+                specialty: 'MD, Pulmonologist',
+                location: 'Davao Doctors Hospital',
+                rating: '4.5',
+                isFavorite: true,
+              ),
+              const DoctorCard(
+                image: 'assets/images/doc2.png',
+                name: 'Dr. Arlyn Santos',
+                specialty: 'MD, Pulmonologist',
+                location: 'Chest Center',
+                rating: '3.9',
+                isFavorite: true,
+              ),
 
-            const SizedBox(height: 10),
-            const Text("75 Available Doctors", style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
+              const SizedBox(height: 10),
+              const Text("75 Available Doctors",
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 10),
 
-            const DoctorCard(
-              image: 'assets/images/doc3.png',
-              name: 'Dr. Miguel Rosales',
-              specialty: 'MD, Pulmonologist',
-              location: 'Talomo South Health Center',
-              rating: '4.2',
-              isFavorite: false,
-            ),
-            const DoctorCard(
-              image: 'assets/images/doc2.png',
-              name: 'Dr. Lianne Ortega',
-              specialty: 'MD, Pulmonologist',
-              location: 'Southern Philippines Medical Center',
-              rating: '3.3',
-              isFavorite: false,
-            ),
-            const DoctorCard(
-              image: 'assets/images/doc1.png',
-              name: 'Dr. Zubaear Rahim',
-              specialty: 'MD, Pulmonologist',
-              location: 'Talomo Central Health Center',
-              rating: '4.5',
-              isFavorite: true,
-            ),
-            const DoctorCard(
-              image: 'assets/images/doc3.png',
-              name: 'Dr. Carlos Buenafe',
-              specialty: 'MD, Pulmonologist',
-              location: 'Southern Philippines Medical Center',
-              rating: '3.9',
-              isFavorite: false,
-            ),
-          ],
+              const DoctorCard(
+                image: 'assets/images/doc3.png',
+                name: 'Dr. Miguel Rosales',
+                specialty: 'MD, Pulmonologist',
+                location: 'Talomo South Health Center',
+                rating: '4.2',
+                isFavorite: false,
+              ),
+              const DoctorCard(
+                image: 'assets/images/doc2.png',
+                name: 'Dr. Lianne Ortega',
+                specialty: 'MD, Pulmonologist',
+                location: 'Southern Philippines Medical Center',
+                rating: '3.3',
+                isFavorite: false,
+              ),
+              const DoctorCard(
+                image: 'assets/images/doc1.png',
+                name: 'Dr. Zubaear Rahim',
+                specialty: 'MD, Pulmonologist',
+                location: 'Talomo Central Health Center',
+                rating: '4.5',
+                isFavorite: true,
+              ),
+              const DoctorCard(
+                image: 'assets/images/doc3.png',
+                name: 'Dr. Carlos Buenafe',
+                specialty: 'MD, Pulmonologist',
+                location: 'Southern Philippines Medical Center',
+                rating: '3.9',
+                isFavorite: false,
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
         ),
       ),
     );
@@ -180,13 +183,15 @@ class DoctorCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(name,
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
                   Text(specialty, style: const TextStyle(fontSize: 13)),
                   const SizedBox(height: 2),
                   Row(
                     children: [
-                      const Icon(Icons.location_on, size: 14, color: Colors.grey),
+                      const Icon(Icons.location_on,
+                          size: 14, color: Colors.grey),
                       const SizedBox(width: 2),
                       Expanded(
                         child: Text(
@@ -203,7 +208,8 @@ class DoctorCard extends StatelessWidget {
             Column(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
                     color: Colors.amber,
                     borderRadius: BorderRadius.circular(4),

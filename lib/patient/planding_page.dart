@@ -5,8 +5,21 @@ import 'package:tb_frontend/guest/gappointment.dart';
 import 'package:tb_frontend/guest/gconsultant.dart';
 import 'package:tb_frontend/guest/gtbfacility.dart';
 
-class PlandingPage extends StatelessWidget {
+class PlandingPage extends StatefulWidget {
   const PlandingPage({super.key});
+
+  @override
+  State<PlandingPage> createState() => _PlandingPageState();
+}
+
+class _PlandingPageState extends State<PlandingPage> {
+  int _selectedIndex = 0;
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +43,6 @@ class PlandingPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Search bar
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
@@ -46,32 +58,33 @@ class PlandingPage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-
-            // Quick Actions
             const Text('Quick Actions',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _quickAction(context, Icons.smart_toy, 'AI\nConsultant', const GConsultant()),
-                _quickAction(context, Icons.calendar_today, 'Book\nAppointment', const Gappointment()),
-                _quickAction(context, Icons.local_hospital, 'TB DOTS\nFacilities', const GtbfacilityPage ()),
+                _quickAction(context, Icons.smart_toy, 'AI\nConsultant',
+                    const GConsultant()),
+                _quickAction(context, Icons.calendar_today, 'Book\nAppointment',
+                    const Gappointment()),
+                _quickAction(context, Icons.local_hospital,
+                    'TB DOTS\nFacilities', const GtbfacilityPage()),
               ],
             ),
             const SizedBox(height: 24),
-
-            // Top Doctors
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('Top Doctors',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 GestureDetector(
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const Gappointment()),
+                      MaterialPageRoute(
+                          builder: (context) => const Gappointment()),
                     );
                   },
                   child: const Text(
@@ -82,8 +95,6 @@ class PlandingPage extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-
-            // Doctor List
             SizedBox(
               height: 440,
               child: ListView.builder(
@@ -94,17 +105,84 @@ class PlandingPage extends StatelessWidget {
           ],
         ),
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+              content: const Text('Create new request!'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Close'),
+                )
+              ],
+            ),
+          );
+        },
+        backgroundColor: const Color(0xFFFF4C72),
+        elevation: 4,
+        child: const Icon(Icons.add, size: 32),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      bottomNavigationBar: BottomAppBar(
+        shape: const CircularNotchedRectangle(),
+        notchMargin: 8,
+        child: Container(
+          height: 70,
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Left side
+              Row(
+                children: [
+                  _navBarItem(
+                      icon: Icons.home,
+                      label: 'Home',
+                      index: 0,
+                      selectedIndex: _selectedIndex,
+                      onTap: _onItemTapped),
+                  const SizedBox(width: 70),
+                  _navBarItem(
+                      icon: Icons.chat_bubble_outline,
+                      label: 'Chat',
+                      index: 1,
+                      selectedIndex: _selectedIndex,
+                      onTap: _onItemTapped),
+                ],
+              ),
+              // Right side
+              Row(
+                children: [
+                  _navBarItem(
+                      icon: Icons.favorite_border,
+                      label: 'Favorites',
+                      index: 3,
+                      selectedIndex: _selectedIndex,
+                      onTap: _onItemTapped),
+                  const SizedBox(width: 70),
+                  _navBarItem(
+                      icon: Icons.person_outline,
+                      label: 'Profile',
+                      index: 4,
+                      selectedIndex: _selectedIndex,
+                      onTap: _onItemTapped),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
-  // Quick Action Widget with navigation
-  static Widget _quickAction(BuildContext context, IconData icon, String label, Widget destination) {
+  static Widget _quickAction(
+      BuildContext context, IconData icon, String label, Widget destination) {
     return GestureDetector(
       onTap: () {
         Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => destination),
-        );
+            context, MaterialPageRoute(builder: (context) => destination));
       },
       child: Column(
         children: [
@@ -114,23 +192,21 @@ class PlandingPage extends StatelessWidget {
               color: Colors.redAccent,
               shape: BoxShape.circle,
               boxShadow: [
-                BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(2, 2)),
+                BoxShadow(
+                    color: Colors.black26, blurRadius: 4, offset: Offset(2, 2))
               ],
             ),
             child: Icon(icon, color: Colors.white, size: 28),
           ),
           const SizedBox(height: 4),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 12),
-          ),
+          Text(label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 12)),
         ],
       ),
     );
   }
 
-  // Doctor Card Widget
   static Widget _doctorCard(BuildContext context) {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8),
@@ -147,7 +223,6 @@ class PlandingPage extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Doctor Image
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: Image.asset(
@@ -158,24 +233,21 @@ class PlandingPage extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 16),
-
-          // Doctor Info
-          Expanded(
+          const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Dr. Miguel Rosales',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                const SizedBox(height: 4),
-                const Text('MD, Pulmonologist',
+                Text('Dr. Miguel Rosales',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                SizedBox(height: 4),
+                Text('MD, Pulmonologist',
                     style: TextStyle(color: Colors.black54, fontSize: 13)),
-                const Text('Talomo South Health Center',
+                Text('Talomo South Health Center',
                     style: TextStyle(color: Colors.black45, fontSize: 12)),
-                const SizedBox(height: 6),
+                SizedBox(height: 6),
                 Row(
-                  children: const [
+                  children: [
                     Icon(Icons.star, size: 16, color: Colors.orange),
                     Icon(Icons.star, size: 16, color: Colors.orange),
                     Icon(Icons.star, size: 16, color: Colors.orange),
@@ -186,27 +258,44 @@ class PlandingPage extends StatelessWidget {
               ],
             ),
           ),
-
-          // View Button
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.black,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
+                  borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const GViewDoctor()),
-              );
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (context) => const GViewDoctor()));
             },
-            child: const Text(
-              'TAN-AWA',
-              style: TextStyle(color: Colors.white, fontSize: 12),
-            ),
+            child: const Text('TAN-AWA',
+                style: TextStyle(color: Colors.white, fontSize: 12)),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _navBarItem({
+    required IconData icon,
+    required String label,
+    required int index,
+    required int selectedIndex,
+    required Function(int) onTap,
+  }) {
+    final isSelected = selectedIndex == index;
+    return GestureDetector(
+      onTap: () => onTap(index),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 28, color: isSelected ? Colors.black : Colors.grey),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 12,
+                  color: isSelected ? Colors.black : Colors.grey)),
         ],
       ),
     );

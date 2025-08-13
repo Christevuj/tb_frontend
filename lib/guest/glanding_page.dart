@@ -5,23 +5,21 @@ import 'package:tb_frontend/guest/gappointment.dart';
 import 'package:tb_frontend/guest/gconsultant.dart';
 import 'package:tb_frontend/guest/gtbfacility.dart';
 
-class GlandingPage extends StatelessWidget {
+class GlandingPage extends StatefulWidget {
   const GlandingPage({super.key});
 
+  @override
+  State<GlandingPage> createState() => _GlandingPageState();
+}
+
+class _GlandingPageState extends State<GlandingPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      drawer: const CustomDrawer(currentRoute: ''),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu, color: Colors.black),
-            onPressed: () => Scaffold.of(context).openDrawer(),
-          ),
-        ),
         title: const Text('Home', style: TextStyle(color: Colors.black)),
         centerTitle: true,
       ),
@@ -54,9 +52,12 @@ class GlandingPage extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _quickAction(context, Icons.smart_toy, 'AI\nConsultant', const GConsultant()),
-                _quickAction(context, Icons.calendar_today, 'Book\nAppointment', const Gappointment()),
-                _quickAction(context, Icons.local_hospital, 'TB DOTS\nFacilities', const GtbfacilityPage ()),
+                _quickAction(context, Icons.smart_toy, 'AI\nConsultant',
+                    GuestMainWrapper(initialIndex: 1)),
+                _quickAction(context, Icons.calendar_today, 'Book\nAppointment',
+                    GuestMainWrapper(initialIndex: 2)),
+                _quickAction(context, Icons.local_hospital,
+                    'TB DOTS\nFacilities', GuestMainWrapper(initialIndex: 3)),
               ],
             ),
             const SizedBox(height: 24),
@@ -66,12 +67,14 @@ class GlandingPage extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('Top Doctors',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 GestureDetector(
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const Gappointment()),
+                      MaterialPageRoute(
+                          builder: (context) => const Gappointment()),
                     );
                   },
                   child: const Text(
@@ -97,14 +100,12 @@ class GlandingPage extends StatelessWidget {
     );
   }
 
-  // Quick Action Widget with navigation
-  static Widget _quickAction(BuildContext context, IconData icon, String label, Widget destination) {
+  static Widget _quickAction(
+      BuildContext context, IconData icon, String label, Widget destination) {
     return GestureDetector(
       onTap: () {
         Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => destination),
-        );
+            context, MaterialPageRoute(builder: (context) => destination));
       },
       child: Column(
         children: [
@@ -114,23 +115,21 @@ class GlandingPage extends StatelessWidget {
               color: Colors.redAccent,
               shape: BoxShape.circle,
               boxShadow: [
-                BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(2, 2)),
+                BoxShadow(
+                    color: Colors.black26, blurRadius: 4, offset: Offset(2, 2))
               ],
             ),
             child: Icon(icon, color: Colors.white, size: 28),
           ),
           const SizedBox(height: 4),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 12),
-          ),
+          Text(label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 12)),
         ],
       ),
     );
   }
 
-  // Doctor Card Widget
   static Widget _doctorCard(BuildContext context) {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8),
@@ -147,7 +146,6 @@ class GlandingPage extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Doctor Image
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: Image.asset(
@@ -158,24 +156,21 @@ class GlandingPage extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 16),
-
-          // Doctor Info
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Dr. Miguel Rosales',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                const SizedBox(height: 4),
-                const Text('MD, Pulmonologist',
+              children: const [
+                Text('Dr. Miguel Rosales',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                SizedBox(height: 4),
+                Text('MD, Pulmonologist',
                     style: TextStyle(color: Colors.black54, fontSize: 13)),
-                const Text('Talomo South Health Center',
+                Text('Talomo South Health Center',
                     style: TextStyle(color: Colors.black45, fontSize: 12)),
-                const SizedBox(height: 6),
+                SizedBox(height: 6),
                 Row(
-                  children: const [
+                  children: [
                     Icon(Icons.star, size: 16, color: Colors.orange),
                     Icon(Icons.star, size: 16, color: Colors.orange),
                     Icon(Icons.star, size: 16, color: Colors.orange),
@@ -186,26 +181,19 @@ class GlandingPage extends StatelessWidget {
               ],
             ),
           ),
-
-          // View Button
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.black,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
+                  borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const GViewDoctor()),
-              );
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (context) => const GViewDoctor()));
             },
-            child: const Text(
-              'View Details',
-              style: TextStyle(color: Colors.white, fontSize: 12),
-            ),
+            child: const Text('View Details',
+                style: TextStyle(color: Colors.white, fontSize: 12)),
           ),
         ],
       ),

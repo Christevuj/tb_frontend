@@ -3,7 +3,7 @@ import 'package:tb_frontend/guest/glanding_page.dart';
 import 'package:tb_frontend/login_screen.dart';
 
 class SignupScreen extends StatefulWidget {
-  const SignupScreen({Key? key}) : super(key: key);
+  const SignupScreen({super.key});
 
   @override
   State<SignupScreen> createState() => _SignupScreenState();
@@ -25,7 +25,7 @@ class _SignupScreenState extends State<SignupScreen> {
   }
 
   void _showTermsDialog() {
-    bool _isChecked = false;
+    bool isChecked = false;
 
     showDialog(
       context: context,
@@ -62,10 +62,10 @@ class _SignupScreenState extends State<SignupScreen> {
                         'I agree to the company Terms of Service and Privacy Policy',
                         style: TextStyle(fontSize: 14),
                       ),
-                      value: _isChecked,
+                      value: isChecked,
                       onChanged: (value) {
                         setStateDialog(() {
-                          _isChecked = value ?? false;
+                          isChecked = value ?? false;
                         });
                       },
                     ),
@@ -74,7 +74,7 @@ class _SignupScreenState extends State<SignupScreen> {
               ),
               actions: [
                 TextButton(
-                  onPressed: _isChecked
+                  onPressed: isChecked
                       ? () {
                           setState(() {
                             _hasAgreed = true;
@@ -115,7 +115,6 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
               ),
               const SizedBox(height: 40),
-
               TextField(
                 controller: _firstNameController,
                 decoration: InputDecoration(
@@ -126,7 +125,6 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-
               TextField(
                 controller: _lastNameController,
                 decoration: InputDecoration(
@@ -137,7 +135,6 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-
               TextField(
                 controller: _emailController,
                 decoration: InputDecoration(
@@ -149,7 +146,6 @@ class _SignupScreenState extends State<SignupScreen> {
                 keyboardType: TextInputType.emailAddress,
               ),
               const SizedBox(height: 20),
-
               TextField(
                 controller: _passwordController,
                 obscureText: _obscurePassword,
@@ -160,7 +156,9 @@ class _SignupScreenState extends State<SignupScreen> {
                   ),
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                      _obscurePassword
+                          ? Icons.visibility_off
+                          : Icons.visibility,
                     ),
                     onPressed: () {
                       setState(() {
@@ -171,7 +169,6 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
               ),
               const SizedBox(height: 30),
-
               SizedBox(
                 width: double.infinity,
                 height: 50,
@@ -192,13 +189,13 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
               ),
               const SizedBox(height: 15),
-
               Center(
                 child: TextButton(
                   onPressed: () {
                     Navigator.pushReplacement(
                       context,
-                      MaterialPageRoute(builder: (context) => const GlandingPage()),
+                      MaterialPageRoute(
+                          builder: (context) => const GlandingPage()),
                     );
                   },
                   child: const Text(
@@ -208,7 +205,6 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
               ),
               const Spacer(),
-
               Center(
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,

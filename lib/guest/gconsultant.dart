@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:tb_frontend/guest/gmenu.dart';
 import 'package:tb_frontend/ollama_service.dart';
 import 'dart:math';
 
@@ -8,13 +7,7 @@ class GConsultant extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Ollama Chat',
-      theme: ThemeData(
-        primarySwatch: Colors.deepPurple,
-      ),
-      home: const ChatScreen(),
-    );
+    return const ChatScreen();
   }
 }
 
@@ -145,7 +138,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     }
   }
 
-  Widget _buildMessage(Map<String, String> message, Animation<double> animation) {
+  Widget _buildMessage(
+      Map<String, String> message, Animation<double> animation) {
     final isUser = message['role'] == 'user';
     final isTyping = message['content'] == '' && !isUser;
 
@@ -206,7 +200,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xE0F44336),
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(18),
                   ),
@@ -269,19 +264,16 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: const CustomDrawer(currentRoute: ''), // ← Linked to gmenu.dart
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: const Text(
           'AI Consultant',
           style: TextStyle(color: Colors.white),
         ),
         backgroundColor: const Color(0xFFF44336),
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu, color: Colors.white),
-            onPressed: () => Scaffold.of(context).openDrawer(),
-          ),
-        ),
       ),
       body: Column(
         children: [

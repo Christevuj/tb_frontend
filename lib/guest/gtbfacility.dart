@@ -15,7 +15,8 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
   final List<Map<String, dynamic>> facilities = [
     {
       'name': 'AGDAO',
-      'location': 'Agdao Public Market Corner Lapu-Lapu & C. Bangoy St., Agdao, Davao City',
+      'location':
+          'Agdao Public Market Corner Lapu-Lapu & C. Bangoy St., Agdao, Davao City',
       'lat': 7.0862,
       'lng': 125.6264,
     },
@@ -52,7 +53,8 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
                 children: [
                   Text(
                     facility['name'],
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -71,7 +73,7 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
   @override
   Widget build(BuildContext context) {
     // Fixed center location (Davao City)
-    final LatLng centerLocation = LatLng(7.0731, 125.6127);
+    final LatLng centerLocation = const LatLng(7.0731, 125.6127);
 
     return Scaffold(
       appBar: AppBar(title: const Text('TB DOTS Facilities Locator')),
@@ -83,7 +85,8 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text('Locations Nearby',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    style:
+                        TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 Text('${facilities.length} available facilities'),
                 const SizedBox(height: 8),
@@ -104,20 +107,23 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
               ),
               children: [
                 TileLayer(
-                  urlTemplate: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+                  urlTemplate:
+                      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
                   subdomains: const ['a', 'b', 'c'],
                 ),
                 MarkerLayer(
-                  markers: facilities.map(
-                    (facility) => Marker(
-                      point: LatLng(facility['lat'], facility['lng']),
-                      child: const Icon(
-                        Icons.local_hospital,
-                        size: 30,
-                        color: Colors.red,
-                      ),
-                    ),
-                  ).toList(),
+                  markers: facilities
+                      .map(
+                        (facility) => Marker(
+                          point: LatLng(facility['lat'], facility['lng']),
+                          child: const Icon(
+                            Icons.local_hospital,
+                            size: 30,
+                            color: Colors.red,
+                          ),
+                        ),
+                      )
+                      .toList(),
                 ),
               ],
             ),

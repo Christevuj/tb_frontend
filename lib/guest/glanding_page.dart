@@ -18,10 +18,15 @@ class _GlandingPageState extends State<GlandingPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title:
-            const Text('Home', style: TextStyle(fontWeight: FontWeight.bold)),
+        automaticallyImplyLeading: false, // ✅ Removes back button
+        backgroundColor: Colors.redAccent,
+        title: const Text(
+          "Home",
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
@@ -59,46 +64,29 @@ class _GlandingPageState extends State<GlandingPage> {
                   context,
                   Icons.smart_toy,
                   'AI\nConsultant',
-                  const GConsultant(), // ✅ Directly to GConsultant
+                  const GConsultant(),
                 ),
                 _quickAction(
                   context,
                   Icons.calendar_today,
                   'Book\nAppointment',
-                  const Gappointment(), // ✅ Directly to Gappointment
+                  const Gappointment(),
                 ),
                 _quickAction(
                   context,
                   Icons.local_hospital,
                   'TB DOTS\nFacilities',
-                  const GtbfacilityPage(), // ✅ Directly to GtbfacilityPage
+                  const GtbfacilityPage(),
                 ),
               ],
             ),
 
             const SizedBox(height: 24),
 
-            // Top Doctors
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Top Doctors',
-                    style:
-                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const Gappointment()),
-                    );
-                  },
-                  child: const Text(
-                    'View All',
-                    style: TextStyle(color: Colors.redAccent),
-                  ),
-                ),
-              ],
+            // Top Doctors (Removed "View All")
+            const Text(
+              'Top Doctors',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
 
@@ -132,15 +120,20 @@ class _GlandingPageState extends State<GlandingPage> {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                    color: Colors.black26, blurRadius: 4, offset: Offset(2, 2))
+                  color: Colors.black26,
+                  blurRadius: 4,
+                  offset: Offset(2, 2),
+                )
               ],
             ),
             child: Icon(icon, color: Colors.white, size: 28),
           ),
           const SizedBox(height: 4),
-          Text(label,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 12)),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 12),
+          ),
         ],
       ),
     );
@@ -154,9 +147,10 @@ class _GlandingPageState extends State<GlandingPage> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-              color: Colors.grey.shade300,
-              blurRadius: 6,
-              offset: const Offset(2, 2))
+            color: Colors.grey.shade300,
+            blurRadius: 6,
+            offset: const Offset(2, 2),
+          )
         ],
         borderRadius: BorderRadius.circular(16),
       ),
@@ -176,14 +170,19 @@ class _GlandingPageState extends State<GlandingPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: const [
-                Text('Dr. Miguel Rosales',
-                    style:
-                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                Text(
+                  'Dr. Miguel Rosales',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
                 SizedBox(height: 4),
-                Text('MD, Pulmonologist',
-                    style: TextStyle(color: Colors.black54, fontSize: 13)),
-                Text('Talomo South Health Center',
-                    style: TextStyle(color: Colors.black45, fontSize: 12)),
+                Text(
+                  'MD, Pulmonologist',
+                  style: TextStyle(color: Colors.black54, fontSize: 13),
+                ),
+                Text(
+                  'Talomo South Health Center',
+                  style: TextStyle(color: Colors.black45, fontSize: 12),
+                ),
                 SizedBox(height: 6),
                 Row(
                   children: [
@@ -205,11 +204,15 @@ class _GlandingPageState extends State<GlandingPage> {
                   borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () {
-              Navigator.push(context,
-                  MaterialPageRoute(builder: (context) => const GViewDoctor()));
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const GViewDoctor()),
+              );
             },
-            child: const Text('View Details',
-                style: TextStyle(color: Colors.white, fontSize: 12)),
+            child: const Text(
+              'View Details',
+              style: TextStyle(color: Colors.white, fontSize: 12),
+            ),
           ),
         ],
       ),

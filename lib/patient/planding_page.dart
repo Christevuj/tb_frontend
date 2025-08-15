@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:tb_frontend/patient/pmenu.dart';
 import 'package:tb_frontend/guest/gviewdoctor.dart';
-import 'package:tb_frontend/guest/gappointment.dart';
+import 'package:tb_frontend/patient/pbookappointment.dart';
 import 'package:tb_frontend/guest/gconsultant.dart';
 import 'package:tb_frontend/guest/gtbfacility.dart';
 
@@ -13,29 +12,20 @@ class PlandingPage extends StatefulWidget {
 }
 
 class _PlandingPageState extends State<PlandingPage> {
-  int _selectedIndex = 0;
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      drawer: const PatientDrawer(currentRoute: ''),
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu, color: Colors.black),
-            onPressed: () => Scaffold.of(context).openDrawer(),
+        automaticallyImplyLeading: false, // ✅ Removes back button
+        backgroundColor: Colors.redAccent,
+        title: const Text(
+          "Home",
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
           ),
         ),
-        title: const Text('Home', style: TextStyle(color: Colors.black)),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
@@ -43,6 +33,7 @@ class _PlandingPageState extends State<PlandingPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Search bar
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
@@ -52,49 +43,53 @@ class _PlandingPageState extends State<PlandingPage> {
               child: const TextField(
                 decoration: InputDecoration(
                   icon: Icon(Icons.search),
-                  hintText: 'Mangita og Doctor',
+                  hintText: 'Search a Doctor',
                   border: InputBorder.none,
                 ),
               ),
             ),
             const SizedBox(height: 24),
-            const Text('Quick Actions',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+
+            // Quick Actions
+            const Text(
+              'Quick Actions',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _quickAction(context, Icons.smart_toy, 'AI\nConsultant',
-                    const GConsultant()),
-                _quickAction(context, Icons.calendar_today, 'Book\nAppointment',
-                    const Gappointment()),
-                _quickAction(context, Icons.local_hospital,
-                    'TB DOTS\nFacilities', const GtbfacilityPage()),
-              ],
-            ),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Top Doctors',
-                    style:
-                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const Gappointment()),
-                    );
-                  },
-                  child: const Text(
-                    'Tan-awa Tanan',
-                    style: TextStyle(color: Colors.redAccent),
-                  ),
+                _quickAction(
+                  context,
+                  Icons.smart_toy,
+                  'AI\nConsultant',
+                  const GConsultant(),
+                ),
+                _quickAction(
+                  context,
+                  Icons.calendar_today,
+                  'Book\nAppointment',
+                  const Pbookappointment(),
+                ),
+                _quickAction(
+                  context,
+                  Icons.local_hospital,
+                  'TB DOTS\nFacilities',
+                  const GtbfacilityPage(),
                 ),
               ],
             ),
+
+            const SizedBox(height: 24),
+
+            // Top Doctors (Removed "View All")
+            const Text(
+              'Top Doctors',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 12),
+
+            // Doctor List
             SizedBox(
               height: 440,
               child: ListView.builder(
@@ -103,75 +98,6 @@ class _PlandingPageState extends State<PlandingPage> {
               ),
             ),
           ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          showDialog(
-            context: context,
-            builder: (_) => AlertDialog(
-              content: const Text('Create new request!'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Close'),
-                )
-              ],
-            ),
-          );
-        },
-        backgroundColor: const Color(0xFFFF4C72),
-        elevation: 4,
-        child: const Icon(Icons.add, size: 32),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: BottomAppBar(
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 8,
-        child: Container(
-          height: 70,
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Left side
-              Row(
-                children: [
-                  _navBarItem(
-                      icon: Icons.home,
-                      label: 'Home',
-                      index: 0,
-                      selectedIndex: _selectedIndex,
-                      onTap: _onItemTapped),
-                  const SizedBox(width: 70),
-                  _navBarItem(
-                      icon: Icons.chat_bubble_outline,
-                      label: 'Chat',
-                      index: 1,
-                      selectedIndex: _selectedIndex,
-                      onTap: _onItemTapped),
-                ],
-              ),
-              // Right side
-              Row(
-                children: [
-                  _navBarItem(
-                      icon: Icons.favorite_border,
-                      label: 'Favorites',
-                      index: 3,
-                      selectedIndex: _selectedIndex,
-                      onTap: _onItemTapped),
-                  const SizedBox(width: 70),
-                  _navBarItem(
-                      icon: Icons.person_outline,
-                      label: 'Profile',
-                      index: 4,
-                      selectedIndex: _selectedIndex,
-                      onTap: _onItemTapped),
-                ],
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -193,15 +119,20 @@ class _PlandingPageState extends State<PlandingPage> {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                    color: Colors.black26, blurRadius: 4, offset: Offset(2, 2))
+                  color: Colors.black26,
+                  blurRadius: 4,
+                  offset: Offset(2, 2),
+                )
               ],
             ),
             child: Icon(icon, color: Colors.white, size: 28),
           ),
           const SizedBox(height: 4),
-          Text(label,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 12)),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 12),
+          ),
         ],
       ),
     );
@@ -215,9 +146,10 @@ class _PlandingPageState extends State<PlandingPage> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-              color: Colors.grey.shade300,
-              blurRadius: 6,
-              offset: const Offset(2, 2))
+            color: Colors.grey.shade300,
+            blurRadius: 6,
+            offset: const Offset(2, 2),
+          )
         ],
         borderRadius: BorderRadius.circular(16),
       ),
@@ -233,18 +165,23 @@ class _PlandingPageState extends State<PlandingPage> {
             ),
           ),
           const SizedBox(width: 16),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Dr. Miguel Rosales',
-                    style:
-                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              children: const [
+                Text(
+                  'Dr. Miguel Rosales',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
                 SizedBox(height: 4),
-                Text('MD, Pulmonologist',
-                    style: TextStyle(color: Colors.black54, fontSize: 13)),
-                Text('Talomo South Health Center',
-                    style: TextStyle(color: Colors.black45, fontSize: 12)),
+                Text(
+                  'MD, Pulmonologist',
+                  style: TextStyle(color: Colors.black54, fontSize: 13),
+                ),
+                Text(
+                  'Talomo South Health Center',
+                  style: TextStyle(color: Colors.black45, fontSize: 12),
+                ),
                 SizedBox(height: 6),
                 Row(
                   children: [
@@ -266,36 +203,16 @@ class _PlandingPageState extends State<PlandingPage> {
                   borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () {
-              Navigator.push(context,
-                  MaterialPageRoute(builder: (context) => const GViewDoctor()));
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const GViewDoctor()),
+              );
             },
-            child: const Text('TAN-AWA',
-                style: TextStyle(color: Colors.white, fontSize: 12)),
+            child: const Text(
+              'View Details',
+              style: TextStyle(color: Colors.white, fontSize: 12),
+            ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _navBarItem({
-    required IconData icon,
-    required String label,
-    required int index,
-    required int selectedIndex,
-    required Function(int) onTap,
-  }) {
-    final isSelected = selectedIndex == index;
-    return GestureDetector(
-      onTap: () => onTap(index),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 28, color: isSelected ? Colors.black : Colors.grey),
-          Text(label,
-              style: TextStyle(
-                  fontSize: 12,
-                  color: isSelected ? Colors.black : Colors.grey)),
         ],
       ),
     );

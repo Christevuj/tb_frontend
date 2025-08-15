@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
-import 'package:tb_frontend/guest/gmenu.dart'; // <-- Added this import
-import 'package:tb_frontend/patient/planding_page.dart';
-import 'package:tb_frontend/accounts/patient_create1.dart'; // <-- For SignupScreen
+import 'package:tb_frontend/guest/gmenu.dart'; // Guest Main Wrapper
+import 'package:tb_frontend/patient/pmenu.dart'; // <-- Import your PatientMainWrapper here
+import 'package:tb_frontend/accounts/patient_create1.dart'; // SignupScreen
 
 class TBisitaLoginScreen extends StatefulWidget {
   const TBisitaLoginScreen({super.key});
@@ -85,7 +85,7 @@ class _TBisitaLoginScreenState extends State<TBisitaLoginScreen> {
               ),
               const SizedBox(height: 10),
 
-              // Login button
+              // Login button -> goes to PatientMainWrapper
               SizedBox(
                 width: double.infinity,
                 height: 50,
@@ -94,7 +94,8 @@ class _TBisitaLoginScreenState extends State<TBisitaLoginScreen> {
                     Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(
-                          builder: (context) => const PlandingPage()),
+                        builder: (context) => const PatientMainWrapper(), // ✅ Now goes to persistent patient navbar
+                      ),
                     );
                   },
                   style: ElevatedButton.styleFrom(
@@ -147,7 +148,8 @@ class _TBisitaLoginScreenState extends State<TBisitaLoginScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                  builder: (context) => const SignupScreen()),
+                                builder: (context) => const SignupScreen(),
+                              ),
                             );
                           },
                       ),

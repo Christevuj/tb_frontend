@@ -1,13 +1,127 @@
 import 'package:flutter/material.dart';
-import 'package:tb_frontend/guest/glanding_page.dart';
-import 'package:tb_frontend/guest/gconsultant.dart';
-import 'package:tb_frontend/guest/gappointment.dart';
-import 'package:tb_frontend/login_screen.dart'; 
+import 'package:tb_frontend/patient/planding_page.dart';
+import 'package:tb_frontend/patient/pmyappointment.dart';
+import 'package:tb_frontend/patient/pmessages.dart';
+import 'package:tb_frontend/patient/paccount.dart';
+import 'package:tb_frontend/login_screen.dart';
 
-class PatientDrawer extends StatelessWidget {
+// ------------------ MAIN WRAPPER WITH NAVBAR & DRAWER ------------------
+class PatientMainWrapper extends StatefulWidget {
+  final int initialIndex;
+  const PatientMainWrapper({super.key, this.initialIndex = 0});
+
+  @override
+  State<PatientMainWrapper> createState() => _PatientMainWrapperState();
+}
+
+class _PatientMainWrapperState extends State<PatientMainWrapper> {
+  int _selectedIndex = 0;
+
+  final List<Widget> _pages = [
+    const PlandingPage(),
+    const MyAppointmentPage(),
+    const Pmessages(),
+    const Paccount(),
+  ];
+
+  final List<String> _routeNames = [
+    'home',
+    'appointments',
+    'messages',
+    'account',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIndex = widget.initialIndex;
+  }
+
+  void _onNavTap(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
+  void _onDrawerTap(int index) {
+    Navigator.pop(context); // close drawer
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      drawer: CustomDrawer(
+        currentRoute: _routeNames[_selectedIndex],
+        onDrawerTap: _onDrawerTap,
+      ),
+      body: _pages[_selectedIndex],
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, -2),
+            )
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _navBarItem(Icons.home, "Home", 0),
+            _navBarItem(Icons.calendar_today, "Appointments", 1),
+            _navBarItem(Icons.message_outlined, "Messages", 2),
+            _navBarItem(Icons.account_circle, "Account", 3),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _navBarItem(IconData icon, String label, int index) {
+    final isSelected = _selectedIndex == index;
+    return GestureDetector(
+      onTap: () => _onNavTap(index),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 28,
+              color: isSelected ? Colors.pinkAccent : Colors.grey,
+            ),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: isSelected ? Colors.pinkAccent : Colors.grey,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ------------------ DRAWER ------------------
+class CustomDrawer extends StatelessWidget {
   final String currentRoute;
+  final Function(int) onDrawerTap;
 
-  const PatientDrawer({super.key, required this.currentRoute});
+  const CustomDrawer({
+    super.key,
+    required this.currentRoute,
+    required this.onDrawerTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -18,95 +132,42 @@ class PatientDrawer extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const SizedBox(height: 20),
-            const CircleAvatar(
-              radius: 40,
-              backgroundImage: AssetImage('assets/images/marco_tan.jpg'),
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              'Marco Tan',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 30),
             _buildDrawerItem(
               context,
               icon: Icons.home,
               label: 'Home',
-              destination: const GlandingPage(),
+              index: 0,
               isActive: currentRoute == 'home',
             ),
             _buildDrawerItem(
               context,
-              icon: Icons.smart_toy,
-              label: 'AI Consultant',
-              destination: const GConsultant(),
-              isActive: currentRoute == 'consultant',
-            ),
-            _buildDrawerItem(
-              context,
-              icon: Icons.book_online_outlined,
-              label: 'Book Appointment',
-              destination: const Gappointment(),
-              isActive: currentRoute == 'appointment',
-            ),
-            _buildDrawerItem(
-              context,
               icon: Icons.calendar_today,
-              label: 'My Appointment',
-              destination: const Placeholder(),
-              isActive: currentRoute == 'my_appointment',
-            ),
-            _buildDrawerItem(
-              context,
-              icon: Icons.assignment_turned_in_outlined,
-              label: 'Post Appointment',
-              destination: const Placeholder(),
-              isActive: currentRoute == 'post_appointment',
+              label: 'Appointments',
+              index: 1,
+              isActive: currentRoute == 'appointments',
             ),
             _buildDrawerItem(
               context,
               icon: Icons.message_outlined,
               label: 'Messages',
-              destination: const Placeholder(),
+              index: 2,
               isActive: currentRoute == 'messages',
             ),
             _buildDrawerItem(
               context,
-              icon: Icons.local_hospital_outlined,
-              label: 'TB Dots Program',
-              destination: const Placeholder(),
-              isActive: currentRoute == 'tb_dots_program',
-            ),
-            _buildDrawerItem(
-              context,
-              icon: Icons.account_circle_outlined,
-              label: 'My Account',
-              destination: const Placeholder(),
+              icon: Icons.account_circle,
+              label: 'Account',
+              index: 3,
               isActive: currentRoute == 'account',
-            ),
-            _buildDrawerItem(
-              context,
-              icon: Icons.apartment,
-              label: 'TB Dots Facilities',
-              destination: const Placeholder(),
-              isActive: currentRoute == 'facilities',
-            ),
-            _buildDrawerItem(
-              context,
-              icon: Icons.info_outline,
-              label: 'Terms & Conditions',
-              destination: const Placeholder(),
-              isActive: currentRoute == 'terms',
             ),
             const Spacer(),
             const Divider(),
             ListTile(
-              leading: const Icon(Icons.logout, color: Colors.red),
+              leading: const Icon(Icons.logout, color: Color(0xFFF44336)),
               title: const Text(
                 'Logout',
                 style: TextStyle(
-                  color: Colors.red,
+                  color: Color(0xFFF44336),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -130,11 +191,11 @@ class PatientDrawer extends StatelessWidget {
     BuildContext context, {
     required IconData icon,
     required String label,
-    required Widget destination,
+    required int index,
     required bool isActive,
   }) {
     return Container(
-      color: isActive ? Colors.pinkAccent : Colors.transparent,
+      color: isActive ? const Color(0xFFFF4081) : Colors.transparent,
       child: ListTile(
         leading: Icon(icon, color: isActive ? Colors.white : Colors.black),
         title: Text(
@@ -145,12 +206,10 @@ class PatientDrawer extends StatelessWidget {
           ),
         ),
         onTap: () {
-          Navigator.pop(context);
           if (!isActive) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => destination),
-            );
+            onDrawerTap(index);
+          } else {
+            Navigator.pop(context);
           }
         },
       ),

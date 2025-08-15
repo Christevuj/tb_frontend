@@ -2,8 +2,8 @@ import 'package:tb_frontend/accounts/patient_create1.dart';
 import 'package:tb_frontend/login_screen.dart';
 import 'package:flutter/material.dart';
 
-class Gappointment extends StatelessWidget {
-  const Gappointment({super.key});
+class Paccount extends StatelessWidget {
+  const Paccount({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -12,7 +12,7 @@ class Gappointment extends StatelessWidget {
         automaticallyImplyLeading: false, // ✅ Removes back button
         backgroundColor: Colors.redAccent,
         title: const Text(
-          "My Appointments",
+          "My Account",
           style: TextStyle(
             fontWeight: FontWeight.bold, // ✅ Bold like Messages
             color: Colors.white,         // ✅ White text

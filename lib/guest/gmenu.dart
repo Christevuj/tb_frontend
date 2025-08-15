@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:tb_frontend/guest/glanding_page.dart';
-import 'package:tb_frontend/guest/gconsultant.dart';
 import 'package:tb_frontend/guest/gappointment.dart';
+import 'package:tb_frontend/guest/gmessages.dart';
+import 'package:tb_frontend/guest/gaccount.dart';
 import 'package:tb_frontend/login_screen.dart';
-import 'package:tb_frontend/guest/gtbfacility.dart';
 
 // ------------------ MAIN WRAPPER WITH NAVBAR & DRAWER ------------------
 class GuestMainWrapper extends StatefulWidget {
@@ -19,16 +19,16 @@ class _GuestMainWrapperState extends State<GuestMainWrapper> {
 
   final List<Widget> _pages = const [
     GlandingPage(),
-    GConsultant(),
     Gappointment(),
-    GtbfacilityPage(),
+    Gmessages(),
+    Gaccount(),
   ];
 
   final List<String> _routeNames = [
     'home',
-    'consultant',
-    'appointment',
-    'facilities',
+    'appointments',
+    'messages',
+    'account',
   ];
 
   @override
@@ -55,7 +55,7 @@ class _GuestMainWrapperState extends State<GuestMainWrapper> {
     return Scaffold(
       drawer: CustomDrawer(
         currentRoute: _routeNames[_selectedIndex],
-        onDrawerTap: _onDrawerTap, // pass callback
+        onDrawerTap: _onDrawerTap,
       ),
       body: _pages[_selectedIndex],
       bottomNavigationBar: Container(
@@ -74,9 +74,9 @@ class _GuestMainWrapperState extends State<GuestMainWrapper> {
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
             _navBarItem(Icons.home, "Home", 0),
-            _navBarItem(Icons.smart_toy, "Consultant", 1),
-            _navBarItem(Icons.book_online_outlined, "Appointment", 2),
-            _navBarItem(Icons.apartment, "Facilities", 3),
+            _navBarItem(Icons.calendar_today, "Appointments", 1),
+            _navBarItem(Icons.message_outlined, "Messages", 2),
+            _navBarItem(Icons.account_circle, "Account", 3),
           ],
         ),
       ),
@@ -88,12 +88,15 @@ class _GuestMainWrapperState extends State<GuestMainWrapper> {
     return GestureDetector(
       onTap: () => _onNavTap(index),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12.0), // spacing
+        padding: const EdgeInsets.symmetric(horizontal: 12.0),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon,
-                size: 28, color: isSelected ? Colors.pinkAccent : Colors.grey),
+            Icon(
+              icon,
+              size: 28,
+              color: isSelected ? Colors.pinkAccent : Colors.grey,
+            ),
             Text(
               label,
               style: TextStyle(
@@ -129,17 +132,6 @@ class CustomDrawer extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const SizedBox(height: 20),
-            const CircleAvatar(
-              radius: 40,
-              backgroundImage: AssetImage('assets/images/marco_tan.jpg'),
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              'Marco Tan',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 30),
             _buildDrawerItem(
               context,
               icon: Icons.home,
@@ -149,31 +141,24 @@ class CustomDrawer extends StatelessWidget {
             ),
             _buildDrawerItem(
               context,
-              icon: Icons.smart_toy,
-              label: 'AI Consultant',
+              icon: Icons.calendar_today,
+              label: 'Appointments',
               index: 1,
-              isActive: currentRoute == 'consultant',
+              isActive: currentRoute == 'appointments',
             ),
             _buildDrawerItem(
               context,
-              icon: Icons.book_online_outlined,
-              label: 'Book Appointment',
+              icon: Icons.message_outlined,
+              label: 'Messages',
               index: 2,
-              isActive: currentRoute == 'appointment',
+              isActive: currentRoute == 'messages',
             ),
             _buildDrawerItem(
               context,
-              icon: Icons.apartment,
-              label: 'TB Dots Facilities',
+              icon: Icons.account_circle,
+              label: 'Account',
               index: 3,
-              isActive: currentRoute == 'facilities',
-            ),
-            _buildDrawerItem(
-              context,
-              icon: Icons.info_outline,
-              label: 'Terms & Conditions',
-              index: 4, // Use a unique index if needed
-              isActive: currentRoute == 'terms',
+              isActive: currentRoute == 'account',
             ),
             const Spacer(),
             const Divider(),

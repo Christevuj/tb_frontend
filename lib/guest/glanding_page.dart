@@ -20,7 +20,8 @@ class _GlandingPageState extends State<GlandingPage> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: const Text('Home', style: TextStyle(color: Colors.black)),
+        title:
+            const Text('Home', style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
@@ -46,20 +47,35 @@ class _GlandingPageState extends State<GlandingPage> {
             const SizedBox(height: 24),
 
             // Quick Actions
-            const Text('Quick Actions',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text(
+              'Quick Actions',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _quickAction(context, Icons.smart_toy, 'AI\nConsultant',
-                    GuestMainWrapper(initialIndex: 1)),
-                _quickAction(context, Icons.calendar_today, 'Book\nAppointment',
-                    GuestMainWrapper(initialIndex: 2)),
-                _quickAction(context, Icons.local_hospital,
-                    'TB DOTS\nFacilities', GuestMainWrapper(initialIndex: 3)),
+                _quickAction(
+                  context,
+                  Icons.smart_toy,
+                  'AI\nConsultant',
+                  const GConsultant(), // ✅ Directly to GConsultant
+                ),
+                _quickAction(
+                  context,
+                  Icons.calendar_today,
+                  'Book\nAppointment',
+                  const Gappointment(), // ✅ Directly to Gappointment
+                ),
+                _quickAction(
+                  context,
+                  Icons.local_hospital,
+                  'TB DOTS\nFacilities',
+                  const GtbfacilityPage(), // ✅ Directly to GtbfacilityPage
+                ),
               ],
             ),
+
             const SizedBox(height: 24),
 
             // Top Doctors

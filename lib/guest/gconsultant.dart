@@ -29,6 +29,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   late final AnimationController _quickFadeController;
   late final Animation<Offset> _quickSlideAnimation;
 
+  late final OllamaService _ollamaService; // Ollama service instance
+
   final List<String> _greetings = [
     "👋 Hello! I'm your AI consultant. How can I help you today?",
     "🤖 Hi there! Ask me anything about TB care or general health concerns.",
@@ -50,6 +52,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+
+    // Initialize Ollama service
+    _ollamaService = OllamaService();
+    _ollamaService.start(); // Logs "Ollama service started" in terminal
 
     _quickFadeController = AnimationController(
       vsync: this,
@@ -119,7 +125,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     final int botIndex = _messages.length - 1;
 
     try {
-      await for (final chunk in streamMessageFromOllama(text)) {
+      // Use OllamaService to stream messages
+      await for (final chunk in _ollamaService.streamMessage(text)) {
         setState(() {
           _messages[botIndex]['content'] =
               (_messages[botIndex]['content'] ?? '') + chunk;

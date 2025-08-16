@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:characters/characters.dart';
 
 void main() {
   runApp(const MyApp());

@@ -8,8 +8,6 @@ import 'package:flutter/foundation.dart';
 import 'package:tb_frontend/admin/admin_login.dart'; // ✅ Admin login screen
 
 // ✅ Import the home screens (kept, in case you need them elsewhere)
-import 'package:tb_frontend/doctor/dhome.dart';
-import 'package:tb_frontend/healthcare/hhome.dart';
 
 class TBisitaLoginScreen extends StatelessWidget {
   const TBisitaLoginScreen({super.key});

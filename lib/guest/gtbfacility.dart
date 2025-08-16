@@ -6,23 +6,24 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 
 class GtbfacilityPage extends StatefulWidget {
-  const GtbfacilityPage({Key? key}) : super(key: key);
+  const GtbfacilityPage({super.key});
 
   @override
   State<GtbfacilityPage> createState() => _GtbfacilityPageState();
 }
 
 class _GtbfacilityPageState extends State<GtbfacilityPage> {
-  Completer<GoogleMapController> _controller = Completer();
+  final Completer<GoogleMapController> _controller = Completer();
   LatLng? _currentLocation;
-  Map<MarkerId, Marker> _markers = {};
+  final Map<MarkerId, Marker> _markers = {};
   List<LatLng> _routeCoords = [];
   Map<String, dynamic>? _selectedFacility;
 
   final List<Map<String, String>> facilities = [
     {
-        "name": "AGDAO",
-      "address": "Agdao Public Market Corner Lapu-Lapu & C. Bangoy St., Agdao, Davao City",
+      "name": "AGDAO",
+      "address":
+          "Agdao Public Market Corner Lapu-Lapu & C. Bangoy St., Agdao, Davao City",
       "email": "agdaohealthcenter@gmail.com"
     },
     {
@@ -92,7 +93,8 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
     },
     {
       "name": "TALOMO NORTH (SIR HC)",
-      "address": "Daang Patnubay St., SIR Ph-1 Sandawa Road, Brgy., 76-A, Bucana, Matina, Davao City",
+      "address":
+          "Daang Patnubay St., SIR Ph-1 Sandawa Road, Brgy., 76-A, Bucana, Matina, Davao City",
       "email": "northtalomo2019@gmail.com"
     },
     {
@@ -125,11 +127,13 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
 
   Future<void> _getCurrentLocation() async {
     LocationPermission permission = await Geolocator.requestPermission();
-    if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
       return;
     }
 
-    Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+    Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high);
     setState(() {
       _currentLocation = LatLng(position.latitude, position.longitude);
     });
@@ -157,9 +161,11 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
 
   Future<void> _getDirections(LatLng destination) async {
     final apiKey = "YOUR_GOOGLE_MAPS_API_KEY";
-    final origin = "${_currentLocation!.latitude},${_currentLocation!.longitude}";
+    final origin =
+        "${_currentLocation!.latitude},${_currentLocation!.longitude}";
     final dest = "${destination.latitude},${destination.longitude}";
-    final url = "https://maps.googleapis.com/maps/api/directions/json?origin=$origin&destination=$dest&key=$apiKey";
+    final url =
+        "https://maps.googleapis.com/maps/api/directions/json?origin=$origin&destination=$dest&key=$apiKey";
 
     final response = await http.get(Uri.parse(url));
     final data = json.decode(response.body);
@@ -214,7 +220,8 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
           : Stack(
               children: [
                 GoogleMap(
-                  onMapCreated: (controller) => _controller.complete(controller),
+                  onMapCreated: (controller) =>
+                      _controller.complete(controller),
                   initialCameraPosition: CameraPosition(
                     target: _currentLocation!,
                     zoom: 14,
@@ -240,7 +247,8 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(_selectedFacility!["name"]!, style: TextStyle(fontWeight: FontWeight.bold)),
+                            Text(_selectedFacility!["name"]!,
+                                style: TextStyle(fontWeight: FontWeight.bold)),
                             Text(_selectedFacility!["address"]!),
                             Text(_selectedFacility!["email"] ?? "No email"),
                             Row(
@@ -255,7 +263,8 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
                                 const SizedBox(width: 10),
                                 ElevatedButton(
                                   onPressed: () {
-                                    Navigator.pushNamed(context, '/ghealthworkers');
+                                    Navigator.pushNamed(
+                                        context, '/ghealthworkers');
                                   },
                                   child: Text("Contact"),
                                 ),

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:tb_frontend/guest/gmenu.dart';
 import 'package:tb_frontend/guest/gviewdoctor.dart';
 import 'package:tb_frontend/guest/gappointment.dart';
 import 'package:tb_frontend/guest/gconsultant.dart';
@@ -17,23 +16,19 @@ class _GlandingPageState extends State<GlandingPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        automaticallyImplyLeading: false, // ✅ Removes back button
-        backgroundColor: Colors.redAccent,
-        title: const Text(
-          "Home",
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-        centerTitle: true,
-      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ✅ Logo aligned to the left
+            Image.asset(
+              "assets/images/tbisita_logo2.png",
+              height: 44,
+              alignment: Alignment.centerLeft,
+            ),
+            const SizedBox(height: 20),
+
             // Search bar
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),

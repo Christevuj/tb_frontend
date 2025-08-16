@@ -23,6 +23,10 @@ dependencies:
   url_launcher: ^6.3.1
   geocoding: ^4.0.0
   table_calendar: ^3.0.9 
+  cloud_firestore: ^6.0.0
+  firebase_core: ^4.0.0
+  firebase_auth: ^6.0.1
+  characters: ^1.2.0
 
 dev_dependencies:
   flutter_test:
@@ -35,6 +39,7 @@ flutter:
   assets:
     - assets/images/tbisita_logo.png
     - assets/images/tbisita_logo1.png
+    - assets/images/tbisita_logo2.png
     - assets/images/doc1.png
     - assets/images/doc2.png
     - assets/images/doc3.png

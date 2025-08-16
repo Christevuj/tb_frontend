@@ -1,5 +1,23 @@
 import 'package:flutter/material.dart';
 
+void main() {
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'Messages Demo',
+      theme: ThemeData(primarySwatch: Colors.red),
+      home: const Gmessages(),
+    );
+  }
+}
+
 class Gmessages extends StatefulWidget {
   const Gmessages({super.key});
 
@@ -27,18 +45,6 @@ class _GmessagesState extends State<Gmessages> {
         .toList();
 
     return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false, // Removes back button
-        backgroundColor: Colors.redAccent,
-        title: const Text(
-          'Messages',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.white, // <-- This makes it white
-          ),
-        ),
-        centerTitle: true,
-      ),
       body: Column(
         children: [
           // Search bar
@@ -132,11 +138,18 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        title: Text(
+          widget.name,
+          style: const TextStyle(color: Colors.white), // ✅ Username in white
+        ),
         backgroundColor: Colors.redAccent,
-        title: Text(widget.name),
+        iconTheme: const IconThemeData(
+          color: Colors.white, // ✅ Back arrow in white
+        ),
       ),
       body: Column(
         children: [
+          // Chat messages
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.all(8),
@@ -166,6 +179,7 @@ class _ChatScreenState extends State<ChatScreen> {
               },
             ),
           ),
+          // Input field
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(

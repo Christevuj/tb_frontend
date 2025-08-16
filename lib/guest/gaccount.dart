@@ -8,18 +8,6 @@ class Gaccount extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false, // ✅ Removes back button
-        backgroundColor: Colors.redAccent,
-        title: const Text(
-          "My Account",
-          style: TextStyle(
-            fontWeight: FontWeight.bold, // ✅ Bold like Messages
-            color: Colors.white,         // ✅ White text
-          ),
-        ),
-        centerTitle: true,
-      ),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(20.0),
@@ -47,12 +35,12 @@ class Gaccount extends StatelessWidget {
                 style: TextStyle(fontSize: 15, color: Colors.black54),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 100), // ⬅ Increased space before Sign Up button
+              const SizedBox(height: 100), // space before Sign Up button
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.redAccent,
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 30, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -85,7 +73,7 @@ class Gaccount extends StatelessWidget {
                     child: const Text(
                       'Log in',
                       style: TextStyle(
-                        color: Colors.redAccent,
+                        color: Color.fromRGBO(255, 82, 82, 1),
                         fontWeight: FontWeight.w600,
                       ),
                     ),

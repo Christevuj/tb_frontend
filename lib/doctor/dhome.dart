@@ -1,16 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 
-class MyAppointmentPage extends StatefulWidget {
-  const MyAppointmentPage({super.key});
-
-  @override
-  State<MyAppointmentPage> createState() => _MyAppointmentPageState();
+void main() {
+  runApp(const MyApp());
 }
 
-class _MyAppointmentPageState extends State<MyAppointmentPage> {
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'TBisita',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        primarySwatch: Colors.pink,
+      ),
+      home: const Dhome(),
+    );
+  }
+}
+
+class Dhome extends StatefulWidget {
+  const Dhome({super.key});
+
+  @override
+  State<Dhome> createState() => _DhomeState();
+}
+
+class _DhomeState extends State<Dhome> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
+  CalendarFormat _calendarFormat = CalendarFormat.week;
 
   final List<String> _months = [
     "January",
@@ -27,6 +48,9 @@ class _MyAppointmentPageState extends State<MyAppointmentPage> {
     "December"
   ];
   late String _selectedMonth;
+
+  final List<int> _years = List.generate(11, (index) => 2020 + index);
+  late int _selectedYear;
 
   final List<Map<String, dynamic>> _appointments = [
     {
@@ -55,6 +79,7 @@ class _MyAppointmentPageState extends State<MyAppointmentPage> {
   void initState() {
     super.initState();
     _selectedMonth = _months[_focusedDay.month - 1];
+    _selectedYear = _focusedDay.year;
   }
 
   String _monthName(int month) => _months[month - 1];
@@ -165,7 +190,11 @@ class _MyAppointmentPageState extends State<MyAppointmentPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      // ✅ Removed the AppBar here
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        backgroundColor: Colors.white,
+        centerTitle: true,
+      ),
       body: Column(
         children: [
           Container(
@@ -184,7 +213,7 @@ class _MyAppointmentPageState extends State<MyAppointmentPage> {
             ),
             child: Column(
               children: [
-                // Month dropdown + Year + Today button
+                // Month & Year dropdown + Today button
                 Padding(
                   padding: const EdgeInsets.only(left: 6, right: 6),
                   child: Row(
@@ -214,18 +243,35 @@ class _MyAppointmentPageState extends State<MyAppointmentPage> {
                                   final monthIndex =
                                       _months.indexOf(newMonth) + 1;
                                   _focusedDay =
-                                      DateTime(_focusedDay.year, monthIndex, 1);
+                                      DateTime(_selectedYear, monthIndex, 1);
                                 });
                               }
                             },
                           ),
                           const SizedBox(width: 10),
-                          Text(
-                            "${_focusedDay.year}",
+                          DropdownButton<int>(
+                            value: _selectedYear,
+                            underline: const SizedBox.shrink(),
                             style: const TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.w500,
+                              color: Colors.black,
                             ),
+                            items: _years.map((year) {
+                              return DropdownMenuItem<int>(
+                                value: year,
+                                child: Text(year.toString()),
+                              );
+                            }).toList(),
+                            onChanged: (newYear) {
+                              if (newYear != null) {
+                                setState(() {
+                                  _selectedYear = newYear;
+                                  _focusedDay = DateTime(_selectedYear,
+                                      _months.indexOf(_selectedMonth) + 1, 1);
+                                });
+                              }
+                            },
                           ),
                         ],
                       ),
@@ -246,6 +292,7 @@ class _MyAppointmentPageState extends State<MyAppointmentPage> {
                             _focusedDay = DateTime.now();
                             _selectedDay = DateTime.now();
                             _selectedMonth = _months[_focusedDay.month - 1];
+                            _selectedYear = _focusedDay.year;
                           });
                         },
                         child: const Text("Today"),
@@ -264,17 +311,25 @@ class _MyAppointmentPageState extends State<MyAppointmentPage> {
                       _selectedDay = selectedDay;
                       _focusedDay = focusedDay;
                       _selectedMonth = _months[focusedDay.month - 1];
+                      _selectedYear = focusedDay.year;
                     });
                   },
                   headerVisible: false,
-                  calendarFormat: CalendarFormat.month,
+                  calendarFormat: _calendarFormat,
                   availableCalendarFormats: const {
+                    CalendarFormat.week: 'Week',
                     CalendarFormat.month: 'Month'
+                  },
+                  onFormatChanged: (format) {
+                    setState(() {
+                      _calendarFormat = format;
+                    });
                   },
                   onPageChanged: (focusedDay) {
                     setState(() {
                       _focusedDay = focusedDay;
                       _selectedMonth = _months[focusedDay.month - 1];
+                      _selectedYear = focusedDay.year;
                     });
                   },
                   daysOfWeekHeight: 40,

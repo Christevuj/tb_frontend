@@ -16,23 +16,21 @@ class _PlandingPageState extends State<PlandingPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        automaticallyImplyLeading: false, // ✅ Removes back button
-        backgroundColor: Colors.redAccent,
-        title: const Text(
-          "Home",
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-        centerTitle: true,
-      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ✅ Logo at top-left
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Image.asset(
+                'assets/images/tbisita_logo2.png',
+                height: 44,
+              ),
+            ),
+            const SizedBox(height: 20),
+
             // Search bar
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -82,7 +80,7 @@ class _PlandingPageState extends State<PlandingPage> {
 
             const SizedBox(height: 24),
 
-            // Top Doctors (Removed "View All")
+            // Top Doctors
             const Text(
               'Top Doctors',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),

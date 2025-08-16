@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
-class Pmessages extends StatefulWidget {
-  const Pmessages({super.key});
+class Hhome extends StatefulWidget {
+  const Hhome({super.key});
 
   @override
-  State<Pmessages> createState() => _PmessagesState();
+  State<Hhome> createState() => _HhomeState();
 }
 
-class _PmessagesState extends State<Pmessages> {
+class _HhomeState extends State<Hhome> {
   final List<Map<String, String>> conversations = [
     {"name": "Juan Dela Cruz", "message": "Kumusta ka na?"},
     {"name": "Cardo Dalisay", "message": "Magkita tayo bukas."},
@@ -28,34 +28,59 @@ class _PmessagesState extends State<Pmessages> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Column(
-        children: [
-          // 🔹 Removed the pink header for messages list
-          const SizedBox(height: 40), // Add spacing for status bar
-
-          // Search bar
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: TextField(
-              onChanged: (value) {
-                setState(() {
-                  searchQuery = value;
-                });
-              },
-              decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.search, color: Colors.grey),
-                hintText: "Search messages...",
-                filled: true,
-                fillColor: Colors.grey.shade200,
-                contentPadding:
-                    const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(25),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
+      // AppBar with logo like landing page
+     appBar: PreferredSize(
+  preferredSize: const Size.fromHeight(100),
+  child: AppBar(
+    automaticallyImplyLeading: false,
+    backgroundColor: Colors.white,
+    elevation: 0,
+    flexibleSpace: SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.only(left: 16, top: 16), // aligns with search bar
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Image.asset(
+            'assets/images/tbisita_logo2.png',
+            height: 44,
+            fit: BoxFit.contain,
           ),
+        ),
+      ),
+    ),
+  ),
+),
+
+
+      body: Column(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
+    // Reduced vertical spacing between logo and search bar
+    const SizedBox(height: 8), // <-- less space than before
+
+    // Search bar like landing page
+    Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(25),
+        ),
+        child: TextField(
+          onChanged: (value) {
+            setState(() {
+              searchQuery = value;
+            });
+          },
+          decoration: const InputDecoration(
+            icon: Icon(Icons.search, color: Colors.grey),
+            hintText: 'Search messages...',
+            border: InputBorder.none,
+          ),
+        ),
+      ),
+    ),
 
           // Messages list
           Expanded(
@@ -98,6 +123,7 @@ class _PmessagesState extends State<Pmessages> {
   }
 }
 
+// Chat screen remains the same
 class ChatScreen extends StatefulWidget {
   final String name;
   const ChatScreen({super.key, required this.name});
@@ -125,43 +151,12 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.redAccent,
+        title: Text(widget.name),
+      ),
       body: Column(
         children: [
-          // 🔹 Header
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
-            decoration: const BoxDecoration(
-              color: Colors.redAccent,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black26,
-                  blurRadius: 6,
-                  offset: Offset(0, 3),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.white),
-                  onPressed: () => Navigator.pop(context),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  widget.name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 20,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // 🔹 Chat messages
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.all(8),
@@ -191,8 +186,6 @@ class _ChatScreenState extends State<ChatScreen> {
               },
             ),
           ),
-
-          // 🔹 Input field
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(

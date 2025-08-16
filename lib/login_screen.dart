@@ -1,23 +1,88 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:tb_frontend/guest/gmenu.dart'; // Guest Main Wrapper
-import 'package:tb_frontend/patient/pmenu.dart'; // <-- Import your PatientMainWrapper here
-import 'package:tb_frontend/accounts/patient_create1.dart'; // SignupScreen
+import 'package:tb_frontend/patient/pmenu.dart'; // Patient Main Wrapper
+import 'package:tb_frontend/accounts/patient_create1.dart';
+import 'package:flutter/foundation.dart';
+import 'package:tb_frontend/admin/admin_login.dart'; // ✅ Admin login screen
 
-class TBisitaLoginScreen extends StatefulWidget {
+// ✅ Import the home screens (kept, in case you need them elsewhere)
+import 'package:tb_frontend/doctor/dhome.dart';
+import 'package:tb_frontend/healthcare/hhome.dart';
+
+class TBisitaLoginScreen extends StatelessWidget {
   const TBisitaLoginScreen({super.key});
 
-  @override
-  _TBisitaLoginScreenState createState() => _TBisitaLoginScreenState();
-}
-
-class _TBisitaLoginScreenState extends State<TBisitaLoginScreen> {
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-  bool _obscureText = true;
+  OutlineInputBorder _border(bool isError) {
+    return OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(
+        color: isError ? Colors.red : Colors.grey,
+        width: 1.5,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final emailController = TextEditingController();
+    final passwordController = TextEditingController();
+
+    final obscureText = ValueNotifier<bool>(true);
+    final isLoading = ValueNotifier<bool>(false);
+    final emailError = ValueNotifier<bool>(false);
+    final passwordError = ValueNotifier<bool>(false);
+
+    final FirebaseAuth auth = FirebaseAuth.instance;
+
+    int adminTapCount = 0; // ✅ Counter for admin access
+
+    Future<void> loginUser() async {
+      emailError.value = false;
+      passwordError.value = false;
+
+      if (emailController.text.trim().isEmpty ||
+          passwordController.text.trim().isEmpty) {
+        emailError.value = emailController.text.trim().isEmpty;
+        passwordError.value = passwordController.text.trim().isEmpty;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please enter email and password')),
+        );
+        return;
+      }
+
+      isLoading.value = true;
+
+      try {
+        await auth.signInWithEmailAndPassword(
+          email: emailController.text.trim(),
+          password: passwordController.text.trim(),
+        );
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const PatientMainWrapper()),
+        );
+      } on FirebaseAuthException catch (e) {
+        emailError.value = true;
+        passwordError.value = true;
+
+        String message = 'Please enter valid credentials';
+        if (e.code == 'user-not-found') {
+          message = 'No user found for that email.';
+        } else if (e.code == 'wrong-password') {
+          message = 'Wrong password provided.';
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+      } finally {
+        isLoading.value = false;
+      }
+    }
+
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -25,58 +90,78 @@ class _TBisitaLoginScreenState extends State<TBisitaLoginScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Log in',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
+              // ✅ Secret admin login
+              GestureDetector(
+                onTap: () {
+                  adminTapCount++;
+                  if (adminTapCount >= 5) {
+                    adminTapCount = 0; // reset
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AdminLogin(),
+                      ),
+                    );
+                  }
+                },
+                child: const Text(
+                  'Log in',
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               const SizedBox(height: 40),
 
               // Email field
-              TextField(
-                controller: _emailController,
-                decoration: InputDecoration(
-                  labelText: 'Email address',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+              ValueListenableBuilder<bool>(
+                valueListenable: emailError,
+                builder: (_, isError, __) => TextField(
+                  controller: emailController,
+                  decoration: InputDecoration(
+                    labelText: 'Email address',
+                    labelStyle: TextStyle(
+                      color: isError ? Colors.red : Colors.grey,
+                    ),
+                    border: _border(isError),
+                    focusedBorder: _border(isError),
                   ),
                 ),
               ),
               const SizedBox(height: 20),
 
               // Password field
-              TextField(
-                controller: _passwordController,
-                obscureText: _obscureText,
-                decoration: InputDecoration(
-                  labelText: 'Password',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscureText ? Icons.visibility_off : Icons.visibility,
+              ValueListenableBuilder2<bool, bool>(
+                first: passwordError,
+                second: obscureText,
+                builder: (_, isError, isObscure, __) => TextField(
+                  controller: passwordController,
+                  obscureText: isObscure,
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    labelStyle: TextStyle(
+                      color: isError ? Colors.red : Colors.grey,
                     ),
-                    onPressed: () {
-                      setState(() {
-                        _obscureText = !_obscureText;
-                      });
-                    },
+                    border: _border(isError),
+                    focusedBorder: _border(isError),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        isObscure ? Icons.visibility_off : Icons.visibility,
+                        color: isError ? Colors.red : Colors.grey,
+                      ),
+                      onPressed: () => obscureText.value = !isObscure,
+                    ),
                   ),
                 ),
               ),
-
               const SizedBox(height: 10),
 
               // Forgot password
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
-                  onPressed: () {
-                    // TODO: Handle forgot password
-                  },
+                  onPressed: () {},
                   child: const Text(
                     'Forgot password?',
                     style: TextStyle(color: Color(0xFFFF4C72)),
@@ -85,32 +170,32 @@ class _TBisitaLoginScreenState extends State<TBisitaLoginScreen> {
               ),
               const SizedBox(height: 10),
 
-              // Login button -> goes to PatientMainWrapper
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const PatientMainWrapper(), // ✅ Now goes to persistent patient navbar
+              // Login button
+              ValueListenableBuilder<bool>(
+                valueListenable: isLoading,
+                builder: (_, loading, __) => SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: loading ? null : loginUser,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.redAccent,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
                       ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.redAccent,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
                     ),
-                  ),
-                  child: const Text(
-                    'Log in',
-                    style: TextStyle(fontSize: 16, color: Colors.white),
+                    child: loading
+                        ? const CircularProgressIndicator(
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
+                          )
+                        : const Text(
+                            'Log in',
+                            style: TextStyle(fontSize: 16, color: Colors.white),
+                          ),
                   ),
                 ),
               ),
-
               const SizedBox(height: 15),
 
               // Guest Mode
@@ -130,10 +215,9 @@ class _TBisitaLoginScreenState extends State<TBisitaLoginScreen> {
                   ),
                 ),
               ),
-
               const Spacer(),
 
-              // Sign up
+              // ✅ Direct "Sign up"
               Center(
                 child: RichText(
                   text: TextSpan(
@@ -161,6 +245,35 @@ class _TBisitaLoginScreenState extends State<TBisitaLoginScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+// Helper to listen to two ValueNotifiers
+class ValueListenableBuilder2<A, B> extends StatelessWidget {
+  final ValueListenable<A> first;
+  final ValueListenable<B> second;
+  final Widget Function(BuildContext, A, B, Widget?) builder;
+
+  const ValueListenableBuilder2({
+    super.key,
+    required this.first,
+    required this.second,
+    required this.builder,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<A>(
+      valueListenable: first,
+      builder: (context, valueA, _) {
+        return ValueListenableBuilder<B>(
+          valueListenable: second,
+          builder: (context, valueB, child) {
+            return builder(context, valueA, valueB, child);
+          },
+        );
+      },
     );
   }
 }

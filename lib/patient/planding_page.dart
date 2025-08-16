@@ -21,15 +21,17 @@ class _PlandingPageState extends State<PlandingPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ✅ Logo at top-left
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Image.asset(
-                'assets/images/tbisita_logo2.png',
-                height: 44,
+            // Logo at the top, left-aligned
+            Padding(
+              padding: const EdgeInsets.only(bottom: 24),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Image.asset(
+                  'assets/images/tbisita_logo2.png',
+                  height: 44, // smaller size
+                ),
               ),
             ),
-            const SizedBox(height: 20),
 
             // Search bar
             Container(
@@ -77,7 +79,6 @@ class _PlandingPageState extends State<PlandingPage> {
                 ),
               ],
             ),
-
             const SizedBox(height: 24),
 
             // Top Doctors

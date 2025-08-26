@@ -1,25 +1,25 @@
 import 'package:flutter/material.dart';
-import 'package:tb_frontend/guest/glanding_page.dart';
-import 'package:tb_frontend/guest/gappointment.dart';
-import 'package:tb_frontend/guest/gmessages.dart';
-import 'package:tb_frontend/guest/gaccount.dart';
+import 'package:tb_frontend/doctor/dlanding_page.dart';
+import 'package:tb_frontend/doctor/dappointment.dart';
+import 'package:tb_frontend/doctor/dmessages.dart';
+import 'package:tb_frontend/doctor/daccount.dart';
 
-class GuestMainWrapper extends StatefulWidget {
+class DoctorMainWrapper extends StatefulWidget {
   final int initialIndex;
-  const GuestMainWrapper({super.key, this.initialIndex = 0});
+  const DoctorMainWrapper({super.key, this.initialIndex = 0});
 
   @override
-  State<GuestMainWrapper> createState() => _GuestMainWrapperState();
+  State<DoctorMainWrapper> createState() => _DoctorMainWrapperState();
 }
 
-class _GuestMainWrapperState extends State<GuestMainWrapper> {
+class _DoctorMainWrapperState extends State<DoctorMainWrapper> {
   int _selectedIndex = 0;
 
   final List<Widget> _pages = const [
-    GlandingPage(),
-    Gappointment(),
-    Gmessages(),
-    Gaccount(),
+    Dlandingpage(),
+    Dappointment(),
+    Dmessages(),
+    Daccount(),
   ];
 
   @override
@@ -41,7 +41,7 @@ class _GuestMainWrapperState extends State<GuestMainWrapper> {
         index: _selectedIndex,
         children: List.generate(_pages.length, (index) {
           return Navigator(
-            key: GlobalKey<NavigatorState>(), // ✅ separate navigation stack per tab
+            key: GlobalKey<NavigatorState>(), // ✅ separate stack per tab
             onGenerateRoute: (settings) {
               return MaterialPageRoute(
                 builder: (_) => _pages[index],

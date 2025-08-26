@@ -5,8 +5,8 @@ class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // 🔹 Sign Up new user
-  Future<String?> signUp({
+  // 🔹 Patient Sign Up (self-registration)
+  Future<String?> signUpPatient({
     required String firstName,
     required String lastName,
     required String email,
@@ -20,11 +20,64 @@ class AuthService {
         password: password,
       );
 
-      // Save user details to Firestore
+      // Save patient details to Firestore
       await _firestore.collection('users').doc(userCredential.user!.uid).set({
         'firstName': firstName.trim(),
         'lastName': lastName.trim(),
         'email': email.trim(),
+        'role': 'patient', // default role for self-signup
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      return null; // ✅ Success
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'email-already-in-use') {
+        return 'This email is already registered.';
+      } else if (e.code == 'weak-password') {
+        return 'Password must be at least 6 characters.';
+      } else if (e.code == 'invalid-email') {
+        return 'Invalid email address.';
+      }
+      return 'Authentication error: ${e.message}';
+    } catch (e) {
+      return 'Unexpected error: $e';
+    }
+  }
+
+  // 🔹 Convenience wrapper for SignupScreen
+  Future<String?> signUp({
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String password,
+  }) async {
+    return await signUpPatient(
+      firstName: firstName,
+      lastName: lastName,
+      email: email,
+      password: password,
+    );
+  }
+
+  // 🔹 Admin creates other accounts (doctor, healthworker, etc.)
+  Future<String?> createUserByAdmin({
+    required String email,
+    required String password,
+    required String role, // doctor | healthworker | admin
+    required String name, // full name for staff users
+  }) async {
+    try {
+      UserCredential userCredential =
+          await _auth.createUserWithEmailAndPassword(
+        email: email.trim(),
+        password: password,
+      );
+
+      // Save staff details to Firestore
+      await _firestore.collection('users').doc(userCredential.user!.uid).set({
+        'name': name.trim(),
+        'email': email.trim(),
+        'role': role.trim(),
         'createdAt': FieldValue.serverTimestamp(),
       });
 
@@ -81,33 +134,35 @@ class AuthService {
       if (user == null) return null;
 
       final doc = await _firestore.collection('users').doc(user.uid).get();
-      if (doc.exists) {
-        return {
-          'firstName': doc['firstName'] ?? '',
-          'lastName': doc['lastName'] ?? '',
-          'email': doc['email'] ?? '',
-        };
-      } else {
-        return null;
-      }
+      return doc.data();
     } catch (e) {
       return null;
     }
   }
 
-  // 🔹 Get individual user fields
+  // 🔹 Convenience getters
   Future<String?> getCurrentUserFirstName() async {
     final details = await getCurrentUserDetails();
-    return details?['firstName'] ?? 'User';
+    return details?['firstName']; // Only exists for patients
   }
 
   Future<String?> getCurrentUserLastName() async {
     final details = await getCurrentUserDetails();
-    return details?['lastName'] ?? '';
+    return details?['lastName']; // Only exists for patients
+  }
+
+  Future<String?> getCurrentUserName() async {
+    final details = await getCurrentUserDetails();
+    return details?['name']; // Only exists for doctors/admins/healthworkers
+  }
+
+  Future<String?> getCurrentUserRole() async {
+    final details = await getCurrentUserDetails();
+    return details?['role'];
   }
 
   Future<String?> getCurrentUserEmail() async {
     final details = await getCurrentUserDetails();
-    return details?['email'] ?? '';
+    return details?['email'];
   }
 }

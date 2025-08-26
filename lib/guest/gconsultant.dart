@@ -29,7 +29,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   late final AnimationController _quickFadeController;
   late final Animation<Offset> _quickSlideAnimation;
 
-  late final OllamaService _ollamaService; // Ollama service instance
+  late final OllamaService _ollamaService;
 
   final List<String> _greetings = [
     "👋 Hello! I'm your AI consultant. How can I help you today?",
@@ -53,9 +53,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   void initState() {
     super.initState();
 
-    // Initialize Ollama service
     _ollamaService = OllamaService();
-    _ollamaService.start(); // Logs "Ollama service started" in terminal
+    _ollamaService.start();
 
     _quickFadeController = AnimationController(
       vsync: this,
@@ -125,7 +124,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     final int botIndex = _messages.length - 1;
 
     try {
-      // Use OllamaService to stream messages
       await for (final chunk in _ollamaService.streamMessage(text)) {
         setState(() {
           _messages[botIndex]['content'] =
@@ -162,26 +160,58 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         position: animation.drive(offsetTween),
         child: FadeTransition(
           opacity: animation,
-          child: Align(
-            alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-            child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 4),
-              padding: const EdgeInsets.all(12),
-              constraints: const BoxConstraints(maxWidth: 300),
-              decoration: BoxDecoration(
-                color: isUser ? const Color(0xFFF44336) : Colors.grey[300],
-                borderRadius: BorderRadius.circular(12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment:
+                isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+            children: [
+              if (!isUser) ...[
+                // AI Avatar
+                CircleAvatar(
+                  radius: 16,
+                  backgroundColor: Colors.pink.shade100,
+                  child: const Icon(Icons.smart_toy,
+                      color: Colors.white, size: 18),
+                ),
+                const SizedBox(width: 8),
+              ],
+              Flexible(
+                child: Container(
+                  margin: const EdgeInsets.symmetric(vertical: 4),
+                  padding: const EdgeInsets.all(12),
+                  constraints: const BoxConstraints(maxWidth: 280),
+                  decoration: BoxDecoration(
+                    color: isUser
+                        ? const Color(
+                            0xFFFFCDD2) // 👈 pastel/light pink for user bubble
+                        : Colors.grey[300],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: isTyping
+                      ? const Text('...')
+                      : Text(
+                          message['content'] ?? '',
+                          style: TextStyle(
+                            color: isUser
+                                ? Colors.black87
+                                : Colors.black, // darker text for readability
+                            fontSize: 14,
+                          ),
+                        ),
+                ),
               ),
-              child: isTyping
-                  ? const Text('...')
-                  : Text(
-                      message['content'] ?? '',
-                      style: TextStyle(
-                        color: isUser ? Colors.white : Colors.black,
-                        fontSize: 14,
-                      ),
-                    ),
-            ),
+              if (isUser) ...[
+                const SizedBox(width: 8),
+                // User Avatar
+                CircleAvatar(
+                  radius: 16,
+                  backgroundColor: const Color.fromARGB(
+                      255, 197, 143, 244), // 👈 pastel pink avatar
+                  child:
+                      const Icon(Icons.person, color: Colors.white, size: 18),
+                ),
+              ],
+            ],
           ),
         ),
       ),
@@ -234,6 +264,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               decoration: BoxDecoration(
                 color: Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  // 👈 thin border added
+                  color: Colors.grey.shade400,
+                  width: 0.8,
+                ),
               ),
               child: TextField(
                 controller: _controller,
@@ -271,19 +306,48 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: const Text(
-          'AI Consultant',
-          style: TextStyle(color: Colors.white),
-        ),
-        backgroundColor: const Color(0xFFF44336),
-      ),
+      backgroundColor: const Color(0xFFF2F3F5),
       body: Column(
         children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 40, 16, 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Back Button
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.shade300,
+                        blurRadius: 6,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: IconButton(
+                    icon:
+                        const Icon(Icons.arrow_back, color: Color(0xE0F44336)),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+                const Text(
+                  "AI Consultant",
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xE0F44336),
+                  ),
+                ),
+                const SizedBox(width: 48), // spacing balance
+              ],
+            ),
+          ),
+
+          // Chat content
           Expanded(
             child: ShaderMask(
               shaderCallback: (Rect bounds) {

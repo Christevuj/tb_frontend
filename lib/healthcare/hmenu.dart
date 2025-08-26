@@ -4,15 +4,15 @@ import 'package:tb_frontend/guest/gappointment.dart';
 import 'package:tb_frontend/guest/gmessages.dart';
 import 'package:tb_frontend/guest/gaccount.dart';
 
-class GuestMainWrapper extends StatefulWidget {
+class HealthMainWrapper extends StatefulWidget {
   final int initialIndex;
-  const GuestMainWrapper({super.key, this.initialIndex = 0});
+  const HealthMainWrapper({super.key, this.initialIndex = 0});
 
   @override
-  State<GuestMainWrapper> createState() => _GuestMainWrapperState();
+  State<HealthMainWrapper> createState() => _HealthMainWrapperState();
 }
 
-class _GuestMainWrapperState extends State<GuestMainWrapper> {
+class _HealthMainWrapperState extends State<HealthMainWrapper> {
   int _selectedIndex = 0;
 
   final List<Widget> _pages = const [
@@ -37,19 +37,7 @@ class _GuestMainWrapperState extends State<GuestMainWrapper> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: List.generate(_pages.length, (index) {
-          return Navigator(
-            key: GlobalKey<NavigatorState>(), // ✅ separate navigation stack per tab
-            onGenerateRoute: (settings) {
-              return MaterialPageRoute(
-                builder: (_) => _pages[index],
-              );
-            },
-          );
-        }),
-      ),
+      body: _pages[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onNavTap,

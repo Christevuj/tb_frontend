@@ -1,25 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-
-void main() {
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'TBisita',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primarySwatch: Colors.pink,
-      ),
-      home: const AdminLogin(),
-    );
-  }
-}
+import 'package:tb_frontend/services/auth_service.dart'; // Import your AuthService
+import 'admin_dashboard.dart'; // Import your admin dashboard page
 
 class AdminLogin extends StatefulWidget {
   const AdminLogin({super.key});
@@ -46,6 +28,11 @@ class _AdminLoginState extends State<AdminLogin>
   // Text field controllers
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+
+  // Auth service
+  final AuthService _authService = AuthService();
+
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -87,6 +74,49 @@ class _AdminLoginState extends State<AdminLogin>
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  // 🔹 Admin login method
+  Future<void> _loginAdmin() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter email and password')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    final error = await _authService.signIn(email: email, password: password);
+
+    if (error != null) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error)),
+      );
+      return;
+    }
+
+    // Check if the user is admin
+    final role = await _authService.getCurrentUserRole();
+    setState(() => _isLoading = false);
+
+    if (role == 'admin') {
+      // Navigate to admin dashboard
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const AdminDashboard()),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Access denied: Not an admin account')),
+      );
+      // Optional: sign out the user if not admin
+      await _authService.signOut();
+    }
   }
 
   @override
@@ -210,14 +240,15 @@ class _AdminLoginState extends State<AdminLogin>
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    onPressed: () {
-                      debugPrint(
-                          'Email: ${_emailController.text}, RememberMe: $_rememberMe');
-                    },
-                    child: const Text(
-                      "Log In",
-                      style: TextStyle(color: Colors.white, fontSize: 16),
-                    ),
+                    onPressed: _isLoading ? null : _loginAdmin,
+                    child: _isLoading
+                        ? const CircularProgressIndicator(
+                            color: Colors.white,
+                          )
+                        : const Text(
+                            "Log In",
+                            style: TextStyle(color: Colors.white, fontSize: 16),
+                          ),
                   ),
                 ),
                 const SizedBox(height: 15),

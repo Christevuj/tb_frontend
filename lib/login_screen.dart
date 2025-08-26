@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // ✅ role checking
 import 'package:tb_frontend/guest/gmenu.dart'; // Guest Main Wrapper
 import 'package:tb_frontend/patient/pmenu.dart'; // Patient Main Wrapper
 import 'package:tb_frontend/accounts/patient_create1.dart';
 import 'package:flutter/foundation.dart';
 import 'package:tb_frontend/admin/admin_login.dart'; // ✅ Admin login screen
-
-// ✅ Import the home screens (kept, in case you need them elsewhere)
+import 'package:tb_frontend/doctor/dmenu.dart'; // Doctor Main Wrapper
+import 'package:tb_frontend/healthcare/hmenu.dart'; // Health Main Wrapper
 
 class TBisitaLoginScreen extends StatelessWidget {
   const TBisitaLoginScreen({super.key});
@@ -53,14 +54,38 @@ class TBisitaLoginScreen extends StatelessWidget {
       isLoading.value = true;
 
       try {
-        await auth.signInWithEmailAndPassword(
+        // ✅ Login
+        final userCredential = await auth.signInWithEmailAndPassword(
           email: emailController.text.trim(),
           password: passwordController.text.trim(),
         );
 
+        // ✅ Fetch role (only doctors/healthworkers have roles)
+        final userDoc = await FirebaseFirestore.instance
+            .collection("users")
+            .doc(userCredential.user!.uid)
+            .get();
+
+        Widget homePage;
+
+        if (userDoc.exists && userDoc.data()?["role"] != null) {
+          final role = userDoc.data()?["role"];
+
+          if (role == "doctor") {
+            homePage = const DoctorMainWrapper();   // ✅ Wrapper
+          } else if (role == "healthworker") {
+            homePage = const HealthMainWrapper();   // ✅ Wrapper
+          } else {
+            homePage = const PatientMainWrapper();  // fallback
+          }
+        } else {
+          // ✅ No role → default to Patient
+          homePage = const PatientMainWrapper();
+        }
+
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const PatientMainWrapper()),
+          MaterialPageRoute(builder: (context) => homePage),
         );
       } on FirebaseAuthException catch (e) {
         emailError.value = true;
@@ -75,6 +100,10 @@ class TBisitaLoginScreen extends StatelessWidget {
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(message)),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: ${e.toString()}")),
         );
       } finally {
         isLoading.value = false;

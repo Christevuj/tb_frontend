@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tb_frontend/guest/gviewdoctor.dart';
-import 'package:tb_frontend/patient/pbookappointment.dart';
+import 'package:tb_frontend/patient/pdoclist.dart';
 import 'package:tb_frontend/guest/gconsultant.dart';
 import 'package:tb_frontend/guest/gtbfacility.dart';
 
@@ -69,7 +69,7 @@ class _PlandingPageState extends State<PlandingPage> {
                   context,
                   Icons.calendar_today,
                   'Book\nAppointment',
-                  const Pbookappointment(),
+                  const Pdoclist(),
                 ),
                 _quickAction(
                   context,

@@ -11,22 +11,17 @@ class MyAppointmentPage extends StatefulWidget {
 class _MyAppointmentPageState extends State<MyAppointmentPage> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
+  CalendarFormat _calendarFormat = CalendarFormat.month;
+
+  int _selectedYear = DateTime.now().year;
 
   final List<String> _months = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December"
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
   ];
   late String _selectedMonth;
+
+  final List<int> _years = List.generate(11, (index) => DateTime.now().year - 5 + index);
 
   final List<Map<String, dynamic>> _appointments = [
     {
@@ -103,27 +98,21 @@ class _MyAppointmentPageState extends State<MyAppointmentPage> {
                 ],
               ),
               const Divider(),
-              Text("Doctor: ${appointment["doctorName"]}",
-                  style: const TextStyle(fontSize: 16)),
+              Text("Doctor: ${appointment["doctorName"]}", style: const TextStyle(fontSize: 16)),
               Text("TB Facility: ${appointment["facility"]}"),
               Text("Experience: ${appointment["experience"]}"),
               const SizedBox(height: 10),
-              const Text("Schedule:",
-                  style: TextStyle(fontWeight: FontWeight.bold)),
-              Text(
-                  "${appointment["date"].toString().split(" ")[0]} at ${appointment["time"]}"),
+              const Text("Schedule:", style: TextStyle(fontWeight: FontWeight.bold)),
+              Text("${appointment["date"].toString().split(" ")[0]} at ${appointment["time"]}"),
               const SizedBox(height: 10),
               if (appointment["meetingLink"].isNotEmpty)
                 ElevatedButton.icon(
-                  onPressed: () {
-                    // TODO: open meeting link
-                  },
+                  onPressed: () {},
                   icon: const Icon(Icons.video_call),
                   label: const Text("Join Meeting"),
                 ),
               const SizedBox(height: 10),
-              const Text("E-Prescription:",
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text("E-Prescription:", style: TextStyle(fontWeight: FontWeight.bold)),
               appointment["ePrescription"] != null
                   ? Text(appointment["ePrescription"])
                   : const Text("No e-prescription available yet."),
@@ -150,10 +139,7 @@ class _MyAppointmentPageState extends State<MyAppointmentPage> {
             child: const Text("Cancel"),
           ),
           ElevatedButton(
-            onPressed: () {
-              // TODO: send message logic
-              Navigator.pop(context);
-            },
+            onPressed: () => Navigator.pop(context),
             child: const Text("Send"),
           ),
         ],
@@ -165,174 +151,132 @@ class _MyAppointmentPageState extends State<MyAppointmentPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      // ✅ Removed the AppBar here
-      body: Column(
-        children: [
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: const [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 6,
-                  offset: Offset(0, 3),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // 🔹 Header
+              const Padding(
+                padding: EdgeInsets.fromLTRB(0, 20, 0, 8),
+                child: Center(
+                  child: Text(
+                    "My Appointments",
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xE0F44336),
+                    ),
+                  ),
                 ),
-              ],
-            ),
-            child: Column(
-              children: [
-                // Month dropdown + Year + Today button
-                Padding(
-                  padding: const EdgeInsets.only(left: 6, right: 6),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              ),
+              // Month & Year Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
                     children: [
-                      Row(
-                        children: [
-                          DropdownButton<String>(
-                            value: _selectedMonth,
-                            icon: const Icon(Icons.arrow_drop_down, size: 28),
-                            underline: const SizedBox.shrink(),
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 26,
-                              color: Colors.black,
-                            ),
-                            items: _months.map((String month) {
-                              return DropdownMenuItem<String>(
-                                value: month,
-                                child: Text(month),
-                              );
-                            }).toList(),
-                            onChanged: (newMonth) {
-                              if (newMonth != null) {
-                                setState(() {
-                                  _selectedMonth = newMonth;
-                                  final monthIndex =
-                                      _months.indexOf(newMonth) + 1;
-                                  _focusedDay =
-                                      DateTime(_focusedDay.year, monthIndex, 1);
-                                });
-                              }
-                            },
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            "${_focusedDay.year}",
-                            style: const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.redAccent,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 20, vertical: 10),
-                          textStyle: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _focusedDay = DateTime.now();
-                            _selectedDay = DateTime.now();
-                            _selectedMonth = _months[_focusedDay.month - 1];
-                          });
+                      DropdownButton<String>(
+                        value: _selectedMonth,
+                        items: _months.map((month) => DropdownMenuItem(
+                          value: month,
+                          child: Text(month, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        )).toList(),
+                        onChanged: (month) {
+                          if (month != null) {
+                            setState(() {
+                              _selectedMonth = month;
+                              final monthIndex = _months.indexOf(month) + 1;
+                              _focusedDay = DateTime(_selectedYear, monthIndex, 1);
+                            });
+                          }
                         },
-                        child: const Text("Today"),
+                      ),
+                      const SizedBox(width: 8),
+                      DropdownButton<int>(
+                        value: _selectedYear,
+                        items: _years.map((year) => DropdownMenuItem(
+                          value: year,
+                          child: Text(year.toString(), style: const TextStyle(fontWeight: FontWeight.bold)),
+                        )).toList(),
+                        onChanged: (year) {
+                          if (year != null) {
+                            setState(() {
+                              _selectedYear = year;
+                              final monthIndex = _months.indexOf(_selectedMonth) + 1;
+                              _focusedDay = DateTime(_selectedYear, monthIndex, 1);
+                            });
+                          }
+                        },
                       ),
                     ],
                   ),
+                  IconButton(
+                    icon: const Icon(Icons.today, color: Colors.redAccent),
+                    onPressed: () {
+                      setState(() {
+                        _focusedDay = DateTime.now();
+                        _selectedDay = DateTime.now();
+                        _selectedMonth = _months[_focusedDay.month - 1];
+                        _selectedYear = _focusedDay.year;
+                      });
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // Calendar
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.grey[100],
                 ),
-                const SizedBox(height: 8),
-                TableCalendar(
+                child: TableCalendar(
                   firstDay: DateTime.utc(2020, 1, 1),
                   lastDay: DateTime.utc(2030, 12, 31),
                   focusedDay: _focusedDay,
+                  calendarFormat: CalendarFormat.month,
                   selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
                   onDaySelected: (selectedDay, focusedDay) {
                     setState(() {
                       _selectedDay = selectedDay;
                       _focusedDay = focusedDay;
-                      _selectedMonth = _months[focusedDay.month - 1];
                     });
                   },
-                  headerVisible: false,
-                  calendarFormat: CalendarFormat.month,
-                  availableCalendarFormats: const {
-                    CalendarFormat.month: 'Month'
-                  },
+                  onFormatChanged: (_) {}, // disable changing format
                   onPageChanged: (focusedDay) {
                     setState(() {
                       _focusedDay = focusedDay;
                       _selectedMonth = _months[focusedDay.month - 1];
+                      _selectedYear = focusedDay.year;
                     });
                   },
-                  daysOfWeekHeight: 40,
+                  headerVisible: false,
+                  calendarStyle: const CalendarStyle(
+                    todayDecoration: BoxDecoration(color: Colors.green, shape: BoxShape.circle),
+                    selectedDecoration: BoxDecoration(color: Colors.blueAccent, shape: BoxShape.circle),
+                    outsideTextStyle: TextStyle(color: Colors.grey),
+                    weekendTextStyle: TextStyle(color: Colors.redAccent),
+                    defaultTextStyle: TextStyle(color: Colors.black),
+                  ),
                   daysOfWeekStyle: const DaysOfWeekStyle(
-                    weekdayStyle: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                    weekendStyle: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.redAccent,
-                    ),
+                    weekendStyle: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+                    weekdayStyle: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
                   ),
-                  calendarStyle: CalendarStyle(
-                    todayDecoration: const BoxDecoration(
-                      color: Colors.green,
-                      shape: BoxShape.circle,
-                    ),
-                    selectedDecoration: const BoxDecoration(
-                      color: Colors.blueAccent,
-                      shape: BoxShape.circle,
-                    ),
-                    todayTextStyle: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    selectedTextStyle: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    weekendTextStyle: const TextStyle(color: Colors.redAccent),
-                    defaultTextStyle: const TextStyle(color: Colors.black),
-                    outsideTextStyle: const TextStyle(color: Colors.grey),
-                    cellMargin: const EdgeInsets.all(6),
-                  ),
-                  rowHeight: 48,
-                )
-              ],
-            ),
-          ),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(12),
-              children: _appointments
-                  .where((a) =>
-                      _selectedDay == null ||
-                      isSameDay(a["date"], _selectedDay))
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Appointments list
+              ..._appointments
+                  .where((a) => _selectedDay == null || isSameDay(a["date"], _selectedDay))
                   .map((appointment) {
                 final date = appointment["date"] as DateTime;
-                final statusColor = appointment["status"] == "Approved"
-                    ? Colors.green
-                    : Colors.orange;
+                final statusColor = appointment["status"] == "Approved" ? Colors.green : Colors.orange;
                 return Card(
                   color: Colors.white,
                   margin: const EdgeInsets.symmetric(vertical: 8),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   elevation: 2,
                   child: InkWell(
                     borderRadius: BorderRadius.circular(12),
@@ -351,21 +295,10 @@ class _MyAppointmentPageState extends State<MyAppointmentPage> {
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Text(
-                                  "${date.day}",
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                Text(
-                                  _monthName(date.month),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                  ),
-                                ),
+                                Text("${date.day}",
+                                    style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                                Text(_monthName(date.month),
+                                    style: const TextStyle(color: Colors.white, fontSize: 12)),
                               ],
                             ),
                           ),
@@ -374,25 +307,11 @@ class _MyAppointmentPageState extends State<MyAppointmentPage> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  appointment["doctorName"],
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.blue,
-                                  ),
-                                ),
-                                Text(
-                                  appointment["facility"],
-                                  style: const TextStyle(color: Colors.grey),
-                                ),
-                                Text(
-                                  appointment["status"],
-                                  style: TextStyle(
-                                    color: statusColor,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
+                                Text(appointment["doctorName"],
+                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue)),
+                                Text(appointment["facility"], style: const TextStyle(color: Colors.grey)),
+                                Text(appointment["status"],
+                                    style: TextStyle(color: statusColor, fontWeight: FontWeight.bold)),
                               ],
                             ),
                           ),
@@ -403,9 +322,9 @@ class _MyAppointmentPageState extends State<MyAppointmentPage> {
                   ),
                 );
               }).toList(),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

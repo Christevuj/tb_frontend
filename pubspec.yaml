@@ -28,6 +28,7 @@ dependencies:
   firebase_auth: ^6.0.1
   characters: ^1.2.0
   image_picker: ^1.1.2 
+  flutter_dotenv: ^6.0.0
 
 dev_dependencies:
   flutter_test:
@@ -45,3 +46,4 @@ flutter:
     - assets/images/doc2.png
     - assets/images/doc3.png
     - assets/images/map1.png
+    - .env

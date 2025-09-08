@@ -8,7 +8,6 @@ import 'package:tb_frontend/accounts/patient_create1.dart';
 import 'package:tb_frontend/admin/admin_login.dart';
 import 'package:tb_frontend/doctor/dmenu.dart';
 import 'package:tb_frontend/healthcare/hmenu.dart';
-import 'package:tb_frontend/guest/gmenu.dart';
 
 class TBisitaLoginScreen extends StatelessWidget {
   const TBisitaLoginScreen({super.key});
@@ -212,29 +211,11 @@ class TBisitaLoginScreen extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 15),
-              Center(
-                child: TextButton(
-                  onPressed: () {
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const GuestMainWrapper(),
-                      ),
-                      (route) => false,
-                    );
-                  },
-                  child: const Text(
-                    'Guest Mode',
-                    style: TextStyle(color: Colors.redAccent),
-                  ),
-                ),
-              ),
               const Spacer(),
               Center(
                 child: RichText(
                   text: TextSpan(
-                    text: "Don't have an account? ",
+                    text: 'Don't have an account? ',
                     style: const TextStyle(color: Colors.black87),
                     children: [
                       TextSpan(

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:tb_frontend/guest/glanding_page.dart';
-import 'package:tb_frontend/guest/gappointment.dart';
-import 'package:tb_frontend/guest/gmessages.dart';
-import 'package:tb_frontend/guest/gaccount.dart';
+import 'package:tb_frontend/healthcare/pages/hlanding_page.dart';
+import 'package:tb_frontend/healthcare/pages/happointment.dart';
+import 'package:tb_frontend/healthcare/pages/hmessages.dart';
+import 'package:tb_frontend/healthcare/pages/haccount.dart';
 
 class HealthMainWrapper extends StatefulWidget {
   final int initialIndex;
@@ -16,10 +16,10 @@ class _HealthMainWrapperState extends State<HealthMainWrapper> {
   int _selectedIndex = 0;
 
   final List<Widget> _pages = const [
-    GlandingPage(),
-    Gappointment(),
-    Gmessages(),
-    Gaccount(),
+    HLandingPage(),
+    HAppointment(),
+    HMessages(),
+    HAccount(),
   ];
 
   @override

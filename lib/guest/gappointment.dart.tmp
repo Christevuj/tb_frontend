@@ -38,8 +38,7 @@ class Gappointment extends StatelessWidget {
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.redAccent,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -47,7 +46,7 @@ class Gappointment extends StatelessWidget {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const SignupScreen()),
+                  MaterialPageRoute(builder: (_) => const PatientCreate1()),
                 );
               },
               child: const Text(
@@ -62,10 +61,11 @@ class Gappointment extends StatelessWidget {
                 const Text('Already have an account? '),
                 GestureDetector(
                   onTap: () {
-                    Navigator.of(context, rootNavigator: true)
-                        .pushAndRemoveUntil(
+                    Navigator.pushAndRemoveUntil(
+                      context,
                       MaterialPageRoute(
-                          builder: (context) => const TBisitaLoginScreen()),
+                        builder: (context) => const TBisitaLoginScreen(),
+                      ),
                       (route) => false,
                     );
                   },

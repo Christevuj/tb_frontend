@@ -126,8 +126,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 Text('Patient account created successfully! Please log in.')),
       );
 
-      Navigator.pushAndRemoveUntil(
-        context,
+      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => const TBisitaLoginScreen()),
         (route) => false,
       );
@@ -223,10 +222,11 @@ class _SignupScreenState extends State<SignupScreen> {
         children: [
           const Text('Already have a patient account? '),
           GestureDetector(
-            onTap: () => Navigator.pushReplacement(
-              context,
+            onTap: () =>
+                Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
               MaterialPageRoute(
                   builder: (context) => const TBisitaLoginScreen()),
+              (route) => false,
             ),
             child: const Text('Log in',
                 style: TextStyle(

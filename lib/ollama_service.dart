@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'services/config_service.dart';
 
 class OllamaService {
   // Optional: startup logic
@@ -10,14 +11,13 @@ class OllamaService {
 
   // Stream messages from Ollama API
   Stream<String> streamMessage(String userMessage) async* {
-    final url =
-        Uri.parse('http://localhost:11434/api/chat'); // Your backend URL
+    final url = Uri.parse('${ConfigService.ollamaBaseUrl}/api/chat');
     final headers = {'Content-Type': 'application/json'};
 
     final request = http.Request('POST', url)
       ..headers.addAll(headers)
       ..body = jsonEncode({
-        "model": "llama3.1",
+        "model": ConfigService.ollamaModel,
         "stream": true,
         "messages": [
           {

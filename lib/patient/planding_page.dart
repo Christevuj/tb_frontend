@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:tb_frontend/guest/gviewdoctor.dart';
 import 'package:tb_frontend/patient/pdoclist.dart';
-import 'package:tb_frontend/guest/gconsultant.dart';
-import 'package:tb_frontend/guest/gtbfacility.dart';
+import 'package:tb_frontend/patient/pconsultant.dart';
+import 'package:tb_frontend/features/map/map_screen_enhanced.dart';
 
 class PlandingPage extends StatefulWidget {
   const PlandingPage({super.key});
@@ -63,7 +63,7 @@ class _PlandingPageState extends State<PlandingPage> {
                   context,
                   Icons.smart_toy,
                   'AI\nConsultant',
-                  const GConsultant(),
+                  const PConsultant(),
                 ),
                 _quickAction(
                   context,
@@ -75,7 +75,7 @@ class _PlandingPageState extends State<PlandingPage> {
                   context,
                   Icons.local_hospital,
                   'TB DOTS\nFacilities',
-                  const GtbfacilityPage(),
+                  const MapScreenEnhanced(),
                 ),
               ],
             ),

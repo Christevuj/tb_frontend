@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../accounts/medical_staff_create.dart';
+import './admin_login.dart' show AdminLogin;
 
 void main() {
   runApp(const MyApp());
@@ -15,11 +19,14 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.red,
         scaffoldBackgroundColor: Colors.white,
+        textTheme: GoogleFonts.poppinsTextTheme(), // Use modern font
       ),
       home: const AdminDashboard(),
     );
   }
 }
+
+enum DashboardTab { dashboard, doctors, patients, healthWorkers }
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -30,6 +37,17 @@ class AdminDashboard extends StatefulWidget {
 
 class _AdminDashboardState extends State<AdminDashboard> {
   bool _isHovered = false; // Sidebar hover state
+  DashboardTab _selectedTab = DashboardTab.dashboard; // default
+
+  // Navigate directly to medical staff creation page
+  void _showAccountCreationDialog() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const MedicalStaffCreatePage(),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,14 +55,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
       backgroundColor: Colors.white,
       body: Row(
         children: [
-          // Sidebar with smooth hover animation
+          // Sidebar
           MouseRegion(
             onEnter: (_) => setState(() => _isHovered = true),
             onExit: (_) => setState(() => _isHovered = false),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 400),
               curve: Curves.easeInOut,
-              width: _isHovered ? 220 : 90,
+              width: _isHovered ? 230 : 90,
               color: Colors.redAccent,
               child: Column(
                 children: [
@@ -63,35 +81,167 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
                   const SizedBox(height: 40),
 
-                  // Sidebar buttons CENTERED vertically
+                  // Sidebar buttons
                   Expanded(
                     child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.start,
                       children: [
                         _buildSidebarButton(
-                          icon: Icons.home,
-                          label: "Home",
-                          page: const HomePage(),
+                          icon: Icons.dashboard,
+                          label: "Dashboard",
+                          tab: DashboardTab.dashboard,
                         ),
-                        const SizedBox(height: 25),
-                        _buildSidebarButton(
-                          icon: Icons.person,
-                          label: "Patients",
-                          page: const PatientsPage(),
-                        ),
-                        const SizedBox(height: 25),
+                        const SizedBox(height: 20),
                         _buildSidebarButton(
                           icon: Icons.local_hospital,
                           label: "Doctors",
-                          page: const DoctorsPage(),
+                          tab: DashboardTab.doctors,
                         ),
-                        const SizedBox(height: 25),
+                        const SizedBox(height: 20),
                         _buildSidebarButton(
-                          icon: Icons.settings,
-                          label: "Settings",
-                          page: const SettingsPage(),
+                          icon: Icons.people,
+                          label: "Patients",
+                          tab: DashboardTab.patients,
+                        ),
+                        const SizedBox(height: 20),
+                        _buildSidebarButton(
+                          icon: Icons.health_and_safety,
+                          label: "Health Workers",
+                          tab: DashboardTab.healthWorkers,
                         ),
                       ],
+                    ),
+                  ),
+
+                  // Logout Button
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: InkWell(
+                      onTap: () {
+                        // Show confirmation dialog
+                        showDialog(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: Text(
+                              'Confirm Logout',
+                              style: GoogleFonts.poppins(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.redAccent,
+                              ),
+                            ),
+                            content: Text(
+                              'Are you sure you want to logout?',
+                              style: GoogleFonts.poppins(),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: Text(
+                                  'Cancel',
+                                  style: GoogleFonts.poppins(
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () async {
+                                  try {
+                                    await FirebaseAuth.instance.signOut();
+                                    if (context.mounted) {
+                                      Navigator.of(context).pushAndRemoveUntil(
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              const AdminLogin(),
+                                        ),
+                                        (route) => false,
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'Error logging out: $e',
+                                            style: GoogleFonts.poppins(),
+                                          ),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
+                                child: Text(
+                                  'Logout',
+                                  style: GoogleFonts.poppins(
+                                    color: Colors.redAccent,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 14, horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.logout,
+                                color: Colors.redAccent, size: 28),
+                            if (_isHovered) const SizedBox(width: 8),
+                            if (_isHovered)
+                              Text(
+                                "Logout",
+                                style: GoogleFonts.poppins(
+                                  color: Colors.redAccent,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Create Account Button at bottom
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: InkWell(
+                      onTap: _showAccountCreationDialog,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 14, horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.add, color: Colors.redAccent, size: 28),
+                            if (_isHovered) const SizedBox(width: 8),
+                            if (_isHovered)
+                              Text(
+                                "Create Account",
+                                style: GoogleFonts.poppins(
+                                  color: Colors.redAccent,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -102,149 +252,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
           // Main Content Area
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "DASHBOARD",
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.redAccent,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Top Stat Cards
-                  Row(
-                    children: [
-                      Expanded(
-                          child:
-                              _buildStatCard("TOTAL", "120", "Applications")),
-                      const SizedBox(width: 10),
-                      Expanded(
-                          child:
-                              _buildStatCard("PATIENTS", "80", "Registered")),
-                      const SizedBox(width: 10),
-                      Expanded(
-                          child: _buildStatCard("DOCTORS", "10", "Active")),
-                      const SizedBox(width: 10),
-                      Expanded(
-                          child: _buildStatCard("TB DOTS", "30", "Workers")),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Doctors + Health Workers
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Expanded(
-                          flex: 1,
-                          child: _buildTableCard(
-                            title: "Doctors",
-                            minWidth: 600,
-                            headers: [
-                              "Name",
-                              "Specialization",
-                              "Applications",
-                              "Status"
-                            ],
-                            rows: [
-                              ["Yasmin Adam", "Pulmonologist", "5", "Pending"],
-                              [
-                                "Ahmad Khalid",
-                                "Pharmacologist",
-                                "3",
-                                "Pending"
-                              ],
-                              ["Asaad Osman", "Pulmonologist", "2", "Pending"],
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 30),
-                        Expanded(
-                          flex: 1,
-                          child: _buildTableCard(
-                            title: "TB DOTS Health Workers",
-                            minWidth: 700,
-                            headers: [
-                              "Name",
-                              "Designation",
-                              "Facility",
-                              "Applications",
-                              "Status"
-                            ],
-                            rows: [
-                              [
-                                "Fatima Noor",
-                                "Nurse",
-                                "Agdao Health Center",
-                                "4",
-                                "Pending"
-                              ],
-                              [
-                                "Ahmad Rizwan",
-                                "Doctor",
-                                "Buhangin Center",
-                                "2",
-                                "Pending"
-                              ],
-                              [
-                                "Amani Byte",
-                                "Nurse",
-                                "Calinan Health Center",
-                                "3",
-                                "Pending"
-                              ],
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Patients Table - Full Width
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _buildTableCard(
-                            title: "Patients",
-                            minWidth: 900,
-                            headers: [
-                              "Name",
-                              "TB Care Program",
-                              "Enrolled Facility",
-                              "Treatment Status",
-                              "Feedback"
-                            ],
-                            rows: [
-                              [
-                                "Yasmin Adam",
-                                "Enrolled",
-                                "Bago Aplaya Health Center",
-                                "Ongoing",
-                                "I like that I can track my progress online."
-                              ],
-                              ["Ahmad Khalid", "Not Enrolled", "-", "-", "-"],
-                              [
-                                "Amani Byte",
-                                "Enrolled",
-                                "Agdao Health Center",
-                                "Completed",
-                                "It helped me understand my symptoms better."
-                              ],
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+              padding: const EdgeInsets.all(20.0),
+              child: _buildSelectedContent(),
             ),
           ),
         ],
@@ -252,15 +261,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  // Sidebar button widget with bigger icons
-  Widget _buildSidebarButton(
-      {required IconData icon, required String label, required Widget page}) {
+  // Sidebar button
+  Widget _buildSidebarButton({
+    required IconData icon,
+    required String label,
+    required DashboardTab tab,
+  }) {
     return InkWell(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => page),
-        );
+        setState(() {
+          _selectedTab = tab;
+        });
       },
       borderRadius: BorderRadius.circular(12),
       child: Row(
@@ -281,10 +292,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 duration: const Duration(milliseconds: 400),
                 curve: Curves.easeInOut,
                 child: Padding(
-                  padding: const EdgeInsets.only(left: 12),
+                  padding: const EdgeInsets.only(left: 14),
                   child: Text(
                     label,
-                    style: const TextStyle(color: Colors.white, fontSize: 20),
+                    style: GoogleFonts.poppins(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ),
@@ -294,34 +309,160 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
+  // Content builder based on selected tab
+  Widget _buildSelectedContent() {
+    switch (_selectedTab) {
+      case DashboardTab.doctors:
+        return DashboardContent.buildDoctorsTable();
+      case DashboardTab.patients:
+        return DashboardContent.buildPatientsTable();
+      case DashboardTab.healthWorkers:
+        return DashboardContent.buildHealthWorkersTable();
+      case DashboardTab.dashboard:
+        return const DashboardContent();
+    }
+  }
+}
+
+// ---------- Dashboard Content ----------
+class DashboardContent extends StatelessWidget {
+  const DashboardContent({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "DASHBOARD",
+          style: GoogleFonts.poppins(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Colors.redAccent,
+          ),
+        ),
+        const SizedBox(height: 25),
+
+        // Top Stat Cards
+        Row(
+          children: [
+            Expanded(child: _buildStatCard("TOTAL", "120", "Applications")),
+            const SizedBox(width: 14),
+            Expanded(child: _buildStatCard("PATIENTS", "80", "Registered")),
+            const SizedBox(width: 14),
+            Expanded(child: _buildStatCard("DOCTORS", "10", "Active")),
+            const SizedBox(width: 14),
+            Expanded(child: _buildStatCard("TB DOTS", "30", "Workers")),
+          ],
+        ),
+        const SizedBox(height: 25),
+
+        // Doctors + Health Workers
+        Expanded(
+          child: Row(
+            children: [
+              Expanded(child: buildDoctorsTable()),
+              const SizedBox(width: 30),
+              Expanded(child: buildHealthWorkersTable()),
+            ],
+          ),
+        ),
+        const SizedBox(height: 25),
+
+        // Patients Table
+        Expanded(child: buildPatientsTable()),
+      ],
+    );
+  }
+
   // Stat Card
   static Widget _buildStatCard(String title, String value, String subtitle) {
     return Card(
       color: Colors.redAccent,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      elevation: 5,
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
         child: Column(
           children: [
             Text(title,
-                style: const TextStyle(
-                    fontWeight: FontWeight.bold, color: Colors.white)),
-            const SizedBox(height: 10),
+                style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600, color: Colors.white)),
+            const SizedBox(height: 12),
             Text(value,
-                style: const TextStyle(
-                    fontSize: 26,
+                style: GoogleFonts.poppins(
+                    fontSize: 28,
                     fontWeight: FontWeight.bold,
                     color: Colors.white)),
-            const SizedBox(height: 5),
-            Text(subtitle, style: const TextStyle(color: Colors.white70)),
+            const SizedBox(height: 6),
+            Text(subtitle,
+                style:
+                    GoogleFonts.poppins(fontSize: 14, color: Colors.white70)),
           ],
         ),
       ),
     );
   }
 
-  // Table Card
+  // ---------- Static Table Methods ----------
+  static Widget buildDoctorsTable() {
+    return _buildTableCard(
+      title: "Doctors",
+      minWidth: 600,
+      headers: ["Name", "Specialization", "Applications", "Status"],
+      rows: [
+        ["Yasmin Adam", "Pulmonologist", "5", "Pending"],
+        ["Ahmad Khalid", "Pharmacologist", "3", "Pending"],
+        ["Asaad Osman", "Pulmonologist", "2", "Pending"],
+      ],
+    );
+  }
+
+  static Widget buildPatientsTable() {
+    return _buildTableCard(
+      title: "Patients",
+      minWidth: 900,
+      headers: [
+        "Name",
+        "TB Care Program",
+        "Enrolled Facility",
+        "Treatment Status",
+        "Feedback"
+      ],
+      rows: [
+        [
+          "Yasmin Adam",
+          "Enrolled",
+          "Bago Aplaya Health Center",
+          "Ongoing",
+          "I like that I can track my progress online."
+        ],
+        ["Ahmad Khalid", "Not Enrolled", "-", "-", "-"],
+        [
+          "Amani Byte",
+          "Enrolled",
+          "Agdao Health Center",
+          "Completed",
+          "It helped me understand my symptoms better."
+        ],
+      ],
+    );
+  }
+
+  static Widget buildHealthWorkersTable() {
+    return _buildTableCard(
+      title: "TB DOTS Health Workers",
+      minWidth: 700,
+      headers: ["Name", "Designation", "Facility", "Applications", "Status"],
+      rows: [
+        ["Fatima Noor", "Nurse", "Agdao Health Center", "4", "Pending"],
+        ["Ahmad Rizwan", "Doctor", "Buhangin Center", "2", "Pending"],
+        ["Amani Byte", "Nurse", "Calinan Health Center", "3", "Pending"],
+      ],
+    );
+  }
+
+  // Generic Table Card
   static Widget _buildTableCard({
     required String title,
     required List<String> headers,
@@ -331,18 +472,18 @@ class _AdminDashboardState extends State<AdminDashboard> {
     return Card(
       color: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 5,
+      elevation: 6,
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(18.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(title,
-                style: const TextStyle(
+                style: GoogleFonts.poppins(
                     fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                    color: Colors.redAccent)),
-            const SizedBox(height: 10),
+                    fontSize: 20,
+                    color: const Color.fromRGBO(255, 82, 82, 1))),
+            const SizedBox(height: 14),
             Expanded(
               child: SingleChildScrollView(
                 scrollDirection: Axis.vertical,
@@ -368,12 +509,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
                           children: headers
                               .map(
                                 (h) => Padding(
-                                  padding: const EdgeInsets.all(8.0),
+                                  padding: const EdgeInsets.all(10.0),
                                   child: Center(
                                     child: Text(
                                       h,
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
+                                      style: GoogleFonts.poppins(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 15,
                                           color: Colors.redAccent),
                                     ),
                                   ),
@@ -392,11 +534,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
                             children: row
                                 .map(
                                   (cell) => Padding(
-                                    padding: const EdgeInsets.all(8.0),
+                                    padding: const EdgeInsets.all(10.0),
                                     child: Center(
                                       child: Text(
                                         cell,
-                                        style: const TextStyle(fontSize: 14),
+                                        style: GoogleFonts.poppins(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w400),
                                       ),
                                     ),
                                   ),
@@ -414,38 +558,5 @@ class _AdminDashboardState extends State<AdminDashboard> {
         ),
       ),
     );
-  }
-}
-
-// 👉 Dummy Pages
-class HomePage extends StatelessWidget {
-  const HomePage({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(body: Center(child: Text("Home Page")));
-  }
-}
-
-class PatientsPage extends StatelessWidget {
-  const PatientsPage({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(body: Center(child: Text("Patients Page")));
-  }
-}
-
-class DoctorsPage extends StatelessWidget {
-  const DoctorsPage({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(body: Center(child: Text("Doctors Page")));
-  }
-}
-
-class SettingsPage extends StatelessWidget {
-  const SettingsPage({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(body: Center(child: Text("Settings Page")));
   }
 }

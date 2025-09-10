@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:tb_frontend/patient/doctorviewpage.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:tb_frontend/models/doctor.dart';
+import 'package:tb_frontend/patient/pviewdoctor.dart';
 
 class Pdoclist extends StatefulWidget {
   const Pdoclist({super.key});
@@ -10,52 +12,19 @@ class Pdoclist extends StatefulWidget {
 
 class _PdoclistState extends State<Pdoclist> {
   final TextEditingController _searchController = TextEditingController();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   String _searchQuery = "";
 
-  final List<Map<String, dynamic>> doctors = [
-    {
-      "name": "Dr. Zubaear Rahim",
-      "specialty": "MD, Pulmonologist",
-      "location": "Davao Doctors Hospital",
-      "image": "assets/images/doc1.png",
-    },
-    {
-      "name": "Dr. Arlyn Santos",
-      "specialty": "MD, Pulmonologist",
-      "location": "Chest Center",
-      "image": "assets/images/doc2.png",
-    },
-    {
-      "name": "Dr. Miguel Rosales",
-      "specialty": "MD, Pulmonologist",
-      "location": "Talomo South Health Center",
-      "image": "assets/images/doc3.png",
-    },
-    {
-      "name": "Dr. Lianne Ortega",
-      "specialty": "MD, Pulmonologist",
-      "location": "Southern Philippines Medical Center",
-      "image": "assets/images/doc2.png",
-    },
-    {
-      "name": "Dr. Carlos Buenafe",
-      "specialty": "MD, Pulmonologist",
-      "location": "Southern Philippines Medical Center",
-      "image": "assets/images/doc3.png",
-    },
-  ];
+  Stream<List<Doctor>> _getDoctors() {
+    return _firestore.collection('doctors').snapshots().map((snapshot) =>
+        snapshot.docs.map((doc) => Doctor.fromFirestore(doc)).toList());
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Filter doctors list by search query
-    final filteredDoctors = doctors.where((doc) {
-      final name = doc['name'].toString().toLowerCase();
-      return name.contains(_searchQuery.toLowerCase());
-    }).toList();
-
     return Scaffold(
       backgroundColor: const Color(0xFFF2F3F5),
-      body: SafeArea(   // ✅ FIX: Move SafeArea here
+      body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           child: Column(
@@ -98,110 +67,113 @@ class _PdoclistState extends State<Pdoclist> {
                         ],
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _searchController,
-                              onChanged: (value) {
-                                setState(() {
-                                  _searchQuery = value;
-                                });
-                              },
-                              decoration: const InputDecoration(
-                                hintText: "Search a doctor",
-                                border: InputBorder.none,
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.search, color: Colors.pink),
-                            onPressed: () {
-                              setState(() {
-                                _searchQuery = _searchController.text;
-                              });
-                            },
-                          ),
-                        ],
+                      child: TextField(
+                        controller: _searchController,
+                        onChanged: (value) =>
+                            setState(() => _searchQuery = value),
+                        decoration: const InputDecoration(
+                          hintText: 'Search Doctor',
+                          border: InputBorder.none,
+                          suffixIcon: Icon(Icons.search),
+                        ),
                       ),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 20),
+
+              // Title
               const Text(
-                "Available Doctors",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                'Available Doctors',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-              const SizedBox(height: 10),
-              // Dynamic list of doctors
-              filteredDoctors.isNotEmpty
-                  ? ListView.builder(
-                      itemCount: filteredDoctors.length,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemBuilder: (context, index) {
-                        final doc = filteredDoctors[index];
-                        return DoctorCard(
-                          image: doc['image'],
-                          name: doc['name'],
-                          specialty: doc['specialty'],
-                          location: doc['location'],
-                        );
-                      },
-                    )
-                  : const Text(
-                      "No doctors found.",
-                      style: TextStyle(color: Colors.grey),
-                    ),
+              const SizedBox(height: 16),
+
+              // List of doctor cards
+              StreamBuilder<List<Doctor>>(
+                stream: _getDoctors(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Text('Error: ${snapshot.error}'),
+                    );
+                  }
+
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(),
+                    );
+                  }
+
+                  final doctors = snapshot.data ?? [];
+                  final filteredDoctors = doctors.where((doc) {
+                    final name = doc.name.toLowerCase();
+                    return name.contains(_searchQuery.toLowerCase());
+                  }).toList();
+
+                  if (filteredDoctors.isEmpty) {
+                    return const Center(
+                      child: Text('No doctors found'),
+                    );
+                  }
+
+                  return ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: filteredDoctors.length,
+                    itemBuilder: (context, index) {
+                      final doctor = filteredDoctors[index];
+                      return DoctorCard(doctor: doctor);
+                    },
+                  );
+                },
+              ),
             ],
           ),
         ),
       ),
-      // Floating button
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 25),
-        child: SizedBox(
-          width: 160,
-          height: 50,
-          child: FloatingActionButton.extended(
-            onPressed: () {
-              // Add your Map View action here
-            },
-            backgroundColor: Colors.redAccent,
-            icon: const Icon(Icons.map, color: Colors.white),
-            label: const Text(
-              "Map View",
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-        ),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 }
 
 class DoctorCard extends StatelessWidget {
-  final String image;
-  final String name;
-  final String specialty;
-  final String location;
+  final Doctor doctor;
 
   const DoctorCard({
     super.key,
-    required this.image,
-    required this.name,
-    required this.specialty,
-    required this.location,
+    required this.doctor,
   });
+
+  Widget _doctorPlaceholder(String name) {
+    final initials = name.isNotEmpty
+        ? name.trim().split(' ').map((e) => e[0]).take(2).join().toUpperCase()
+        : '?';
+
+    return Container(
+      color: Colors.redAccent.withOpacity(0.1),
+      child: Center(
+        child: Text(
+          initials,
+          style: const TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Colors.redAccent,
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () => Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => const DoctorViewPage()),
+        MaterialPageRoute(builder: (context) => PViewDoctor(doctor: doctor)),
       ),
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
@@ -227,10 +199,20 @@ class DoctorCard extends StatelessWidget {
                   height: 100,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(10),
-                    image: DecorationImage(
-                      image: AssetImage(image),
-                      fit: BoxFit.cover,
-                    ),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(9),
+                    child: doctor.imageUrl.isNotEmpty &&
+                            !doctor.imageUrl.startsWith('assets/')
+                        ? Image.network(
+                            doctor.imageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return _doctorPlaceholder(doctor.name);
+                            },
+                          )
+                        : _doctorPlaceholder(doctor.name),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -239,11 +221,12 @@ class DoctorCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(name,
+                      Text(doctor.name,
                           style: const TextStyle(
                               fontWeight: FontWeight.bold, fontSize: 18)),
                       const SizedBox(height: 4),
-                      Text(specialty, style: const TextStyle(fontSize: 14)),
+                      Text(doctor.specialization,
+                          style: const TextStyle(fontSize: 14)),
                       const SizedBox(height: 6),
                       Row(
                         children: [
@@ -251,14 +234,43 @@ class DoctorCard extends StatelessWidget {
                               size: 17, color: Colors.blue),
                           const SizedBox(width: 4),
                           Expanded(
-                            child: Text(
-                              location,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  fontSize: 13, color: Colors.blue),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  doctor.facility, // Facility name
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.blue,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                if (doctor.facilityAddress.isNotEmpty)
+                                  Text(
+                                    doctor.facilityAddress, // Facility address
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: List.generate(5, (index) {
+                          return Icon(
+                            index < doctor.rating.floor()
+                                ? Icons.star
+                                : Icons.star_border,
+                            size: 16,
+                            color: Colors.orange,
+                          );
+                        }),
                       ),
                     ],
                   ),
@@ -274,19 +286,19 @@ class DoctorCard extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (context) => const DoctorViewPage()),
+                      builder: (context) => PViewDoctor(doctor: doctor),
+                    ),
                   );
                 },
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: Colors.pink),
                   shape: RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(30), // oval edges
+                    borderRadius: BorderRadius.circular(30),
                   ),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
                 child: const Text(
-                  "Check Details",
+                  "View Details",
                   style: TextStyle(
                       color: Colors.pink, fontWeight: FontWeight.bold),
                 ),

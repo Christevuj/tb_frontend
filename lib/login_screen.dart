@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
-import 'package:tb_frontend/patient/pmenu.dart';
-import 'package:tb_frontend/accounts/patient_create1.dart';
-import 'package:tb_frontend/admin/admin_login.dart';
-import 'package:tb_frontend/doctor/dmenu.dart';
-import 'package:tb_frontend/healthcare/hmenu.dart';
 import 'package:tb_frontend/guest/gmenu.dart';
+import 'package:tb_frontend/accounts/patient_create1.dart';
+import 'package:flutter/foundation.dart';
+import 'package:tb_frontend/admin/admin_login.dart';
+import 'package:tb_frontend/patient/pmenu.dart'; // ✅ Patient wrapper
+import 'package:tb_frontend/doctor/dmenu.dart'; // ✅ Doctor wrapper
+import 'package:tb_frontend/healthcare/hmenu.dart'; // ✅ Health Worker wrapper
 
 class TBisitaLoginScreen extends StatelessWidget {
   const TBisitaLoginScreen({super.key});
@@ -59,31 +59,83 @@ class TBisitaLoginScreen extends StatelessWidget {
           password: passwordController.text.trim(),
         );
 
-        final userDoc = await FirebaseFirestore.instance
-            .collection("users")
-            .doc(userCredential.user!.uid)
-            .get();
+        final uid = userCredential.user!.uid;
 
-        Widget homePage;
+        // Check "users" collection first
+        final userDoc =
+            await FirebaseFirestore.instance.collection("users").doc(uid).get();
 
-        if (userDoc.exists && userDoc.data()?["role"] != null) {
-          final role = userDoc.data()?["role"];
+        if (userDoc.exists) {
+          final data = userDoc.data();
+          final role = data?['role'] ?? 'patient'; // default role
 
-          if (role == "doctor") {
-            homePage = const DoctorMainWrapper();
-          } else if (role == "healthworker") {
-            homePage = const HealthMainWrapper();
+          // Navigate based on role
+          if (role == 'patient') {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(
+                  builder: (context) =>
+                      const PatientMainWrapper(initialIndex: 0)),
+              (route) => false,
+            );
+          } else if (role == 'doctor') {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(
+                  builder: (context) =>
+                      const DoctorMainWrapper(initialIndex: 0)),
+              (route) => false,
+            );
+          } else if (role == 'admin') {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (context) => const AdminLogin()),
+              (route) => false,
+            );
           } else {
-            homePage = const PatientMainWrapper();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Unknown role")),
+            );
           }
-        } else {
-          homePage = const PatientMainWrapper();
+          return;
         }
 
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => homePage),
-          (route) => false,
+        // Else check "doctors" collection
+        // Check doctors collection
+        final doctorDoc = await FirebaseFirestore.instance
+            .collection("doctors")
+            .doc(uid)
+            .get();
+
+        if (doctorDoc.exists) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+                builder: (context) => const DoctorMainWrapper(initialIndex: 0)),
+            (route) => false,
+          );
+          return;
+        }
+
+        // Check healthcare collection
+        final healthcareDoc = await FirebaseFirestore.instance
+            .collection("healthcare")
+            .doc(uid)
+            .get();
+
+        if (healthcareDoc.exists) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+                builder: (context) => const HealthMainWrapper(initialIndex: 0)),
+            (route) => false,
+          );
+          return;
+        }
+
+        // If no collection has this UID
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("No account found in records.")),
         );
       } on FirebaseAuthException catch (e) {
         emailError.value = true;
@@ -120,11 +172,12 @@ class TBisitaLoginScreen extends StatelessWidget {
                   adminTapCount++;
                   if (adminTapCount >= 5) {
                     adminTapCount = 0;
-                    Navigator.push(
+                    Navigator.pushAndRemoveUntil(
                       context,
                       MaterialPageRoute(
                         builder: (context) => const AdminLogin(),
                       ),
+                      (route) => false,
                     );
                   }
                 },
@@ -143,9 +196,8 @@ class TBisitaLoginScreen extends StatelessWidget {
                   controller: emailController,
                   decoration: InputDecoration(
                     labelText: 'Email address',
-                    labelStyle: TextStyle(
-                      color: isError ? Colors.red : Colors.grey,
-                    ),
+                    labelStyle:
+                        TextStyle(color: isError ? Colors.red : Colors.grey),
                     border: _border(isError),
                     focusedBorder: _border(isError),
                   ),
@@ -160,9 +212,8 @@ class TBisitaLoginScreen extends StatelessWidget {
                   obscureText: isObscure,
                   decoration: InputDecoration(
                     labelText: 'Password',
-                    labelStyle: TextStyle(
-                      color: isError ? Colors.red : Colors.grey,
-                    ),
+                    labelStyle:
+                        TextStyle(color: isError ? Colors.red : Colors.grey),
                     border: _border(isError),
                     focusedBorder: _border(isError),
                     suffixIcon: IconButton(
@@ -216,11 +267,11 @@ class TBisitaLoginScreen extends StatelessWidget {
               Center(
                 child: TextButton(
                   onPressed: () {
+                    // Directly navigate to guest mode without logout
                     Navigator.pushAndRemoveUntil(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const GuestMainWrapper(),
-                      ),
+                          builder: (context) => const GuestMainWrapper()),
                       (route) => false,
                     );
                   },
@@ -234,7 +285,7 @@ class TBisitaLoginScreen extends StatelessWidget {
               Center(
                 child: RichText(
                   text: TextSpan(
-                    text: "Don't have an account? ",
+                    text: 'Don’t have an account? ',
                     style: const TextStyle(color: Colors.black87),
                     children: [
                       TextSpan(
@@ -262,7 +313,7 @@ class TBisitaLoginScreen extends StatelessWidget {
   }
 }
 
-// Helper to listen to two ValueNotifiers
+// Helper for two ValueNotifiers
 class ValueListenableBuilder2<A, B> extends StatelessWidget {
   final ValueListenable<A> first;
   final ValueListenable<B> second;

@@ -1,9 +1,7 @@
-import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
 
 class GtbfacilityPage extends StatefulWidget {
   const GtbfacilityPage({super.key});
@@ -13,270 +11,180 @@ class GtbfacilityPage extends StatefulWidget {
 }
 
 class _GtbfacilityPageState extends State<GtbfacilityPage> {
-  final Completer<GoogleMapController> _controller = Completer();
-  LatLng? _currentLocation;
-  final Map<MarkerId, Marker> _markers = {};
-  List<LatLng> _routeCoords = [];
-  Map<String, dynamic>? _selectedFacility;
+  GoogleMapController? _mapController;
+  Position? _currentPosition;
+  final Set<Marker> _markers = {};
+  bool _isLoading = true;
 
-  final List<Map<String, String>> facilities = [
+  // Davao City center coordinates
+  final LatLng _davaoCenter = const LatLng(7.0707, 125.6087);
+
+  // TB DOTS Facilities data
+  final List<Map<String, dynamic>> _facilities = [
     {
-      "name": "AGDAO",
-      "address":
-          "Agdao Public Market Corner Lapu-Lapu & C. Bangoy St., Agdao, Davao City",
-      "email": "agdaohealthcenter@gmail.com"
+      "name": "Southern Philippines Medical Center",
+      "address": "JP Laurel Ave, Bajada, Davao City",
+      "position": const LatLng(7.0907, 125.6126),
     },
     {
-      "name": "BAGUIO (MALAGOS HC)",
-      "address": "Purok 2A Malagos, Baguio District, Davao City",
-      "email": "baguiodistricthealthcenter@gmail.com"
+      "name": "Davao City Health Office",
+      "address": "Pichon Street, Davao City",
+      "position": const LatLng(7.0722, 125.6127),
     },
     {
-      "name": "BUHANGIN (NHA BUHANGIN HC)",
-      "address": "NHA Chapet St., Buhangin, Davao City",
-      "email": "buhanginhealthdistrict01@gmail.com"
+      "name": "Talomo District Health Center",
+      "address": "Talomo, Davao City",
+      "position": const LatLng(7.0503, 125.5989),
     },
     {
-      "name": "BUNAWAN",
-      "address": "Daang Maharlika Highway, Bunawan, Davao City",
-      "email": "bunawandistrict2020@gmail.com"
+      "name": "Buhangin District Health Center",
+      "address": "Buhangin, Davao City",
+      "position": const LatLng(7.1044, 125.6297),
     },
     {
-      "name": "CALINAN",
-      "address": "P34, Aurora St., Calinan, Davao City",
-      "email": "calinanruralhealthcenter@gmail.com"
+      "name": "Toril District Health Center",
+      "address": "Toril, Davao City",
+      "position": const LatLng(7.0247, 125.5019),
     },
-    {
-      "name": "DAVAO CHEST CENTER",
-      "address": "Villa Abrille St., Brgy 30-C, Davao City",
-      "email": "davaochestcenter2021@gmail.com"
-    },
-    {
-      "name": "DISTRICT A (TOMAS CLAUDIO HC)",
-      "address": "Camus Ext., Corner Quirino St., Davao City",
-      "email": "tomasclaudiohc.davao@gmail.com"
-    },
-    {
-      "name": "DISTRICT B (EL RIO HC)",
-      "address": "Garcia Heights, Bajada, Davao City",
-      "email": "bdistrict20@gmail.com"
-    },
-    {
-      "name": "DISTICT C (MINIFOREST HC)",
-      "address": "Brgy 23-C, Quezon Boulevard, Davao City",
-      "email": "districtc2020@gmail.com"
-    },
-    {
-      "name": "DISTRICT D (JACINTO HC)",
-      "address": "Emilio Jacinto St., Davao City",
-      "email": "healthcenterjacinto@gmail.com"
-    },
-    {
-      "name": "MARILOG (MARAHAN HC)",
-      "address": "Sitio Marahan, Brgy. Marilog, Davao City",
-      "email": "dmarilog@gmail.com"
-    },
-    {
-      "name": "PAQUIBATO (MALABOG HC)",
-      "address": "Brgy Malabog, Davao City",
-      "email": ""
-    },
-    {
-      "name": "SASA",
-      "address": "Bangoy Km 9,  Sasa, Davao City",
-      "email": "sasadistrict@gmail.com"
-    },
-    {
-      "name": "TALOMO CENTRAL (GSIS HC)",
-      "address": "GSIS Village, Matina, Davao City",
-      "email": "talcencho@gmail.com"
-    },
-    {
-      "name": "TALOMO NORTH (SIR HC)",
-      "address":
-          "Daang Patnubay St., SIR Ph-1 Sandawa Road, Brgy., 76-A, Bucana, Matina, Davao City",
-      "email": "northtalomo2019@gmail.com"
-    },
-    {
-      "name": "TALOMO SOUTH (PUAN HC)",
-      "address": "Puan, Talomo, Davao City",
-      "email": "talomo.south@gmail.com"
-    },
-    {
-      "name": "TORIL A",
-      "address": "Agton St., Toril, Davao City",
-      "email": "torilhealthcenter2@gmail.com"
-    },
-    {
-      "name": "TORIL B",
-      "address": "Juan Dela Cruz St., Daliao, Toril, Davao City",
-      "email": "chotorilb@gmail.com"
-    },
-    {
-      "name": "TUGBOK",
-      "address": "Sampaguita St., Mintal, Tugbok District, Davao City",
-      "email": "tugbokruralhealthunit@gmail.com"
-    }
   ];
 
   @override
   void initState() {
     super.initState();
     _getCurrentLocation();
-  }
-
-  Future<void> _getCurrentLocation() async {
-    LocationPermission permission = await Geolocator.requestPermission();
-    if (permission == LocationPermission.denied ||
-        permission == LocationPermission.deniedForever) {
-      return;
-    }
-
-    Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high);
-    setState(() {
-      _currentLocation = LatLng(position.latitude, position.longitude);
-    });
-
     _addFacilityMarkers();
   }
 
   void _addFacilityMarkers() {
-    for (var facility in facilities) {
-      final markerId = MarkerId(facility["name"]!);
-      final marker = Marker(
-        markerId: markerId,
-        position: _getRandomLatLng(), // Replace with actual coordinates later
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-        onTap: () {
-          setState(() {
-            _selectedFacility = facility;
-          });
-        },
-      );
-      _markers[markerId] = marker;
-    }
-    setState(() {});
-  }
-
-  Future<void> _getDirections(LatLng destination) async {
-    final apiKey = "YOUR_GOOGLE_MAPS_API_KEY";
-    final origin =
-        "${_currentLocation!.latitude},${_currentLocation!.longitude}";
-    final dest = "${destination.latitude},${destination.longitude}";
-    final url =
-        "https://maps.googleapis.com/maps/api/directions/json?origin=$origin&destination=$dest&key=$apiKey";
-
-    final response = await http.get(Uri.parse(url));
-    final data = json.decode(response.body);
-
-    if (data["routes"].isNotEmpty) {
-      final points = data["routes"][0]["overview_polyline"]["points"];
-      _routeCoords = _decodePolyline(points);
-      setState(() {});
+    for (var facility in _facilities) {
+      setState(() {
+        _markers.add(
+          Marker(
+            markerId: MarkerId(facility['name']),
+            position: facility['position'],
+            infoWindow: InfoWindow(
+              title: facility['name'],
+              snippet: facility['address'],
+            ),
+            icon:
+                BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+          ),
+        );
+      });
     }
   }
 
-  List<LatLng> _decodePolyline(String encoded) {
-    List<LatLng> poly = [];
-    int index = 0, len = encoded.length;
-    int lat = 0, lng = 0;
+  Future<void> _getCurrentLocation() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        setState(() => _isLoading = false);
+        return;
+      }
 
-    while (index < len) {
-      int b, shift = 0, result = 0;
-      do {
-        b = encoded.codeUnitAt(index++) - 63;
-        result |= (b & 0x1f) << shift;
-        shift += 5;
-      } while (b >= 0x20);
-      int dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
-      lat += dlat;
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          setState(() => _isLoading = false);
+          return;
+        }
+      }
 
-      shift = 0;
-      result = 0;
-      do {
-        b = encoded.codeUnitAt(index++) - 63;
-        result |= (b & 0x1f) << shift;
-        shift += 5;
-      } while (b >= 0x20);
-      int dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
-      lng += dlng;
-
-      poly.add(LatLng(lat / 1E5, lng / 1E5));
+      Position position = await Geolocator.getCurrentPosition();
+      if (mounted) {
+        setState(() {
+          _currentPosition = position;
+          _markers.add(
+            Marker(
+              markerId: const MarkerId('currentLocation'),
+              position: LatLng(position.latitude, position.longitude),
+              infoWindow: const InfoWindow(title: 'Your Location'),
+              icon: BitmapDescriptor.defaultMarkerWithHue(
+                  BitmapDescriptor.hueBlue),
+            ),
+          );
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error getting location: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
-    return poly;
-  }
-
-  LatLng _getRandomLatLng() {
-    // Placeholder until you put actual coordinates
-    return LatLng(7.0731, 125.6136);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _currentLocation == null
+      appBar: AppBar(
+        title: const Text(
+          'TB DOTS Facilities',
+          style: TextStyle(color: Colors.white),
+        ),
+        backgroundColor: Colors.redAccent,
+      ),
+      body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Stack(
-              children: [
-                GoogleMap(
-                  onMapCreated: (controller) =>
-                      _controller.complete(controller),
-                  initialCameraPosition: CameraPosition(
-                    target: _currentLocation!,
-                    zoom: 14,
-                  ),
-                  markers: Set<Marker>.of(_markers.values),
-                  polylines: {
-                    Polyline(
-                      polylineId: const PolylineId('route'),
-                      points: _routeCoords,
-                      color: Colors.blue,
-                      width: 5,
-                    )
-                  },
-                  myLocationEnabled: true,
-                ),
-                if (_selectedFacility != null)
-                  Align(
-                    alignment: Alignment.bottomCenter,
-                    child: Card(
-                      margin: const EdgeInsets.all(10),
-                      child: Padding(
-                        padding: const EdgeInsets.all(10),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(_selectedFacility!["name"]!,
-                                style: TextStyle(fontWeight: FontWeight.bold)),
-                            Text(_selectedFacility!["address"]!),
-                            Text(_selectedFacility!["email"] ?? "No email"),
-                            Row(
-                              children: [
-                                ElevatedButton(
-                                  onPressed: () {
-                                    // Replace with actual lat/lng
-                                    _getDirections(LatLng(7.0731, 125.6136));
-                                  },
-                                  child: Text("Directions"),
-                                ),
-                                const SizedBox(width: 10),
-                                ElevatedButton(
-                                  onPressed: () {
-                                    Navigator.pushNamed(
-                                        context, '/ghealthworkers');
-                                  },
-                                  child: Text("Contact"),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
+          : kIsWeb
+              ? Container(
+                  // Add a container for web
+                  child: GoogleMap(
+                    initialCameraPosition: CameraPosition(
+                      target: _currentPosition != null
+                          ? LatLng(
+                              _currentPosition!.latitude,
+                              _currentPosition!.longitude,
+                            )
+                          : _davaoCenter,
+                      zoom: 12,
                     ),
-                  )
-              ],
-            ),
+                    markers: _markers,
+                    mapType: MapType.normal,
+                    myLocationEnabled: false, // Disable for web
+                    myLocationButtonEnabled: false, // Disable for web
+                    zoomControlsEnabled: true,
+                    mapToolbarEnabled: true,
+                    trafficEnabled: true,
+                    onMapCreated: (GoogleMapController controller) {
+                      _mapController = controller;
+                      // Force a rebuild after map is created to ensure markers are added properly
+                      if (mounted) setState(() {});
+                    },
+                  ),
+                )
+              : GoogleMap(
+                  initialCameraPosition: CameraPosition(
+                    target: _currentPosition != null
+                        ? LatLng(
+                            _currentPosition!.latitude,
+                            _currentPosition!.longitude,
+                          )
+                        : _davaoCenter,
+                    zoom: 12,
+                  ),
+                  markers: _markers,
+                  mapType: MapType.normal,
+                  myLocationEnabled: true,
+                  myLocationButtonEnabled: true,
+                  zoomControlsEnabled: true,
+                  mapToolbarEnabled: true,
+                  trafficEnabled: true,
+                  buildingsEnabled: true,
+                  compassEnabled: true,
+                  indoorViewEnabled: true,
+                  onMapCreated: (GoogleMapController controller) {
+                    _mapController = controller;
+                    if (mounted) setState(() {});
+                  },
+                ),
     );
+  }
+
+  @override
+  void dispose() {
+    _mapController?.dispose();
+    super.dispose();
   }
 }

@@ -1,14 +1,59 @@
 import 'package:flutter/material.dart';
-import 'pbooking1.dart'; // Booking page
-import 'pdoclist.dart'; // Doctor list page
+import 'package:tb_frontend/models/doctor.dart';
+import 'package:tb_frontend/patient/pbooking1.dart';
 
 class DoctorViewPage extends StatelessWidget {
-  const DoctorViewPage({super.key});
+  final Doctor doctor;
+
+  const DoctorViewPage({
+    super.key,
+    required this.doctor,
+  });
+
+  Widget _doctorPlaceholder(String name) {
+    final initials = name.isNotEmpty
+        ? name.trim().split(' ').map((e) => e[0]).take(2).join().toUpperCase()
+        : '?';
+
+    return Container(
+      color: Colors.redAccent.withOpacity(0.1),
+      child: Center(
+        child: Text(
+          initials,
+          style: const TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Colors.redAccent,
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF2F3F5),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => Pbooking1(doctor: doctor),
+            ),
+          );
+        },
+        backgroundColor: Colors.black,
+        icon: const Icon(Icons.calendar_today, color: Colors.white),
+        label: const Text(
+          'Book Appointment',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       body: Column(
         children: [
           // Header
@@ -33,13 +78,7 @@ class DoctorViewPage extends StatelessWidget {
                   child: IconButton(
                     icon:
                         const Icon(Icons.arrow_back, color: Color(0xE0F44336)),
-                    onPressed: () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const Pdoclist()),
-                      );
-                    },
+                    onPressed: () => Navigator.pop(context),
                   ),
                 ),
                 const Text(
@@ -76,41 +115,60 @@ class DoctorViewPage extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Image.asset(
-                      'assets/images/doc3.png',
-                      width: 60,
-                      height: 60,
-                      fit: BoxFit.cover,
+                  Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(9),
+                      child: doctor.imageUrl.isNotEmpty &&
+                              !doctor.imageUrl.startsWith('assets/')
+                          ? Image.network(
+                              doctor.imageUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return _doctorPlaceholder(doctor.name);
+                              },
+                            )
+                          : _doctorPlaceholder(doctor.name),
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Dr. Miguel Rosales',
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 16)),
-                        SizedBox(height: 4),
-                        Text('MD, Pulmonologist',
-                            style: TextStyle(fontSize: 13)),
-                        SizedBox(height: 2),
-                        Row(
-                          children: [
-                            Icon(Icons.location_on,
-                                size: 14, color: Colors.grey),
-                            SizedBox(width: 2),
-                            Expanded(
-                              child: Text(
-                                'Talomo South Health Center',
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(fontSize: 12),
-                              ),
-                            ),
-                          ],
+                        Text(
+                          doctor.name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
                         ),
+                        const SizedBox(height: 4),
+                        Text(
+                          doctor.specialization,
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                        const SizedBox(height: 2),
+                        if (doctor.facility.isNotEmpty)
+                          Row(
+                            children: [
+                              Icon(Icons.location_on,
+                                  size: 14, color: Colors.grey),
+                              SizedBox(width: 2),
+                              Expanded(
+                                child: Text(
+                                  'Talomo South Health Center',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                              ),
+                            ],
+                          ),
                       ],
                     ),
                   ),
@@ -127,8 +185,7 @@ class DoctorViewPage extends StatelessWidget {
                           children: [
                             Icon(Icons.star, size: 14, color: Colors.white),
                             SizedBox(width: 2),
-                            Text('4.2',
-                                style: TextStyle(color: Colors.white)),
+                            Text('4.2', style: TextStyle(color: Colors.white)),
                           ],
                         ),
                       ),
@@ -235,27 +292,9 @@ class DoctorViewPage extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(height: 80), // Extra space so FAB doesn't overlap content
+          const SizedBox(height: 80), // Extra space for FAB
         ],
       ),
-
-      // Floating "Book Appointment" Button
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const Pbooking1()),
-          );
-        },
-        backgroundColor: Colors.black, // Black background
-        elevation: 6, // Adds shadow
-        icon: const Icon(Icons.calendar_today, color: Colors.white),
-        label: const Text(
-          'Book Appointment',
-          style: TextStyle(color: Colors.white), // White text
-        ),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 }

@@ -4,6 +4,12 @@ import 'package:tb_frontend/guest/gappointment.dart';
 import 'package:tb_frontend/guest/gconsultant.dart';
 import 'package:tb_frontend/features/map/map_screen_enhanced.dart';
 
+// ✅ Import YouTube player
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+
+// PDF viewer screen (create file as shown below)
+import 'pdf_viewer_screen.dart';
+
 class GlandingPage extends StatefulWidget {
   const GlandingPage({super.key});
 
@@ -12,6 +18,31 @@ class GlandingPage extends StatefulWidget {
 }
 
 class _GlandingPageState extends State<GlandingPage> {
+  late YoutubePlayerController _youtubeController;
+
+  @override
+  void initState() {
+    super.initState();
+
+    const videoUrl =
+        "https://www.youtube.com/watch?v=VCPngZ5oxGI"; // DOH–USAID TBDOTS Commercial
+    final videoId = YoutubePlayer.convertUrlToId(videoUrl)!;
+
+    _youtubeController = YoutubePlayerController(
+      initialVideoId: videoId,
+      flags: const YoutubePlayerFlags(
+        autoPlay: false,
+        mute: false,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _youtubeController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -21,30 +52,13 @@ class _GlandingPageState extends State<GlandingPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ✅ Logo aligned to the left
+            // Logo
             Image.asset(
               "assets/images/tbisita_logo2.png",
               height: 44,
               alignment: Alignment.centerLeft,
             ),
             const SizedBox(height: 20),
-
-            // Search bar
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const TextField(
-                decoration: InputDecoration(
-                  icon: Icon(Icons.search),
-                  hintText: 'Search a Doctor',
-                  border: InputBorder.none,
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
 
             // Quick Actions
             const Text(
@@ -78,21 +92,92 @@ class _GlandingPageState extends State<GlandingPage> {
 
             const SizedBox(height: 24),
 
-            // Top Doctors (Removed "View All")
+            // --- EMBEDDED YOUTUBE VIDEO ---
             const Text(
-              'Top Doctors',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              'TB DOTS Commercial',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
 
-            // Doctor List
-            SizedBox(
-              height: 440,
-              child: ListView.builder(
-                itemCount: 5,
-                itemBuilder: (context, index) => _doctorCard(context),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: YoutubePlayer(
+                controller: _youtubeController,
+                showVideoProgressIndicator: true,
               ),
             ),
+
+            // ✅ Disclaimer below the video
+            const SizedBox(height: 8),
+            const Text(
+              "Video content © Department of Health (DOH) Philippines & USAID.",
+              style: TextStyle(
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
+                color: Colors.black54,
+              ),
+              textAlign: TextAlign.center,
+            ),
+
+            const SizedBox(height: 24),
+
+            // PDF preview + open button
+            const Text(
+              'Guidelines (NTP MOP - 6th Edition)',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Card(
+              elevation: 2,
+              color: Colors.white, // ✅ White background
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: ListTile(
+                leading: const Icon(Icons.picture_as_pdf,
+                    size: 32, color: Colors.red),
+                title: const Text(
+                  'NTP_MOP_6TH_EDITION.pdf',
+                  style: TextStyle(fontSize: 14), // ✅ Smaller font
+                  overflow: TextOverflow.ellipsis, // ✅ Single line only
+                ),
+                trailing: ElevatedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const PdfViewerScreen(
+                            assetPath:
+                                'assets/documents/NTP_MOP_6TH_EDITION.pdf'),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.grey, // ✅ Gray button
+                    foregroundColor: Colors.white, // ✅ White text
+                  ),
+                  child: const Text('Open PDF'),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Image: guidelines.png (directly below PDF, no title text)
+            Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.asset(
+                  'assets/images/guidelines.png',
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 32),
           ],
         ),
       ),
@@ -128,86 +213,6 @@ class _GlandingPageState extends State<GlandingPage> {
             label,
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 12),
-          ),
-        ],
-      ),
-    );
-  }
-
-  static Widget _doctorCard(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.shade300,
-            blurRadius: 6,
-            offset: const Offset(2, 2),
-          )
-        ],
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Image.asset(
-              'assets/images/doc1.png',
-              height: 80,
-              width: 80,
-              fit: BoxFit.cover,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text(
-                  'Dr. Miguel Rosales',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'MD, Pulmonologist',
-                  style: TextStyle(color: Colors.black54, fontSize: 13),
-                ),
-                Text(
-                  'Talomo South Health Center',
-                  style: TextStyle(color: Colors.black45, fontSize: 12),
-                ),
-                SizedBox(height: 6),
-                Row(
-                  children: [
-                    Icon(Icons.star, size: 16, color: Colors.orange),
-                    Icon(Icons.star, size: 16, color: Colors.orange),
-                    Icon(Icons.star, size: 16, color: Colors.orange),
-                    Icon(Icons.star, size: 16, color: Colors.orange),
-                    Icon(Icons.star_border, size: 16, color: Colors.orange),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.black,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
-            ),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const GViewDoctor()),
-              );
-            },
-            child: const Text(
-              'View Details',
-              style: TextStyle(color: Colors.white, fontSize: 12),
-            ),
           ),
         ],
       ),

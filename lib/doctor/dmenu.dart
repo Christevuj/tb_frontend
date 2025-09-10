@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:tb_frontend/doctor/dlanding_page.dart';
 import 'package:tb_frontend/doctor/dappointment.dart';
-import 'package:tb_frontend/doctor/dmessages.dart';
+// ❌ remove dmessages import
 import 'package:tb_frontend/doctor/daccount.dart';
+
+// ✅ import the shared UserListScreen
+import 'package:tb_frontend/chat_screens/user_list_screen.dart';
 
 class DoctorMainWrapper extends StatefulWidget {
   final int initialIndex;
@@ -18,7 +21,7 @@ class _DoctorMainWrapperState extends State<DoctorMainWrapper> {
   final List<Widget> _pages = const [
     Dlandingpage(),
     Dappointment(),
-    Dmessages(),
+    UserListScreen(), // ✅ replaced Dmessages with UserListScreen
     Daccount(),
   ];
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
+import '../services/chat_service.dart'; // your ChatService
 
 class MyAppointmentPage extends StatefulWidget {
   const MyAppointmentPage({super.key});
@@ -9,6 +10,11 @@ class MyAppointmentPage extends StatefulWidget {
 }
 
 class _MyAppointmentPageState extends State<MyAppointmentPage> {
+  final ChatService _chatService = ChatService();
+
+  // TODO: replace this with FirebaseAuth.instance.currentUser!.uid when you add auth
+  final String currentUserId = "patient123";
+
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   CalendarFormat _calendarFormat = CalendarFormat.month;
@@ -16,17 +22,30 @@ class _MyAppointmentPageState extends State<MyAppointmentPage> {
   int _selectedYear = DateTime.now().year;
 
   final List<String> _months = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December"
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December"
   ];
   late String _selectedMonth;
 
-  final List<int> _years = List.generate(11, (index) => DateTime.now().year - 5 + index);
+  final List<int> _years =
+      List.generate(11, (index) => DateTime.now().year - 5 + index);
 
+  // Appointments (mock). Make sure doctorId exists in your doctors/users collection.
   final List<Map<String, dynamic>> _appointments = [
     {
       "date": DateTime.now(),
       "status": "Approved",
+      "doctorId": "doctor123",
       "doctorName": "Dr. Maria Santos",
       "facility": "Agdao TB DOTS",
       "experience": "10 years",
@@ -37,6 +56,7 @@ class _MyAppointmentPageState extends State<MyAppointmentPage> {
     {
       "date": DateTime.now().add(const Duration(days: 1)),
       "status": "Pending",
+      "doctorId": "doctor456",
       "doctorName": "Dr. Juan Dela Cruz",
       "facility": "Buhangin TB DOTS",
       "experience": "7 years",
@@ -93,26 +113,33 @@ class _MyAppointmentPageState extends State<MyAppointmentPage> {
                   ),
                   IconButton(
                     icon: const Icon(Icons.chat),
-                    onPressed: () => _showChatPopup(appointment["doctorName"]),
+                    onPressed: () => _showChatPopup(
+                      appointment["doctorId"],
+                      appointment["doctorName"],
+                    ),
                   ),
                 ],
               ),
               const Divider(),
-              Text("Doctor: ${appointment["doctorName"]}", style: const TextStyle(fontSize: 16)),
+              Text("Doctor: ${appointment["doctorName"]}",
+                  style: const TextStyle(fontSize: 16)),
               Text("TB Facility: ${appointment["facility"]}"),
               Text("Experience: ${appointment["experience"]}"),
               const SizedBox(height: 10),
-              const Text("Schedule:", style: TextStyle(fontWeight: FontWeight.bold)),
-              Text("${appointment["date"].toString().split(" ")[0]} at ${appointment["time"]}"),
+              const Text("Schedule:",
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              Text(
+                  "${appointment["date"].toString().split(" ")[0]} at ${appointment["time"]}"),
               const SizedBox(height: 10),
-              if (appointment["meetingLink"].isNotEmpty)
+              if ((appointment["meetingLink"] as String).isNotEmpty)
                 ElevatedButton.icon(
                   onPressed: () {},
                   icon: const Icon(Icons.video_call),
                   label: const Text("Join Meeting"),
                 ),
               const SizedBox(height: 10),
-              const Text("E-Prescription:", style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text("E-Prescription:",
+                  style: TextStyle(fontWeight: FontWeight.bold)),
               appointment["ePrescription"] != null
                   ? Text(appointment["ePrescription"])
                   : const Text("No e-prescription available yet."),
@@ -123,23 +150,63 @@ class _MyAppointmentPageState extends State<MyAppointmentPage> {
     );
   }
 
-  void _showChatPopup(String doctorName) {
+  // Chat popup integrated with ChatService
+  void _showChatPopup(String doctorId, String doctorName) {
     final TextEditingController messageController = TextEditingController();
+
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         title: Text("Message to $doctorName"),
         content: TextField(
           controller: messageController,
+          autofocus: true,
           decoration: const InputDecoration(hintText: "Type your message..."),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              messageController.dispose();
+              Navigator.pop(context);
+            },
             child: const Text("Cancel"),
           ),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () async {
+              final text = messageController.text.trim();
+              if (text.isEmpty) {
+                // nothing to send
+                return;
+              }
+
+              // Use ChatService.generateChatId and sendTextMessage
+              final chatId =
+                  _chatService.generateChatId(currentUserId, doctorId);
+
+              try {
+                await _chatService.sendTextMessage(
+                  senderId: currentUserId,
+                  receiverId: doctorId,
+                  text: text,
+                );
+
+                // optional: show confirmation
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Message sent')),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to send message: $e')),
+                  );
+                }
+              } finally {
+                messageController.dispose();
+                Navigator.pop(context);
+              }
+            },
             child: const Text("Send"),
           ),
         ],
@@ -157,7 +224,7 @@ class _MyAppointmentPageState extends State<MyAppointmentPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // 🔹 Header
+              // Header
               const Padding(
                 padding: EdgeInsets.fromLTRB(0, 20, 0, 8),
                 child: Center(
@@ -171,7 +238,8 @@ class _MyAppointmentPageState extends State<MyAppointmentPage> {
                   ),
                 ),
               ),
-              // Month & Year Header
+
+              // Month & Year pickers
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -179,16 +247,21 @@ class _MyAppointmentPageState extends State<MyAppointmentPage> {
                     children: [
                       DropdownButton<String>(
                         value: _selectedMonth,
-                        items: _months.map((month) => DropdownMenuItem(
-                          value: month,
-                          child: Text(month, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        )).toList(),
+                        items: _months
+                            .map((month) => DropdownMenuItem(
+                                  value: month,
+                                  child: Text(month,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold)),
+                                ))
+                            .toList(),
                         onChanged: (month) {
                           if (month != null) {
                             setState(() {
                               _selectedMonth = month;
                               final monthIndex = _months.indexOf(month) + 1;
-                              _focusedDay = DateTime(_selectedYear, monthIndex, 1);
+                              _focusedDay =
+                                  DateTime(_selectedYear, monthIndex, 1);
                             });
                           }
                         },
@@ -196,16 +269,22 @@ class _MyAppointmentPageState extends State<MyAppointmentPage> {
                       const SizedBox(width: 8),
                       DropdownButton<int>(
                         value: _selectedYear,
-                        items: _years.map((year) => DropdownMenuItem(
-                          value: year,
-                          child: Text(year.toString(), style: const TextStyle(fontWeight: FontWeight.bold)),
-                        )).toList(),
+                        items: _years
+                            .map((year) => DropdownMenuItem(
+                                  value: year,
+                                  child: Text(year.toString(),
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold)),
+                                ))
+                            .toList(),
                         onChanged: (year) {
                           if (year != null) {
                             setState(() {
                               _selectedYear = year;
-                              final monthIndex = _months.indexOf(_selectedMonth) + 1;
-                              _focusedDay = DateTime(_selectedYear, monthIndex, 1);
+                              final monthIndex =
+                                  _months.indexOf(_selectedMonth) + 1;
+                              _focusedDay =
+                                  DateTime(_selectedYear, monthIndex, 1);
                             });
                           }
                         },
@@ -225,7 +304,9 @@ class _MyAppointmentPageState extends State<MyAppointmentPage> {
                   ),
                 ],
               ),
+
               const SizedBox(height: 8),
+
               // Calendar
               Container(
                 decoration: BoxDecoration(
@@ -236,7 +317,7 @@ class _MyAppointmentPageState extends State<MyAppointmentPage> {
                   firstDay: DateTime.utc(2020, 1, 1),
                   lastDay: DateTime.utc(2030, 12, 31),
                   focusedDay: _focusedDay,
-                  calendarFormat: CalendarFormat.month,
+                  calendarFormat: _calendarFormat,
                   selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
                   onDaySelected: (selectedDay, focusedDay) {
                     setState(() {
@@ -244,7 +325,9 @@ class _MyAppointmentPageState extends State<MyAppointmentPage> {
                       _focusedDay = focusedDay;
                     });
                   },
-                  onFormatChanged: (_) {}, // disable changing format
+                  onFormatChanged: (format) {
+                    setState(() => _calendarFormat = format);
+                  },
                   onPageChanged: (focusedDay) {
                     setState(() {
                       _focusedDay = focusedDay;
@@ -254,29 +337,40 @@ class _MyAppointmentPageState extends State<MyAppointmentPage> {
                   },
                   headerVisible: false,
                   calendarStyle: const CalendarStyle(
-                    todayDecoration: BoxDecoration(color: Colors.green, shape: BoxShape.circle),
-                    selectedDecoration: BoxDecoration(color: Colors.blueAccent, shape: BoxShape.circle),
+                    todayDecoration: BoxDecoration(
+                        color: Colors.green, shape: BoxShape.circle),
+                    selectedDecoration: BoxDecoration(
+                        color: Colors.blueAccent, shape: BoxShape.circle),
                     outsideTextStyle: TextStyle(color: Colors.grey),
                     weekendTextStyle: TextStyle(color: Colors.redAccent),
                     defaultTextStyle: TextStyle(color: Colors.black),
                   ),
                   daysOfWeekStyle: const DaysOfWeekStyle(
-                    weekendStyle: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
-                    weekdayStyle: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+                    weekendStyle: TextStyle(
+                        color: Colors.redAccent, fontWeight: FontWeight.bold),
+                    weekdayStyle: TextStyle(
+                        color: Colors.black, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
+
               const SizedBox(height: 16),
+
               // Appointments list
               ..._appointments
-                  .where((a) => _selectedDay == null || isSameDay(a["date"], _selectedDay))
+                  .where((a) =>
+                      _selectedDay == null ||
+                      isSameDay(a["date"], _selectedDay))
                   .map((appointment) {
                 final date = appointment["date"] as DateTime;
-                final statusColor = appointment["status"] == "Approved" ? Colors.green : Colors.orange;
+                final statusColor = appointment["status"] == "Approved"
+                    ? Colors.green
+                    : Colors.orange;
                 return Card(
                   color: Colors.white,
                   margin: const EdgeInsets.symmetric(vertical: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                   elevation: 2,
                   child: InkWell(
                     borderRadius: BorderRadius.circular(12),
@@ -296,9 +390,13 @@ class _MyAppointmentPageState extends State<MyAppointmentPage> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text("${date.day}",
-                                    style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold)),
                                 Text(_monthName(date.month),
-                                    style: const TextStyle(color: Colors.white, fontSize: 12)),
+                                    style: const TextStyle(
+                                        color: Colors.white, fontSize: 12)),
                               ],
                             ),
                           ),
@@ -308,10 +406,16 @@ class _MyAppointmentPageState extends State<MyAppointmentPage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(appointment["doctorName"],
-                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue)),
-                                Text(appointment["facility"], style: const TextStyle(color: Colors.grey)),
+                                    style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.blue)),
+                                Text(appointment["facility"],
+                                    style: const TextStyle(color: Colors.grey)),
                                 Text(appointment["status"],
-                                    style: TextStyle(color: statusColor, fontWeight: FontWeight.bold)),
+                                    style: TextStyle(
+                                        color: statusColor,
+                                        fontWeight: FontWeight.bold)),
                               ],
                             ),
                           ),

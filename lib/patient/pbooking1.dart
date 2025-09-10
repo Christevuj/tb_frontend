@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import 'package:tb_frontend/patient/doctorviewpage.dart'; // ✅ Import DoctorViewPage
+import 'package:tb_frontend/models/doctor.dart';
 
 class Pbooking1 extends StatefulWidget {
-  const Pbooking1({super.key});
+  final Doctor doctor;
+
+  const Pbooking1({
+    super.key,
+    required this.doctor,
+  });
 
   @override
   State<Pbooking1> createState() => _Pbooking1State();
@@ -178,7 +183,8 @@ class _Pbooking1State extends State<Pbooking1> {
       backgroundColor: const Color(0xFFF2F3F5),
       body: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16), // ✅ Global margin
+          padding:
+              const EdgeInsets.symmetric(horizontal: 16), // ✅ Global margin
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -188,7 +194,7 @@ class _Pbooking1State extends State<Pbooking1> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Back Button (to DoctorViewPage ✅)
+                    // Back Button
                     Container(
                       decoration: BoxDecoration(
                         color: Colors.white,
@@ -204,13 +210,7 @@ class _Pbooking1State extends State<Pbooking1> {
                       child: IconButton(
                         icon: const Icon(Icons.arrow_back,
                             color: Color(0xE0F44336)),
-                        onPressed: () {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => const DoctorViewPage()),
-                          );
-                        },
+                        onPressed: () => Navigator.pop(context),
                       ),
                     ),
                     const Text(
@@ -260,8 +260,7 @@ class _Pbooking1State extends State<Pbooking1> {
                             ? 'Select date'
                             : '${_selectedDate!.month}/${_selectedDate!.day}/${_selectedDate!.year}',
                       ),
-                      const Icon(Icons.calendar_today,
-                          color: Colors.redAccent),
+                      const Icon(Icons.calendar_today, color: Colors.redAccent),
                     ],
                   ),
                 ),

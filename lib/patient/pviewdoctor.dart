@@ -1,12 +1,56 @@
 import 'package:flutter/material.dart';
+import 'package:tb_frontend/models/doctor.dart';
+import 'package:tb_frontend/patient/pbooking1.dart';
 
 class PViewDoctor extends StatelessWidget {
-  const PViewDoctor({super.key});
+  final Doctor doctor;
+
+  const PViewDoctor({super.key, required this.doctor});
+
+  Widget _doctorPlaceholder(String name) {
+    final initials = name.isNotEmpty
+        ? name.trim().split(' ').map((e) => e[0]).take(2).join().toUpperCase()
+        : '?';
+
+    return Container(
+      color: Colors.redAccent.withOpacity(0.1),
+      child: Center(
+        child: Text(
+          initials,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.redAccent,
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => Pbooking1(doctor: doctor),
+            ),
+          );
+        },
+        backgroundColor: Colors.black,
+        icon: const Icon(Icons.calendar_today, color: Colors.white),
+        label: const Text(
+          'Book Appointment',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       body: SafeArea(
         child: SingleChildScrollView(
           child: Column(
@@ -56,37 +100,51 @@ class PViewDoctor extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: Image.asset(
-                          'assets/images/doc3.png',
-                          width: 60,
-                          height: 60,
-                          fit: BoxFit.cover,
+                      Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(9),
+                          child: doctor.imageUrl.isNotEmpty &&
+                                  !doctor.imageUrl.startsWith('assets/')
+                              ? Image.network(
+                                  doctor.imageUrl,
+                                  width: 60,
+                                  height: 60,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return _doctorPlaceholder(doctor.name);
+                                  },
+                                )
+                              : _doctorPlaceholder(doctor.name),
                         ),
                       ),
                       const SizedBox(width: 12),
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Dr. Miguel Rosales',
-                                style: TextStyle(
+                            Text(doctor.name,
+                                style: const TextStyle(
                                     fontWeight: FontWeight.bold, fontSize: 16)),
-                            SizedBox(height: 4),
-                            Text('MD, Pulmonologist',
-                                style: TextStyle(fontSize: 13)),
-                            SizedBox(height: 2),
+                            const SizedBox(height: 4),
+                            Text(doctor.specialization,
+                                style: const TextStyle(fontSize: 13)),
+                            const SizedBox(height: 2),
                             Row(
                               children: [
-                                Icon(Icons.location_on,
+                                const Icon(Icons.location_on,
                                     size: 14, color: Colors.grey),
-                                SizedBox(width: 2),
+                                const SizedBox(width: 2),
                                 Expanded(
                                   child: Text(
-                                    'Talomo South Health Center',
+                                    doctor.facility,
                                     overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(fontSize: 12),
+                                    style: const TextStyle(fontSize: 12),
                                   ),
                                 ),
                               ],
@@ -103,17 +161,19 @@ class PViewDoctor extends StatelessWidget {
                               color: Colors.amber,
                               borderRadius: BorderRadius.circular(4),
                             ),
-                            child: const Row(
+                            child: Row(
                               children: [
-                                Icon(Icons.star, size: 14, color: Colors.white),
-                                SizedBox(width: 2),
-                                Text('4.2',
-                                    style: TextStyle(color: Colors.white)),
+                                const Icon(Icons.star,
+                                    size: 14, color: Colors.white),
+                                const SizedBox(width: 2),
+                                Text(doctor.rating.toStringAsFixed(1),
+                                    style:
+                                        const TextStyle(color: Colors.white)),
                               ],
                             ),
                           ),
                           const SizedBox(height: 8),
-                          const Icon(Icons.favorite, color: Colors.pink),
+                          const Icon(Icons.favorite_border, color: Colors.pink),
                         ],
                       ),
                     ],
@@ -183,9 +243,9 @@ class PViewDoctor extends StatelessWidget {
                               fontWeight: FontWeight.bold, fontSize: 16)),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      'Dr. Miguel Rosales is a board-certified pulmonologist specializing in the diagnosis and treatment of respiratory conditions such as asthma, pneumonia, and tuberculosis. With extensive experience in pulmonary medicine, he is dedicated to providing comprehensive care to patients with lung-related health concerns.',
-                      style: TextStyle(fontSize: 14, height: 1.4),
+                    Text(
+                      'Dr. ${doctor.name} is a board-certified ${doctor.specialization.toLowerCase()} specializing in the diagnosis and treatment of tuberculosis and other respiratory conditions. They provide comprehensive care at ${doctor.facility}.',
+                      style: const TextStyle(fontSize: 14, height: 1.4),
                     ),
                     const SizedBox(height: 20),
 
@@ -197,9 +257,9 @@ class PViewDoctor extends StatelessWidget {
                               fontWeight: FontWeight.bold, fontSize: 16)),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      'Talomo South Health Center (TB DOTS Clinic)\nLibby Road, Puan, Talomo District, Davao City',
-                      style: TextStyle(fontSize: 14),
+                    Text(
+                      doctor.facility,
+                      style: const TextStyle(fontSize: 14),
                     ),
                     const SizedBox(height: 10),
                     ClipRRect(

@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:tb_frontend/doctor/dpost.dart';
 import 'package:tb_frontend/doctor/dhistory.dart';
-import 'package:tb_frontend/doctor/viewpending.dart'; // ✅ Import Viewpending
+import 'package:tb_frontend/doctor/viewpending.dart';
+import 'package:tb_frontend/doctor/daccount.dart';
 
 class Dappointment extends StatefulWidget {
   const Dappointment({super.key});
@@ -11,30 +15,56 @@ class Dappointment extends StatefulWidget {
 }
 
 class _DappointmentState extends State<Dappointment> {
-  final List<Map<String, dynamic>> _appointments = [
-    {
-      "date": DateTime.now().add(const Duration(days: 1)),
-      "status": "Pending",
-      "doctorName": "Dr. Juan Dela Cruz",
-      "facility": "Buhangin TB DOTS",
-      "experience": "7 years",
-      "time": "2:00 PM",
-    },
-    {
-      "date": DateTime.now().subtract(const Duration(days: 3)),
-      "status": "Completed",
-      "doctorName": "Dr. Maria Santos",
-      "facility": "Agdao TB DOTS",
-      "experience": "10 years",
-      "time": "10:00 AM",
-    },
-  ];
+  String? _currentUserId;
+
+  @override
+  void initState() {
+    super.initState();
+    // Get the current user's ID (doctor's ID)
+    _getCurrentUser();
+  }
+
+  Future<void> _getCurrentUser() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        // Get the doctor document using the auth UID
+        final doctorDoc = await FirebaseFirestore.instance
+            .collection('doctors')
+            .doc(user.uid)
+            .get();
+
+        if (doctorDoc.exists) {
+          setState(() {
+            // Use the UID as the currentUserId - this matches what's stored in pending_patient_data
+            _currentUserId = user.uid;
+          });
+          debugPrint('Found doctor with UID: $_currentUserId');
+
+          // Debug: Print current pending appointments
+          final pendingSnapshot = await FirebaseFirestore.instance
+              .collection('pending_patient_data')
+              .where('doctorId', isEqualTo: _currentUserId)
+              .get();
+
+          debugPrint(
+              'Found ${pendingSnapshot.docs.length} pending appointments');
+          for (var doc in pendingSnapshot.docs) {
+            debugPrint('Appointment: ${doc.data()}');
+          }
+        } else {
+          debugPrint('Doctor document not found');
+        }
+      } catch (e) {
+        debugPrint('Error getting doctor data: $e');
+      }
+    } else {
+      debugPrint('No user logged in');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final pendingAppointments =
-        _appointments.where((a) => a["status"] == "Pending").toList();
-
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -131,8 +161,62 @@ class _DappointmentState extends State<Dappointment> {
               ),
               const SizedBox(height: 10),
 
-              pendingAppointments.isEmpty
-                  ? const Center(
+              FutureBuilder<List<QueryDocumentSnapshot>>(
+                future: FirebaseFirestore.instance
+                    .collection('pending_patient_data')
+                    .get()
+                    .then((snapshot) => snapshot.docs
+                        .where((doc) => doc['doctorId'] == _currentUserId)
+                        .toList()),
+                builder: (context, snapshot) {
+                  // Detailed debug information
+                  debugPrint('====== Pending Appointments Debug ======');
+                  debugPrint('StreamBuilder rebuilding');
+                  debugPrint('Current doctor UID (doctorId): $_currentUserId');
+                  debugPrint('Has error: ${snapshot.hasError}');
+                  if (snapshot.hasError) {
+                    debugPrint('Error details: ${snapshot.error}');
+                    debugPrint('Stack trace: ${snapshot.stackTrace}');
+                  }
+                  debugPrint('Connection state: ${snapshot.connectionState}');
+                  if (snapshot.hasData) {
+                    debugPrint('Number of documents: ${snapshot.data?.length}');
+                    if ((snapshot.data?.isNotEmpty ?? false)) {
+                      final firstDoc =
+                          snapshot.data?.first.data() as Map<String, dynamic>;
+                      debugPrint('First document data: $firstDoc');
+                    }
+                  }
+                  debugPrint('======================================');
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Text(
+                        'Error: ${snapshot.error}',
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    );
+                  }
+
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(),
+                    );
+                  }
+
+                  final appointments = snapshot.data ?? [];
+                  debugPrint(
+                      'Number of appointments found: ${appointments.length}');
+
+                  if (appointments.isNotEmpty) {
+                    // Print the first appointment data for debugging
+                    final firstAppointment =
+                        appointments.first.data() as Map<String, dynamic>;
+                    debugPrint('Sample appointment data: $firstAppointment');
+                  }
+
+                  if (appointments.isEmpty) {
+                    debugPrint('No appointments found in the collection');
+                    return const Center(
                       child: Padding(
                         padding: EdgeInsets.all(20),
                         child: Text(
@@ -140,57 +224,142 @@ class _DappointmentState extends State<Dappointment> {
                           style: TextStyle(color: Colors.grey),
                         ),
                       ),
-                    )
-                  : Column(
-                      children: pendingAppointments.map((appointment) {
-                        final date = appointment["date"] as DateTime;
-                        return Card(
-                          color: Colors.white,
-                          margin: const EdgeInsets.symmetric(vertical: 8),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 2,
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: Colors.orange,
-                              child: const Icon(
-                                Icons.schedule,
+                    );
+                  }
+
+                  return Column(
+                    children: appointments.map((doc) {
+                      final appointment = doc.data() as Map<String, dynamic>;
+                      debugPrint(
+                          'Processing appointment: ${appointment['patientName']}');
+
+                      DateTime? date;
+                      try {
+                        final dynamic appointmentDate =
+                            appointment["appointmentDate"];
+                        if (appointmentDate is Timestamp) {
+                          date = appointmentDate.toDate();
+                        } else {
+                          debugPrint(
+                              'appointmentDate is not a Timestamp: $appointmentDate');
+                        }
+                      } catch (e) {
+                        debugPrint('Error converting appointmentDate: $e');
+                      }
+
+                      return Card(
+                        color: Colors.white,
+                        margin: const EdgeInsets.symmetric(vertical: 8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 2,
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: Colors.orange,
+                            child: Text(
+                              appointment["patientName"]
+                                      ?.substring(0, 1)
+                                      .toUpperCase() ??
+                                  "P",
+                              style: const TextStyle(
                                 color: Colors.white,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                            title: Text(
-                              appointment["doctorName"],
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold),
-                            ),
-                            subtitle: Text(
-                              "${appointment["facility"]}\n${date.toLocal().toString().split(" ")[0]} at ${appointment["time"]}",
-                            ),
-                            trailing: const Icon(Icons.more_vert),
-                            onTap: () {
-                              // ✅ Show floating/bubble bottom sheet
-                              showModalBottomSheet(
-                                context: context,
-                                isScrollControlled: true,
-                                shape: const RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.vertical(
-                                      top: Radius.circular(20)),
-                                ),
-                                builder: (context) => Padding(
-                                  padding: EdgeInsets.only(
-                                    bottom:
-                                        MediaQuery.of(context).viewInsets.bottom,
-                                  ),
-                                  child: Viewpending(
-                                      appointment: appointment), // pass appointment
-                                ),
-                              );
-                            },
                           ),
-                        );
-                      }).toList(),
-                    ),
+                          title: Text(
+                            appointment["patientName"] ?? "Unknown Patient",
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              StreamBuilder<QuerySnapshot>(
+                                stream: FirebaseFirestore.instance
+                                    .collection('doctors')
+                                    .where('doctorId',
+                                        isEqualTo: appointment["doctorId"])
+                                    .limit(1)
+                                    .snapshots(),
+                                builder: (context, doctorSnapshot) {
+                                  String doctorName = "Loading...";
+                                  if (doctorSnapshot.hasData &&
+                                      doctorSnapshot.data!.docs.isNotEmpty) {
+                                    final doctorData =
+                                        doctorSnapshot.data!.docs.first.data()
+                                            as Map<String, dynamic>;
+                                    doctorName = doctorData["doctorName"] ??
+                                        "Unknown Doctor";
+                                    debugPrint(
+                                        'Found doctor data: $doctorData');
+                                  } else {
+                                    doctorName = "Doctor not found";
+                                  }
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        date != null
+                                            ? "${date.toLocal().toString().split(" ")[0]} at ${appointment["appointmentTime"] ?? "No time"}"
+                                            : "Date not set",
+                                      ),
+                                      Text(
+                                        doctorName,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                          trailing: const Icon(Icons.chevron_right,
+                              color: Colors.grey),
+                          onTap: () async {
+                            final result = await showModalBottomSheet<String>(
+                              context: context,
+                              isScrollControlled: true,
+                              shape: const RoundedRectangleBorder(
+                                borderRadius: BorderRadius.vertical(
+                                    top: Radius.circular(20)),
+                              ),
+                              builder: (context) => Padding(
+                                padding: EdgeInsets.only(
+                                  bottom:
+                                      MediaQuery.of(context).viewInsets.bottom,
+                                ),
+                                child: Viewpending(appointment: {
+                                  ...appointment,
+                                  'id': doc.id,
+                                  'date': date,
+                                }),
+                              ),
+                            );
+
+                            // Handle the result from ViewPending
+                            if (result == 'approved') {
+                              if (context.mounted) {
+                                Navigator.pushAndRemoveUntil(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const Daccount(),
+                                  ),
+                                  (route) => false,
+                                );
+                              }
+                            }
+                          },
+                        ),
+                      );
+                    }).toList(),
+                  );
+                },
+              ),
             ],
           ),
         ),

@@ -22,7 +22,7 @@ class _PatientMainWrapperState extends State<PatientMainWrapper> {
 
   final List<Widget> _pages = [
     const PlandingPage(),
-    const MyAppointmentPage(),
+    const PMyAppointmentScreen(),
     const UserListScreen(), // ✅ replaced Pmessages with UserListScreen
     const Paccount(),
   ];

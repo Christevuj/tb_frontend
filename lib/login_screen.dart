@@ -61,24 +61,48 @@ class TBisitaLoginScreen extends StatelessWidget {
 
         final uid = userCredential.user!.uid;
 
-        // Check "users" collection first
-        final userDoc =
-            await FirebaseFirestore.instance.collection("users").doc(uid).get();
+        // Try to get user role from multiple collections
+        try {
+          // First try users collection
+          var userDoc = await FirebaseFirestore.instance
+              .collection("users")
+              .doc(uid)
+              .get();
 
-        if (userDoc.exists) {
-          final data = userDoc.data();
-          final role = data?['role'] ?? 'patient'; // default role
+          if (userDoc.exists) {
+            final data = userDoc.data()!;
+            final role = data['role'] ?? 'patient';
 
-          // Navigate based on role
-          if (role == 'patient') {
+            // Navigate based on role
+            Widget homePage;
+            if (role == 'patient') {
+              homePage = const PatientMainWrapper(initialIndex: 0);
+            } else if (role == 'doctor') {
+              homePage = const DoctorMainWrapper(initialIndex: 0);
+            } else if (role == 'admin') {
+              homePage = const AdminLogin();
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Unknown role")),
+              );
+              return;
+            }
+
             Navigator.pushAndRemoveUntil(
               context,
-              MaterialPageRoute(
-                  builder: (context) =>
-                      const PatientMainWrapper(initialIndex: 0)),
+              MaterialPageRoute(builder: (context) => homePage),
               (route) => false,
             );
-          } else if (role == 'doctor') {
+            return;
+          }
+
+          // Then try doctors collection
+          var doctorDoc = await FirebaseFirestore.instance
+              .collection("doctors")
+              .doc(uid)
+              .get();
+
+          if (doctorDoc.exists) {
             Navigator.pushAndRemoveUntil(
               context,
               MaterialPageRoute(
@@ -86,50 +110,50 @@ class TBisitaLoginScreen extends StatelessWidget {
                       const DoctorMainWrapper(initialIndex: 0)),
               (route) => false,
             );
-          } else if (role == 'admin') {
+            return;
+          }
+
+          // Finally try healthcare workers
+          var healthcareDoc = await FirebaseFirestore.instance
+              .collection("healthcare")
+              .doc(uid)
+              .get();
+
+          if (healthcareDoc.exists) {
             Navigator.pushAndRemoveUntil(
               context,
-              MaterialPageRoute(builder: (context) => const AdminLogin()),
+              MaterialPageRoute(
+                  builder: (context) =>
+                      const HealthMainWrapper(initialIndex: 0)),
               (route) => false,
             );
-          } else {
+            return;
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            print("Error accessing Firestore: $e");
+          }
+          // If we get a permission error, let's check if we're authenticated
+          final currentUser = FirebaseAuth.instance.currentUser;
+          if (currentUser != null) {
+            // User is authenticated but we can't access Firestore
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Unknown role")),
+              const SnackBar(
+                content: Text(
+                    "Error: Could not access user data. Please contact support."),
+                duration: Duration(seconds: 5),
+              ),
+            );
+          } else {
+            // User is not authenticated
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                    "Error: Authentication failed. Please try logging in again."),
+                duration: Duration(seconds: 5),
+              ),
             );
           }
-          return;
-        }
-
-        // Else check "doctors" collection
-        // Check doctors collection
-        final doctorDoc = await FirebaseFirestore.instance
-            .collection("doctors")
-            .doc(uid)
-            .get();
-
-        if (doctorDoc.exists) {
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(
-                builder: (context) => const DoctorMainWrapper(initialIndex: 0)),
-            (route) => false,
-          );
-          return;
-        }
-
-        // Check healthcare collection
-        final healthcareDoc = await FirebaseFirestore.instance
-            .collection("healthcare")
-            .doc(uid)
-            .get();
-
-        if (healthcareDoc.exists) {
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(
-                builder: (context) => const HealthMainWrapper(initialIndex: 0)),
-            (route) => false,
-          );
           return;
         }
 

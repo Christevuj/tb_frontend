@@ -1,6 +1,7 @@
 // lib/guest/pdf_viewer_screen.dart
 import 'package:flutter/material.dart';
-import 'package:pdfx/pdfx.dart';
+import 'package:flutter/services.dart';
+import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
 class PdfViewerScreen extends StatefulWidget {
   final String assetPath;
@@ -11,43 +12,23 @@ class PdfViewerScreen extends StatefulWidget {
 }
 
 class _PdfViewerScreenState extends State<PdfViewerScreen> {
-  late PdfControllerPinch _pdfController;
+  final GlobalKey<SfPdfViewerState> _pdfViewerKey = GlobalKey();
   final TextEditingController _searchController = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
-
-  int _totalPages = 0;
+  final PdfViewerController _pdfViewerController = PdfViewerController();
   int _currentPage = 1;
 
   @override
-  void initState() {
-    super.initState();
-
-    _pdfController = PdfControllerPinch(
-      document: PdfDocument.openAsset(widget.assetPath),
-      initialPage: 1,
-      viewportFraction: 0.95,
-    );
-  }
-
-  @override
   void dispose() {
-    _pdfController.dispose();
     _searchController.dispose();
-    _scrollController.dispose();
+    _pdfViewerController.dispose();
     super.dispose();
   }
 
-  Future<void> _goToPage(int page, {bool animate = true}) async {
-    if (page < 1 || (_totalPages != 0 && page > _totalPages)) return;
-
-    if (animate) {
-      await _pdfController.animateToPage(
-        pageNumber: page,
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeInOut,
-      );
-    } else {
-      _pdfController.jumpToPage(page);
+  void _performSearch() {
+    final text = _searchController.text.trim();
+    if (text.isNotEmpty) {
+      _pdfViewerController.searchText(text);
+      FocusScope.of(context).unfocus();
     }
   }
 
@@ -65,6 +46,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                // Back Button
                 Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -82,6 +64,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ),
+
                 Text(
                   "Manual Procedures",
                   style: TextStyle(
@@ -90,12 +73,13 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                     color: themeRed,
                   ),
                 ),
-                const SizedBox(width: 48),
+
+                const SizedBox(width: 48), // spacing balance
               ],
             ),
           ),
 
-          // --- Search Bar (page-number search) ---
+          // --- Search Bar ---
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
@@ -103,9 +87,8 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                 Expanded(
                   child: TextField(
                     controller: _searchController,
-                    keyboardType: TextInputType.text,
                     decoration: InputDecoration(
-                      hintText: "Enter page number (or type '1')",
+                      hintText: "Search text in PDF...",
                       prefixIcon: const Icon(Icons.search),
                       filled: true,
                       fillColor: Colors.white,
@@ -116,20 +99,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                         borderSide: BorderSide.none,
                       ),
                     ),
-                    onSubmitted: (text) async {
-                      final page = int.tryParse(text.trim());
-                      if (page != null) {
-                        await _goToPage(page, animate: true);
-                        FocusScope.of(context).unfocus();
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                                "Text search not supported here. Try entering a page number."),
-                          ),
-                        );
-                      }
-                    },
+                    onSubmitted: (_) => _performSearch(),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -138,20 +108,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
                   child: InkWell(
-                    onTap: () async {
-                      final page = int.tryParse(_searchController.text.trim());
-                      if (page != null) {
-                        await _goToPage(page, animate: true);
-                        FocusScope.of(context).unfocus();
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content:
-                                Text("Enter a valid page number to jump to."),
-                          ),
-                        );
-                      }
-                    },
+                    onTap: _performSearch,
                     borderRadius: BorderRadius.circular(12),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
@@ -166,10 +123,10 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
 
           const SizedBox(height: 4),
 
-          // --- PDF Viewer with vertical scrollbar ---
+          // --- PDF Viewer ---
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
@@ -184,68 +141,48 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(14),
-                  child: Scrollbar(
-                    controller: _scrollController,
-                    thumbVisibility: true,
-                    thickness: 8,
-                    radius: const Radius.circular(10),
-                    child: PdfViewPinch(
-                      controller: _pdfController,
-                      scrollDirection: Axis.vertical,
-                      onDocumentLoaded: (doc) {
-                        setState(() {
-                          _totalPages = doc.pagesCount;
-                        });
-                      },
-                      onPageChanged: (page) {
-                        setState(() {
-                          _currentPage = page;
-                        });
-                      },
-                    ),
+                  child: SfPdfViewer.asset(
+                    widget.assetPath,
+                    key: _pdfViewerKey,
+                    controller: _pdfViewerController,
+                    canShowScrollHead: true,
+                    canShowScrollStatus: true,
+                    enableDoubleTapZooming: true,
+                    pageSpacing: 4,
+                    onPageChanged: (PdfPageChangedDetails details) {
+                      setState(() {
+                        _currentPage = details.newPageNumber;
+                      });
+                    },
                   ),
                 ),
               ),
             ),
           ),
 
-          // --- Page slider (bottom) ---
+          // --- Page Number Display ---
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
-            child: Row(
-              children: [
-                Text(
-                  "Page $_currentPage",
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Slider(
-                    value: _currentPage.toDouble().clamp(
-                        1.0, (_totalPages > 0 ? _totalPages.toDouble() : 1.0)),
-                    min: 1,
-                    max: (_totalPages > 0 ? _totalPages.toDouble() : 1.0),
-                    divisions: (_totalPages > 0 ? _totalPages : 1),
-                    label: _currentPage.toString(),
-                    onChanged: (value) {
-                      final page = value.round();
-                      setState(() {
-                        _currentPage = page;
-                      });
-                    },
-                    onChangeEnd: (value) {
-                      _goToPage(value.round(), animate: false);
-                    },
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.shade200,
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
                   ),
+                ],
+              ),
+              child: Text(
+                'Page $_currentPage',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
                 ),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: const Icon(Icons.last_page),
-                  onPressed: () {
-                    if (_totalPages > 0) _goToPage(_totalPages, animate: true);
-                  },
-                ),
-              ],
+              ),
             ),
           ),
         ],

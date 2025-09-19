@@ -4,6 +4,7 @@ import 'package:tb_frontend/login_screen.dart';
 import 'package:tb_frontend/services/auth_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
+import 'package:tb_frontend/debug_firestore.dart';
 
 class Paccount extends StatefulWidget {
   const Paccount({super.key});
@@ -366,7 +367,44 @@ class _PaccountState extends State<Paccount> {
 
                     const SizedBox(height: 12),
 
-                    // 🔹 Log Out Button (smaller, centered)
+                    // � Debug Firestore Button
+                    Center(
+                      child: SizedBox(
+                        width: 220,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const FirestoreDebugPage(),
+                              ),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange,
+                            padding: EdgeInsets.symmetric(
+                                vertical: buttonPaddingV,
+                                horizontal: buttonPaddingH),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                          ),
+                          child: Text(
+                            "Debug Firestore",
+                            style: TextStyle(
+                              fontSize: buttonFontSize,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // �🔹 Log Out Button (smaller, centered)
                     Center(
                       child: SizedBox(
                         width: 220,

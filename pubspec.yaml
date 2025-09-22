@@ -31,7 +31,7 @@ dependencies:
   flutter_dotenv: ^6.0.0
   dio: ^5.4.0
   youtube_player_flutter: ^9.1.2
-  syncfusion_flutter_pdfviewer: ^24.2.9
+  pdfx: ^2.6.0
   video_player: ^2.9.2
   jitsi_meet_flutter_sdk: ^10.2.0
 

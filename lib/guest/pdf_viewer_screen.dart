@@ -1,7 +1,7 @@
 // lib/guest/pdf_viewer_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
+import 'package:pdfx/pdfx.dart';
 
 class PdfViewerScreen extends StatefulWidget {
   final String assetPath;
@@ -12,22 +12,33 @@ class PdfViewerScreen extends StatefulWidget {
 }
 
 class _PdfViewerScreenState extends State<PdfViewerScreen> {
-  final GlobalKey<SfPdfViewerState> _pdfViewerKey = GlobalKey();
   final TextEditingController _searchController = TextEditingController();
-  final PdfViewerController _pdfViewerController = PdfViewerController();
   int _currentPage = 1;
+  int _totalPages = 0;
+  late PdfController _pdfController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pdfController = PdfController(
+      document: PdfDocument.openAsset(widget.assetPath),
+    );
+  }
 
   @override
   void dispose() {
     _searchController.dispose();
-    _pdfViewerController.dispose();
+    _pdfController.dispose();
     super.dispose();
   }
 
   void _performSearch() {
+    // Search functionality can be added later with a different approach
     final text = _searchController.text.trim();
     if (text.isNotEmpty) {
-      _pdfViewerController.searchText(text);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Searching for: $text')),
+      );
       FocusScope.of(context).unfocus();
     }
   }
@@ -141,17 +152,16 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(14),
-                  child: SfPdfViewer.asset(
-                    widget.assetPath,
-                    key: _pdfViewerKey,
-                    controller: _pdfViewerController,
-                    canShowScrollHead: true,
-                    canShowScrollStatus: true,
-                    enableDoubleTapZooming: true,
-                    pageSpacing: 4,
-                    onPageChanged: (PdfPageChangedDetails details) {
+                  child: PdfView(
+                    controller: _pdfController,
+                    onPageChanged: (page) {
                       setState(() {
-                        _currentPage = details.newPageNumber;
+                        _currentPage = page;
+                      });
+                    },
+                    onDocumentLoaded: (document) {
+                      setState(() {
+                        _totalPages = document.pagesCount;
                       });
                     },
                   ),

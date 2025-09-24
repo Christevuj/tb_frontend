@@ -102,10 +102,14 @@ class AuthService {
     required String password,
   }) async {
     try {
-      await _auth.signInWithEmailAndPassword(
+      UserCredential userCredential = await _auth.signInWithEmailAndPassword(
         email: email.trim(),
         password: password,
       );
+      // Update lastLogin timestamp in Firestore (create document if missing)
+      await _firestore.collection('users').doc(userCredential.user!.uid).set({
+        'lastLogin': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
       return null; // ✅ Success
     } on FirebaseAuthException catch (e) {
       if (e.code == 'user-not-found') {

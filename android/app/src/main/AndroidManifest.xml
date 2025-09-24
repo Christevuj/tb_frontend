@@ -1,6 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    package="com.example.tb_frontend">
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Permissions for location, internet, and image picker -->
     <uses-permission android:name="android.permission.INTERNET"/>
@@ -21,7 +20,7 @@
         android:icon="@mipmap/ic_launcher"
         tools:replace="android:label">
 
-         <!-- ✅ Needed for playing media with audio -->
+        <!-- ✅ Needed for playing media with audio -->
         <uses-library android:name="org.apache.http.legacy" android:required="false" />
 
         <!-- Google Maps API Key -->
@@ -38,7 +37,7 @@
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
-            
+
             <!-- Splash screen / initial theme -->
             <meta-data
                 android:name="io.flutter.embedding.android.NormalTheme"
@@ -65,7 +64,6 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-
     </application>
 
     <!-- Required for text processing queries -->

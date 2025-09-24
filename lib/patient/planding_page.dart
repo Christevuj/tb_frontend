@@ -5,6 +5,13 @@ import 'package:tb_frontend/patient/pviewdoctor.dart';
 import 'package:tb_frontend/guest/gconsultant.dart';
 import 'package:tb_frontend/guest/gtbfacility.dart';
 import 'package:tb_frontend/models/doctor.dart';
+import 'package:tb_frontend/features/map/map_screen_enhanced.dart';
+
+// ✅ Import YouTube player
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+
+// ✅ PDF viewer screen
+import 'pdf_viewer_screen.dart';
 
 class PlandingPage extends StatefulWidget {
   const PlandingPage({super.key});
@@ -15,117 +22,139 @@ class PlandingPage extends StatefulWidget {
 
 class _PlandingPageState extends State<PlandingPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  YoutubePlayerController? _youtubeController;
+  bool _isLoading = true;
 
-  Stream<List<Doctor>> _getDoctors() {
-    return _firestore.collection('doctors').snapshots().map((snapshot) =>
-        snapshot.docs.map((doc) => Doctor.fromFirestore(doc)).toList());
+  @override
+  void initState() {
+    super.initState();
+    _loadYoutubeUrl();
+  }
+
+  Future<void> _loadYoutubeUrl() async {
+    try {
+      final doc = await _firestore.collection('settings').doc('youtube').get();
+      final url = doc.data()?['url'] as String?;
+      if (url != null) {
+        final videoId = YoutubePlayer.convertUrlToId(url);
+        if (videoId != null) {
+          _youtubeController = YoutubePlayerController(
+            initialVideoId: videoId,
+            flags: const YoutubePlayerFlags(autoPlay: false, mute: false),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint("⚠️ Failed to load YouTube URL: $e");
+    }
+    setState(() => _isLoading = false);
+  }
+
+  @override
+  void dispose() {
+    _youtubeController?.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Logo at the top, left-aligned
-            Padding(
-              padding: const EdgeInsets.only(bottom: 24),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Image.asset(
-                  'assets/images/tbisita_logo2.png',
-                  height: 44, // smaller size
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Image.asset("assets/images/tbisita_logo2.png",
+                  height: 44, alignment: Alignment.centerLeft),
+              const SizedBox(height: 20),
+
+              const Text('Quick Actions',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _quickAction(
+                      context, Icons.smart_toy, 'AI\nConsultant', const GConsultant()),
+                  _quickAction(
+                      context, Icons.calendar_today, 'Book\nAppointment', const Pdoclist()),
+                  _quickAction(context, Icons.local_hospital, 'TB DOTS\nFacilities',
+                      const MapScreenEnhanced()),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              const Text('TB DOTS Commercial',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+
+              _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : (_youtubeController != null
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: YoutubePlayer(
+                            controller: _youtubeController!,
+                            showVideoProgressIndicator: true,
+                          ),
+                        )
+                      : const Text("No video available")),
+
+              const SizedBox(height: 8),
+              const Text(
+                "Video content © Department of Health (DOH) Philippines & USAID.",
+                style: TextStyle(
+                    fontSize: 12, fontStyle: FontStyle.italic, color: Colors.black54),
+                textAlign: TextAlign.center,
+              ),
+
+              const SizedBox(height: 24),
+              const Text('Guidelines (NTP MOP - 6th Edition)',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Card(
+                elevation: 2,
+                color: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: ListTile(
+                  leading: const Icon(Icons.picture_as_pdf, size: 32, color: Colors.red),
+                  title: const Text(
+                    'NTP_MOP_6TH_EDITION.pdf',
+                    style: TextStyle(fontSize: 14),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const PdfViewerScreen(
+                            assetPath: 'assets/documents/NTP_MOP_6TH_EDITION.pdf',
+                          ),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.grey, foregroundColor: Colors.white),
+                    child: const Text('Open PDF'),
+                  ),
                 ),
               ),
-            ),
-
-            // Search bar
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const TextField(
-                decoration: InputDecoration(
-                  icon: Icon(Icons.search),
-                  hintText: 'Search a Doctor',
-                  border: InputBorder.none,
+              const SizedBox(height: 16),
+              Card(
+                elevation: 2,
+                shape:
+                    RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.asset('assets/images/guidelines.png', fit: BoxFit.cover),
                 ),
               ),
-            ),
-            const SizedBox(height: 24),
-
-            // Quick Actions
-            const Text(
-              'Quick Actions',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _quickAction(
-                  context,
-                  Icons.smart_toy,
-                  'AI\nConsultant',
-                  const GConsultant(),
-                ),
-                _quickAction(
-                  context,
-                  Icons.calendar_today,
-                  'Book\nAppointment',
-                  const Pdoclist(),
-                ),
-                _quickAction(
-                  context,
-                  Icons.local_hospital,
-                  'TB DOTS\nFacilities',
-                  const GtbfacilityPage(),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            // Top Doctors
-            const Text(
-              'Top Doctors',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-
-            // Doctor List
-            SizedBox(
-              height: 440,
-              child: StreamBuilder<List<Doctor>>(
-                stream: _getDoctors(),
-                builder: (context, snapshot) {
-                  if (snapshot.hasError) {
-                    return Center(child: Text('Error: ${snapshot.error}'));
-                  }
-
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-
-                  if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                    return const Center(child: Text('No doctors found'));
-                  }
-
-                  return ListView.builder(
-                    itemCount: snapshot.data!.length,
-                    itemBuilder: (context, index) => _doctorCard(
-                      context,
-                      snapshot.data![index],
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
+              const SizedBox(height: 32),
+            ],
+          ),
         ),
       ),
     );
@@ -146,140 +175,13 @@ class _PlandingPageState extends State<PlandingPage> {
               color: Colors.redAccent,
               shape: BoxShape.circle,
               boxShadow: [
-                BoxShadow(
-                  color: Colors.black26,
-                  blurRadius: 4,
-                  offset: Offset(2, 2),
-                )
+                BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(2, 2))
               ],
             ),
             child: Icon(icon, color: Colors.white, size: 28),
           ),
           const SizedBox(height: 4),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 12),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _doctorPlaceholder(String name) {
-    // Get the initials from the name
-    final initials = name.isNotEmpty
-        ? name.trim().split(' ').map((e) => e[0]).take(2).join().toUpperCase()
-        : '?';
-
-    return Container(
-      color: Colors.redAccent.withOpacity(0.1),
-      child: Center(
-        child: Text(
-          initials,
-          style: const TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Colors.redAccent,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _doctorCard(BuildContext context, Doctor doctor) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.shade300,
-            blurRadius: 6,
-            offset: const Offset(2, 2),
-          )
-        ],
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade200),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(11),
-              child: doctor.imageUrl.isNotEmpty &&
-                      !doctor.imageUrl.startsWith('assets/')
-                  ? Image.network(
-                      doctor.imageUrl,
-                      height: 80,
-                      width: 80,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return _doctorPlaceholder(doctor.name);
-                      },
-                    )
-                  : _doctorPlaceholder(doctor.name),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  doctor.name,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  doctor.specialization,
-                  style: const TextStyle(color: Colors.black54, fontSize: 13),
-                ),
-                Text(
-                  doctor.facility,
-                  style: const TextStyle(color: Colors.black45, fontSize: 12),
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: List.generate(5, (index) {
-                    return Icon(
-                      index < doctor.rating.floor()
-                          ? Icons.star
-                          : Icons.star_border,
-                      size: 16,
-                      color: Colors.orange,
-                    );
-                  }),
-                ),
-              ],
-            ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.black,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
-            ),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => PViewDoctor(doctor: doctor)),
-              );
-            },
-            child: const Text(
-              'View Details',
-              style: TextStyle(color: Colors.white, fontSize: 12),
-            ),
-          ),
+          Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)),
         ],
       ),
     );

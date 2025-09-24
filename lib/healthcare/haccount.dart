@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:tb_frontend/login_screen.dart';
+import 'package:tb_frontend/services/auth_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../login_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
+
 
 class HAccount extends StatefulWidget {
   const HAccount({super.key});
@@ -12,609 +14,435 @@ class HAccount extends StatefulWidget {
 }
 
 class _HAccountState extends State<HAccount> {
-  final _formKey = GlobalKey<FormState>();
-  bool _isEditing = false;
-  bool _isLoading = false;
-  bool _isPasswordVisible = false;
-  String? _currentPassword;
-  String? _newPassword;
+  // Removed unused AuthService field
 
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _licenseController = TextEditingController();
-  final TextEditingController _positionController = TextEditingController();
-  final TextEditingController _contactNumberController =
-      TextEditingController();
-  Map<String, dynamic>? _facility;
+  String? firstName;
+  String? lastName;
+  String? email;
+  String? licenseNumber;
+  String? position;
+  String? contactNumber;
+  String? facilityName;
+  String? facilityAddress;
+  bool isLoading = true;
+
+  final Set<String> expandedSections = {};
 
   @override
   void initState() {
     super.initState();
-    _loadUserData();
+    _loadHealthWorkerDetails();
   }
 
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _emailController.dispose();
-    _licenseController.dispose();
-    _positionController.dispose();
-    _contactNumberController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadUserData() async {
-    try {
-      setState(() => _isLoading = true);
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        final doc = await FirebaseFirestore.instance
-            .collection('healthcare')
-            .doc(user.uid)
-            .get();
-
-        if (doc.exists) {
-          final data = doc.data();
-          _nameController.text = data?['fullName'] ?? '';
-          _emailController.text = data?['email'] ?? '';
-          _licenseController.text = data?['licenseNumber'] ?? '';
-          _positionController.text = data?['position'] ?? '';
-          _contactNumberController.text = data?['contactNumber'] ?? '';
-
-          // Load facility data
-          if (data?['facility'] != null) {
-            if (data!['facility'] is Map) {
-              _facility = Map<String, dynamic>.from(data['facility']);
-            } else if (data['facility'] is String) {
-              // If facility is a reference ID, fetch the facility document
-              final facilityDoc = await FirebaseFirestore.instance
-                  .collection('facilities')
-                  .doc(data['facility'])
-                  .get();
-              if (facilityDoc.exists) {
-                _facility = facilityDoc.data();
-              }
-            }
-          }
-          setState(() {});
-        }
-      }
-    } catch (e) {
-      _showErrorSnackbar('Error loading user data: $e');
-    } finally {
-      setState(() => _isLoading = false);
+  Future<void> _loadHealthWorkerDetails() async {
+    final firebase_auth.User? authUser = firebase_auth.FirebaseAuth.instance.currentUser;
+    if (authUser == null) return;
+    final doc = await FirebaseFirestore.instance.collection('healthcare').doc(authUser.uid).get();
+    final data = doc.data();
+    if (mounted) {
+      setState(() {
+        firstName = data?['firstName'] ?? '';
+        lastName = data?['lastName'] ?? '';
+        email = data?['email'] ?? authUser.email ?? '';
+        licenseNumber = data?['licenseNumber'] ?? '';
+        position = data?['position'] ?? '';
+        contactNumber = data?['contactNumber'] ?? '';
+        facilityName = data?['facilityName'] ?? '';
+        facilityAddress = data?['facilityAddress'] ?? '';
+        isLoading = false;
+      });
     }
   }
 
-  void _showErrorSnackbar(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red),
+  bool get isGuest => firstName == null || lastName == null || email == null;
+
+  void _toggleSection(String sectionId) {
+    setState(() {
+      if (expandedSections.contains(sectionId)) {
+        expandedSections.remove(sectionId);
+      } else {
+        expandedSections.add(sectionId);
+      }
+    });
+  }
+
+  Future<void> _editField(String label, String currentValue, Function(String) onSave) async {
+    final controller = TextEditingController(text: currentValue);
+    final firebase_auth.User? authUser = firebase_auth.FirebaseAuth.instance.currentUser;
+    if (authUser == null) return;
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.edit, color: Colors.redAccent, size: 28),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Edit $label',
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                TextField(
+                  controller: controller,
+                  decoration: InputDecoration(
+                    labelText: label,
+                    labelStyle: const TextStyle(color: Colors.redAccent),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Colors.redAccent, width: 1.2),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Colors.redAccent, width: 2),
+                    ),
+                    fillColor: Colors.grey.shade50,
+                    filled: true,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: TextButton.styleFrom(foregroundColor: Colors.black, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10)),
+                      child: const Text('Cancel'),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                      onPressed: () async {
+                        final newValue = controller.text.trim();
+                        if (newValue.isNotEmpty) {
+                          await FirebaseFirestore.instance.collection('healthcare').doc(authUser.uid).update({
+                            label == 'First Name' ? 'firstName' : label == 'Last Name' ? 'lastName' : label == 'License Number' ? 'licenseNumber' : label == 'Position' ? 'position' : label == 'Contact Number' ? 'contactNumber' : label == 'Facility Name' ? 'facilityName' : label == 'Facility Address' ? 'facilityAddress' : label.toLowerCase(): newValue
+                          });
+                          onSave(newValue);
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$label updated successfully!')));
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$label cannot be empty.')));
+                        }
+                      },
+                      child: const Text('Save'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
-  Future<void> _handleLogout() async {
+  Future<void> _removeAccount() async {
+    final firebase_auth.User? authUser = firebase_auth.FirebaseAuth.instance.currentUser;
+    if (authUser == null) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Remove Account'),
+        content: const Text('Are you sure you want to remove your account? This action cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Remove')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
     try {
-      await FirebaseAuth.instance.signOut();
-      if (mounted) {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (_) => const TBisitaLoginScreen()),
-          (route) => false,
+      final email = authUser.email;
+      if (email != null) {
+        final passwordController = TextEditingController();
+        final shouldProceed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Confirm Password'),
+            content: TextField(controller: passwordController, obscureText: true, decoration: const InputDecoration(labelText: 'Enter your password')),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+              ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Confirm')),
+            ],
+          ),
         );
+        if (shouldProceed != true) return;
+        final credential = firebase_auth.EmailAuthProvider.credential(email: email, password: passwordController.text.trim());
+        await authUser.reauthenticateWithCredential(credential);
       }
+      await FirebaseFirestore.instance.collection('healthcare').doc(authUser.uid).delete();
+      await authUser.delete();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Account successfully removed.')));
+        Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const TBisitaLoginScreen()), (route) => false);
+      }
+    } on firebase_auth.FirebaseAuthException catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.message}')));
     } catch (e) {
-      _showErrorSnackbar('Error logging out: $e');
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Unexpected error: $e')));
     }
   }
 
-  Widget _buildInfoCard({
+  Future<void> _logout() async {
+    await firebase_auth.FirebaseAuth.instance.signOut();
+    if (mounted) {
+      Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const TBisitaLoginScreen()), (route) => false);
+    }
+  }
+
+  Widget _buildSection({
     required String title,
-    required String value,
+    required String description,
     required IconData icon,
-    bool isEditable = true,
-    VoidCallback? onEdit,
+    required String sectionId,
+    required List<Widget> children,
   }) {
-    return Card(
-      child: ListTile(
-        leading: Icon(icon, color: Colors.redAccent),
-        title: Text(
-          title,
-          style: GoogleFonts.poppins(
-            fontSize: 14,
-            color: Colors.grey[600],
-          ),
+    final isExpanded = expandedSections.contains(sectionId);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: [Colors.white, Colors.grey.shade50], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: Colors.redAccent.withOpacity(0.1), blurRadius: 12, offset: const Offset(0, 6)),
+        ],
+      ),
+      child: ExpansionTile(
+        initiallyExpanded: isExpanded,
+        onExpansionChanged: (_) => _toggleSection(sectionId),
+        title: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(alignment: Alignment.center, height: 48, child: Icon(icon, color: Colors.redAccent, size: 28)),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                  const SizedBox(height: 2),
+                  Text(description, style: const TextStyle(fontSize: 13, color: Colors.black54)),
+                ],
+              ),
+            ),
+          ],
         ),
-        subtitle: Text(
-          value,
-          style: GoogleFonts.poppins(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        trailing: isEditable
-            ? IconButton(
-                icon: const Icon(Icons.edit, color: Colors.redAccent),
-                onPressed: onEdit,
-              )
-            : null,
+        childrenPadding: const EdgeInsets.all(16),
+        children: children,
       ),
     );
   }
 
-  // Track which field is being edited
-  String? _editingField;
+  Widget _buildEditableField(String label, String value, {IconData? icon, VoidCallback? onEdit, bool obscure = false}) {
+    return GestureDetector(
+      onTap: onEdit,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: Colors.redAccent.withOpacity(0.2)),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            if (icon != null) Icon(icon, color: Colors.redAccent, size: 20),
+            if (icon != null) const SizedBox(width: 12),
+            Expanded(child: Text(obscure ? "********" : value, style: const TextStyle(fontSize: 15))),
+            if (onEdit != null) const Icon(Icons.edit, size: 18, color: Colors.redAccent),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'My Profile',
-          style: GoogleFonts.poppins(
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
-          ),
-        ),
-        backgroundColor: Colors.redAccent,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Personal Information',
-                style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.redAccent,
-                ),
-              ),
-              const SizedBox(height: 16),
-              if (_editingField == 'name')
-                Column(
-                  children: [
-                    TextFormField(
-                      controller: _nameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Full Name',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your name';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: () => setState(() => _editingField = null),
-                          child: const Text('Cancel'),
-                        ),
-                        ElevatedButton(
-                          onPressed: () async {
-                            if (_formKey.currentState!.validate()) {
-                              final user = FirebaseAuth.instance.currentUser;
-                              if (user != null) {
-                                await FirebaseFirestore.instance
-                                    .collection('healthcare')
-                                    .doc(user.uid)
-                                    .update({
-                                  'fullName': _nameController.text.trim()
-                                });
-                                if (mounted) {
-                                  setState(() => _editingField = null);
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                        content:
-                                            Text('Name updated successfully')),
-                                  );
-                                }
-                              }
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.redAccent),
-                          child: const Text('Save'),
-                        ),
-                      ],
-                    ),
-                  ],
-                )
-              else
-                _buildInfoCard(
-                  title: 'Full Name',
-                  value: _nameController.text,
-                  icon: Icons.person,
-                  onEdit: () => setState(() => _editingField = 'name'),
-                ),
-              // Email field is not editable
-              _buildInfoCard(
-                title: 'Email',
-                value: _emailController.text,
-                icon: Icons.email,
-                isEditable: false,
-              ),
-              if (_editingField == 'password')
-                Column(
-                  children: [
-                    TextFormField(
-                      obscureText: !_isPasswordVisible,
-                      decoration: InputDecoration(
-                        labelText: 'Current Password',
-                        border: const OutlineInputBorder(),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _isPasswordVisible
-                                ? Icons.visibility
-                                : Icons.visibility_off,
-                          ),
-                          onPressed: () => setState(
-                              () => _isPasswordVisible = !_isPasswordVisible),
-                        ),
-                      ),
-                      onChanged: (value) => _currentPassword = value,
-                    ),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      obscureText: !_isPasswordVisible,
-                      decoration: const InputDecoration(
-                        labelText: 'New Password',
-                        border: OutlineInputBorder(),
-                      ),
-                      onChanged: (value) => _newPassword = value,
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: () => setState(() => _editingField = null),
-                          child: const Text('Cancel'),
-                        ),
-                        ElevatedButton(
-                          onPressed: () async {
-                            if (_currentPassword != null &&
-                                _newPassword != null) {
-                              final user = FirebaseAuth.instance.currentUser;
-                              if (user != null && user.email != null) {
-                                try {
-                                  final credential =
-                                      EmailAuthProvider.credential(
-                                    email: user.email!,
-                                    password: _currentPassword!,
-                                  );
-                                  await user
-                                      .reauthenticateWithCredential(credential);
-                                  await user.updatePassword(_newPassword!);
-                                  if (mounted) {
-                                    setState(() => _editingField = null);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                          content: Text(
-                                              'Password updated successfully')),
-                                    );
-                                  }
-                                } catch (e) {
-                                  _showErrorSnackbar(
-                                      'Current password is incorrect');
-                                }
-                              }
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.redAccent),
-                          child: const Text('Save'),
-                        ),
-                      ],
-                    ),
-                  ],
-                )
-              else
-                _buildInfoCard(
-                  title: 'Password',
-                  value: '••••••••',
-                  icon: Icons.lock,
-                  onEdit: () => setState(() => _editingField = 'password'),
-                ),
-              _buildInfoCard(
-                title: 'Role',
-                value: 'Healthcare Worker',
-                icon: Icons.work,
-                isEditable: false,
-              ),
-              if (_isEditing) ...[
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        obscureText: !_isPasswordVisible,
-                        decoration: InputDecoration(
-                          labelText: 'Current Password',
-                          border: const OutlineInputBorder(),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _isPasswordVisible
-                                  ? Icons.visibility
-                                  : Icons.visibility_off,
-                            ),
-                            onPressed: () {
-                              setState(() =>
-                                  _isPasswordVisible = !_isPasswordVisible);
-                            },
-                          ),
-                        ),
-                        onChanged: (value) => _currentPassword = value,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  obscureText: !_isPasswordVisible,
-                  decoration: const InputDecoration(
-                    labelText: 'New Password',
-                    border: OutlineInputBorder(),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Stack(
+              children: [
+                Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(colors: [Color.fromARGB(255, 255, 255, 255), Color(0xFFFFEBEB)], begin: Alignment.topLeft, end: Alignment.bottomRight),
                   ),
-                  onChanged: (value) => _newPassword = value,
+                ),
+                SafeArea(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 20),
+                        CircleAvatar(
+                          radius: 50,
+                          backgroundColor: Colors.redAccent,
+                          child: isGuest
+                              ? const Icon(Icons.person, size: 60, color: Colors.white)
+                              : Text(
+                                  firstName!.isNotEmpty ? firstName![0].toUpperCase() : "?",
+                                  style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: Colors.white),
+                                ),
+                        ),
+                        const SizedBox(height: 16),
+                        if (!isGuest)
+                          Text("$firstName $lastName", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        if (!isGuest)
+                          Text(email ?? "", style: const TextStyle(color: Colors.black54)),
+                        if (isGuest)
+                          const Padding(
+                            padding: EdgeInsets.all(12.0),
+                            child: Text("You are currently using a guest account.\nPlease sign up to unlock full features.", textAlign: TextAlign.center, style: TextStyle(fontSize: 14)),
+                          ),
+                        const SizedBox(height: 20),
+                        if (!isGuest) ...[
+                          _buildSection(
+                            title: "Personal Details",
+                            description: "Manage your basic information and profile settings",
+                            icon: Icons.person,
+                            sectionId: "personal",
+                            children: [
+                              _buildEditableField("First Name", firstName ?? "", icon: Icons.person, onEdit: () {
+                                _editField("First Name", firstName ?? "", (val) {
+                                  setState(() => firstName = val);
+                                });
+                              }),
+                              _buildEditableField("Last Name", lastName ?? "", icon: Icons.person_outline, onEdit: () {
+                                _editField("Last Name", lastName ?? "", (val) {
+                                  setState(() => lastName = val);
+                                });
+                              }),
+                              _buildEditableField("Email", email ?? "", icon: Icons.email),
+                            ],
+                          ),
+                          _buildSection(
+                            title: "Professional Details",
+                            description: "Manage your professional information",
+                            icon: Icons.badge,
+                            sectionId: "professional",
+                            children: [
+                              _buildEditableField("License Number", licenseNumber ?? "", icon: Icons.badge, onEdit: () {
+                                _editField("License Number", licenseNumber ?? "", (val) {
+                                  setState(() => licenseNumber = val);
+                                });
+                              }),
+                              _buildEditableField("Position", position ?? "", icon: Icons.work, onEdit: () {
+                                _editField("Position", position ?? "", (val) {
+                                  setState(() => position = val);
+                                });
+                              }),
+                              _buildEditableField("Contact Number", contactNumber ?? "", icon: Icons.phone, onEdit: () {
+                                _editField("Contact Number", contactNumber ?? "", (val) {
+                                  setState(() => contactNumber = val);
+                                });
+                              }),
+                            ],
+                          ),
+                          _buildSection(
+                            title: "Workplace Information",
+                            description: "Your assigned facility",
+                            icon: Icons.local_hospital,
+                            sectionId: "facility",
+                            children: [
+                              _buildEditableField("Facility Name", facilityName ?? "", icon: Icons.local_hospital, onEdit: () {
+                                _editField("Facility Name", facilityName ?? "", (val) {
+                                  setState(() => facilityName = val);
+                                });
+                              }),
+                              _buildEditableField("Facility Address", facilityAddress ?? "", icon: Icons.location_on, onEdit: () {
+                                _editField("Facility Address", facilityAddress ?? "", (val) {
+                                  setState(() => facilityAddress = val);
+                                });
+                              }),
+                            ],
+                          ),
+                          _buildSection(
+                            title: "Security & Privacy",
+                            description: "Manage your password and account security settings",
+                            icon: Icons.lock,
+                            sectionId: "security",
+                            children: [
+                              _buildEditableField("Password", "********", icon: Icons.lock, obscure: true, onEdit: () {
+                                // You can implement password change dialog here similar to Paccount
+                              }),
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(colors: [Colors.redAccent.withOpacity(0.1), Colors.white]),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  children: const [
+                                    Icon(Icons.shield, color: Colors.redAccent),
+                                    SizedBox(width: 8),
+                                    Expanded(child: Text("Your account is secured. Last login: Today at 2:34 PM", style: TextStyle(fontSize: 13))),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          _buildSection(
+                            title: "Account Action",
+                            description: "Manage your account preferences and data",
+                            icon: Icons.settings,
+                            sectionId: "actions",
+                            children: [
+                              OutlinedButton(
+                                style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24), side: const BorderSide(color: Colors.redAccent, width: 2), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
+                                onPressed: _removeAccount,
+                                child: const Text("Remove Account", style: TextStyle(color: Colors.redAccent)),
+                              ),
+                            ],
+                          ),
+                        ],
+                        if (!isGuest) ...[
+                          const SizedBox(height: 24),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.black, padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
+                            onPressed: _logout,
+                            child: const Text("Log Out", style: TextStyle(color: Colors.white)),
+                          ),
+                        ],
+                        if (isGuest)
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
+                            onPressed: () {
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => const TBisitaLoginScreen()));
+                            },
+                            child: const Text("Sign Up", style: TextStyle(color: Colors.white)),
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
-              const SizedBox(height: 24),
-              Text(
-                'Professional Information',
-                style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.redAccent,
-                ),
-              ),
-              const SizedBox(height: 16),
-              if (_editingField == 'license')
-                Column(
-                  children: [
-                    TextFormField(
-                      controller: _licenseController,
-                      decoration: const InputDecoration(
-                        labelText: 'License Number',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your license number';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: () => setState(() => _editingField = null),
-                          child: const Text('Cancel'),
-                        ),
-                        ElevatedButton(
-                          onPressed: () async {
-                            if (_formKey.currentState!.validate()) {
-                              final user = FirebaseAuth.instance.currentUser;
-                              if (user != null) {
-                                await FirebaseFirestore.instance
-                                    .collection('healthcare')
-                                    .doc(user.uid)
-                                    .update({
-                                  'licenseNumber':
-                                      _licenseController.text.trim()
-                                });
-                                if (mounted) {
-                                  setState(() => _editingField = null);
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                        content: Text(
-                                            'License number updated successfully')),
-                                  );
-                                }
-                              }
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.redAccent),
-                          child: const Text('Save'),
-                        ),
-                      ],
-                    ),
-                  ],
-                )
-              else
-                _buildInfoCard(
-                  title: 'License Number',
-                  value: _licenseController.text,
-                  icon: Icons.badge,
-                  onEdit: () => setState(() => _editingField = 'license'),
-                ),
-              if (_editingField == 'position')
-                Column(
-                  children: [
-                    TextFormField(
-                      controller: _positionController,
-                      decoration: const InputDecoration(
-                        labelText: 'Position',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your position';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: () => setState(() => _editingField = null),
-                          child: const Text('Cancel'),
-                        ),
-                        ElevatedButton(
-                          onPressed: () async {
-                            if (_formKey.currentState!.validate()) {
-                              final user = FirebaseAuth.instance.currentUser;
-                              if (user != null) {
-                                await FirebaseFirestore.instance
-                                    .collection('healthcare')
-                                    .doc(user.uid)
-                                    .update({
-                                  'position': _positionController.text.trim()
-                                });
-                                if (mounted) {
-                                  setState(() => _editingField = null);
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                        content: Text(
-                                            'Position updated successfully')),
-                                  );
-                                }
-                              }
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.redAccent),
-                          child: const Text('Save'),
-                        ),
-                      ],
-                    ),
-                  ],
-                )
-              else
-                _buildInfoCard(
-                  title: 'Position',
-                  value: _positionController.text,
-                  icon: Icons.work,
-                  onEdit: () => setState(() => _editingField = 'position'),
-                ),
-              if (_editingField == 'contact')
-                Column(
-                  children: [
-                    TextFormField(
-                      controller: _contactNumberController,
-                      decoration: const InputDecoration(
-                        labelText: 'Contact Number',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your contact number';
-                        }
-                        return null;
-                      },
-                      keyboardType: TextInputType.phone,
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: () => setState(() => _editingField = null),
-                          child: const Text('Cancel'),
-                        ),
-                        ElevatedButton(
-                          onPressed: () async {
-                            if (_formKey.currentState!.validate()) {
-                              final user = FirebaseAuth.instance.currentUser;
-                              if (user != null) {
-                                await FirebaseFirestore.instance
-                                    .collection('healthcare')
-                                    .doc(user.uid)
-                                    .update({
-                                  'contactNumber':
-                                      _contactNumberController.text.trim()
-                                });
-                                if (mounted) {
-                                  setState(() => _editingField = null);
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                        content: Text(
-                                            'Contact number updated successfully')),
-                                  );
-                                }
-                              }
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.redAccent),
-                          child: const Text('Save'),
-                        ),
-                      ],
-                    ),
-                  ],
-                )
-              else
-                _buildInfoCard(
-                  title: 'Contact Number',
-                  value: _contactNumberController.text,
-                  icon: Icons.phone,
-                  onEdit: () => setState(() => _editingField = 'contact'),
-                ),
-              const SizedBox(height: 24),
-              Text(
-                'Workplace Information',
-                style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.redAccent,
-                ),
-              ),
-              const SizedBox(height: 16),
-              _buildInfoCard(
-                title: 'TB DOTS Facility',
-                value: _facility?['name'] ?? 'Not specified',
-                icon: Icons.local_hospital,
-                isEditable: false,
-              ),
-              _buildInfoCard(
-                title: 'Facility Address',
-                value: _facility?['address'] ?? 'Not specified',
-                icon: Icons.location_on,
-                isEditable: false,
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  onPressed: _handleLogout,
-                  icon: const Icon(Icons.logout, color: Colors.white),
-                  label: Text(
-                    'Logout',
-                    style: GoogleFonts.poppins(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 }

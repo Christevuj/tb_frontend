@@ -55,3 +55,7 @@ flutter:
     - assets/documents/NTP_MOP_6TH_EDITION.pdf
     - assets/videos/tbdots.mp4
     - .env
+    - assets/images/splash1.png
+    - assets/images/splash2.png
+    - assets/images/splash3.png
+    - assets/images/splash4.png

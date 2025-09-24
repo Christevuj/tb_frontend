@@ -253,10 +253,7 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                       color: Color(0xE0F44336),
                     ),
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close, color: Colors.grey),
-                  ),
+         
                 ],
               ),
             ),
@@ -829,8 +826,11 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                                       ],
                                     ),
                                   ),
-                                  const Icon(Icons.more_vert,
-                                      color: Colors.grey),
+                                  const Icon(
+                            Icons.arrow_forward_ios,
+                            color: Colors.grey,
+                            size: 18,
+                          ),
                                 ],
                               ),
                             ));

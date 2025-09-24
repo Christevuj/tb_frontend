@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import './hlanding_page.dart';
 import './happointment.dart';
 import './haccount.dart' show HAccount;
-import '../chat_screens/user_list_screen.dart';
 
 class HealthMainWrapper extends StatefulWidget {
   final int initialIndex;
@@ -18,8 +17,7 @@ class _HealthMainWrapperState extends State<HealthMainWrapper> {
   static final List<Widget> _pages = [
     const Hlandingpage(), // Home page
     const Happointment(), // Appointments page
-    const UserListScreen(), // Messages page
-    const HAccount(), // Account settings page
+    HAccount(), // Account settings page (removed const)
   ];
 
   @override

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tb_frontend/healthcare/hfacilitylist.dart';
 
 class Hlandingpage extends StatefulWidget {
   const Hlandingpage({super.key});
@@ -28,7 +29,6 @@ class _HlandingpageState extends State<Hlandingpage> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      // AppBar with logo like landing page
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(100),
         child: AppBar(
@@ -37,8 +37,7 @@ class _HlandingpageState extends State<Hlandingpage> {
           elevation: 0,
           flexibleSpace: SafeArea(
             child: Padding(
-              padding: const EdgeInsets.only(
-                  left: 16, top: 16), // aligns with search bar
+              padding: const EdgeInsets.only(left: 16, top: 16),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Image.asset(
@@ -55,8 +54,29 @@ class _HlandingpageState extends State<Hlandingpage> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Reduced vertical spacing between logo and search bar
-          const SizedBox(height: 8), // <-- less space than before
+          const SizedBox(height: 8),
+          // Quick Action Button for Healthcare Provider
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+              ),
+              icon: const Icon(Icons.local_hospital),
+              label: const Text('View TB DOTS Facilities'),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const HFacilityList(),
+                  ),
+                );
+              },
+            ),
+          ),
 
           // Search bar like landing page
           Padding(

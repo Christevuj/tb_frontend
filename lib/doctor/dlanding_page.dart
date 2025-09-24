@@ -4,9 +4,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+bool _showAllAppointments = false; // Track See All state
+
 class Dlandingpage extends StatefulWidget {
   const Dlandingpage({super.key});
-
   @override
   State<Dlandingpage> createState() => _DlandingpageState();
 }
@@ -32,7 +33,6 @@ class _DlandingpageState extends State<Dlandingpage> {
     "November",
     "December"
   ];
-
   late String _selectedMonth;
   late int _selectedYear;
   final List<int> _years =
@@ -62,7 +62,6 @@ class _DlandingpageState extends State<Dlandingpage> {
   // Load appointment dates from Firestore
   void _loadAppointmentDates() async {
     if (_currentDoctorId == null) return;
-
     try {
       final snapshot = await FirebaseFirestore.instance
           .collection('approved_appointments')
@@ -123,147 +122,392 @@ class _DlandingpageState extends State<Dlandingpage> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => Padding(
-        padding: const EdgeInsets.all(16),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Center(
-                child: Container(
-                  height: 5,
-                  width: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(10),
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        maxChildSize: 0.95,
+        minChildSize: 0.5,
+        builder: (_, controller) => Container(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: SingleChildScrollView(
+            controller: controller,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Drag handle
+                Center(
+                  child: Container(
+                    height: 5,
+                    width: 50,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              ListTile(
-                leading: const Icon(Icons.person, color: Colors.purple),
-                title: Text(appointment["patientName"]?.toString() ?? "N/A"),
-                subtitle: const Text("Patient Name"),
-              ),
-              ListTile(
-                leading: const Icon(Icons.access_time, color: Colors.orange),
-                title:
-                    Text(appointment["appointmentTime"]?.toString() ?? "N/A"),
-                subtitle: const Text("Appointment Time"),
-              ),
-              ListTile(
-                leading: const Icon(Icons.medical_services, color: Colors.blue),
-                title: Text(appointment["doctorName"]?.toString() ?? "N/A"),
-                subtitle: const Text("Doctor Name"),
-              ),
 
-              // Fetch address and experience from doctors collection
-              FutureBuilder<DocumentSnapshot>(
-                future: FirebaseFirestore.instance
-                    .collection('doctors')
-                    .doc(appointment["doctorId"])
-                    .get(),
-                builder: (context, snapshot) {
-                  String address = "Loading address...";
-                  String experience = "Loading experience...";
+                Center(
+                  child: const Text(
+                    "Appointment Details",
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(height: 20),
 
-                  if (snapshot.hasData && snapshot.data!.exists) {
-                    final doctorData =
-                        snapshot.data!.data() as Map<String, dynamic>;
+                // Patient Name
+                _infoCard(
+                  icon: Icons.person,
+                  iconBg: Colors.blue,
+                  cardBg: Colors.blue.shade50,
+                  value: appointment["patientName"]?.toString() ?? "N/A",
+                  label: "Patient Name",
+                ),
 
-                    // Get address from affiliations array if it exists
-                    if (doctorData["affiliations"] != null &&
-                        (doctorData["affiliations"] as List).isNotEmpty) {
-                      address = (doctorData["affiliations"][0]["address"] ??
-                              "No address available")
-                          .toString();
-                    } else {
-                      address = "No address available";
+                // Appointment Date & Time
+                _infoCard(
+                  icon: Icons.calendar_today,
+                  iconBg: Colors.indigo,
+                  cardBg: Colors.indigo.shade50,
+                  value: appointment["appointmentDate"] != null
+                      ? "${(appointment["appointmentDate"] as Timestamp).toDate().toLocal()}"
+                          .split(' ')[0]
+                      : "N/A",
+                  label: "Appointment Date",
+                ),
+                _infoCard(
+                  icon: Icons.access_time,
+                  iconBg: Colors.amber,
+                  cardBg: Colors.amber.shade50,
+                  value: appointment["appointmentTime"]?.toString() ?? "N/A",
+                  label: "Appointment Time",
+                ),
+
+                // Doctor Name
+                _infoCard(
+                  icon: Icons.medical_services,
+                  iconBg: Colors.teal,
+                  cardBg: Colors.teal.shade50,
+                  value: appointment["doctorName"]?.toString() ?? "N/A",
+                  label: "Doctor",
+                ),
+
+                // Fetch Doctor's Address + Experience
+                FutureBuilder<DocumentSnapshot>(
+                  future: FirebaseFirestore.instance
+                      .collection('doctors')
+                      .doc(appointment["doctorId"])
+                      .get(),
+                  builder: (context, snapshot) {
+                    String address = "Loading...";
+                    String experience = "Loading...";
+
+                    if (snapshot.hasData && snapshot.data!.exists) {
+                      final doctorData =
+                          snapshot.data!.data() as Map<String, dynamic>;
+                      if (doctorData["affiliations"] != null &&
+                          (doctorData["affiliations"] as List).isNotEmpty) {
+                        address = (doctorData["affiliations"][0]["address"] ??
+                                "No address")
+                            .toString();
+                      } else {
+                        address = "No address available";
+                      }
+
+                      if (doctorData["experience"] != null) {
+                        experience = "${doctorData["experience"]} years";
+                      } else {
+                        experience = "Not specified";
+                      }
+                    } else if (snapshot.hasError) {
+                      address = "Error loading data";
+                      experience = "Error";
                     }
 
-                    // Get experience from doctor data - improved formatting
-                    if (doctorData["experience"] != null) {
-                      experience = "${doctorData["experience"]} years";
-                    } else {
-                      experience = "No experience data";
-                    }
-                  } else if (snapshot.hasError) {
-                    address = "Error loading address";
-                    experience = "Error loading experience";
-                  }
+                    return Column(
+                      children: [
+                        _infoCard(
+                          icon: Icons.location_on,
+                          iconBg: Colors.red,
+                          cardBg: Colors.red.shade50,
+                          value: address,
+                          label: "Clinic Address",
+                        ),
+                        _infoCard(
+                          icon: Icons.work,
+                          iconBg: Colors.cyan,
+                          cardBg: Colors.cyan.shade50,
+                          value: experience,
+                          label: "Experience",
+                        ),
+                      ],
+                    );
+                  },
+                ),
 
-                  return Column(
-                    children: [
-                      ListTile(
-                        leading:
-                            const Icon(Icons.location_on, color: Colors.red),
-                        title: Text(address),
-                        subtitle: const Text("Address"),
-                      ),
-                      ListTile(
-                        leading: const Icon(Icons.work, color: Colors.teal),
-                        title: Text(
-                            experience), // Now includes "years" in the string
-                        subtitle: const Text("Experience"),
-                      ),
-                    ],
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.check_circle, color: Colors.green),
-                title: Text(
-                    appointment["status"]?.toString().toUpperCase() ?? "N/A"),
-                subtitle: const Text("Status"),
-              ),
+                // Status
+                _statusCard(appointment["status"]?.toString() ?? "N/A"),
 
-              // Meeting Link
-              if (appointment["meetingLink"] != null &&
-                  appointment["meetingLink"].toString().isNotEmpty)
-                ListTile(
-                  leading: const Icon(Icons.videocam, color: Colors.blue),
-                  title: InkWell(
-                    onTap: () async {
-                      // Launch the meeting link
-                      final Uri uri = Uri.parse(appointment["meetingLink"]);
+                // Meeting Link
+                if (appointment["meetingLink"] != null &&
+                    appointment["meetingLink"].toString().isNotEmpty)
+                  _meetingCard(
+                    url: appointment["meetingLink"].toString(),
+                    onJoin: () async {
+                      final Uri uri =
+                          Uri.parse(appointment["meetingLink"].toString());
                       try {
                         if (await canLaunchUrl(uri)) {
                           await launchUrl(uri,
                               mode: LaunchMode.externalApplication);
                         } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text('Could not launch meeting link')),
-                          );
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content:
+                                      Text("Could not launch meeting link")),
+                            );
+                          }
                         }
                       } catch (e) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Error: $e')),
-                        );
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text("Error: $e")),
+                          );
+                        }
                       }
                     },
-                    child: Text(
-                      appointment["meetingLink"],
-                      style: const TextStyle(
-                        color: Colors.blue,
-                        decoration: TextDecoration.underline,
-                      ),
-                    ),
+                  )
+                else
+                  _infoCard(
+                    icon: Icons.link_off,
+                    iconBg: Colors.grey,
+                    cardBg: Colors.grey.shade200,
+                    value: "No meeting link",
+                    label: "Meeting Link",
                   ),
-                  subtitle: const Text("Meeting Link (Tap to join)"),
-                )
-              else
-                const ListTile(
-                  leading: Icon(Icons.link_off, color: Colors.grey),
-                  title: Text("No meeting link available"),
-                  subtitle: Text("Meeting Link"),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  // Styled info card (matches screenshot style)
+  Widget _infoCard({
+    required IconData icon,
+    required Color iconBg,
+    required Color cardBg,
+    required String value,
+    required String label,
+  }) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center, // <-- Center vertically
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: iconBg,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              // <-- Center the icon
+              child: Icon(icon, color: Colors.white, size: 24),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statusCard(String statusRaw) {
+    final status = statusRaw.toUpperCase();
+    final bool isApproved = status == 'APPROVED';
+    final bool isPending = status == 'PENDING';
+    final bool isCancelled = status == 'CANCELLED';
+
+    Color chipBg;
+    Color chipText;
+    Color cardBg;
+
+    if (isApproved) {
+      chipBg = Colors.green.shade100;
+      chipText = Colors.green.shade800;
+      cardBg = Colors.green.shade50;
+    } else if (isPending) {
+      chipBg = Colors.amber.shade100;
+      chipText = Colors.amber.shade800;
+      cardBg = Colors.amber.shade50;
+    } else if (isCancelled) {
+      chipBg = Colors.red.shade100;
+      chipText = Colors.red.shade800;
+      cardBg = Colors.red.shade50;
+    } else {
+      chipBg = Colors.blueGrey.shade100;
+      chipText = Colors.blueGrey.shade800;
+      cardBg = Colors.blueGrey.shade50;
+    }
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center, // <-- Center vertically
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: Colors.green.shade500,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Center(
+              // <-- Center the icon
+              child: Icon(Icons.check_circle, color: Colors.white, size: 24),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: chipBg,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    status[0].toUpperCase() + status.substring(1).toLowerCase(),
+                    style: TextStyle(
+                      color: chipText,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  "Appointment Status",
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _meetingCard({required String url, required VoidCallback onJoin}) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center, // <-- Center vertically
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: Colors.blue.shade500,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Center(
+              // <-- Center the icon
+              child: Icon(Icons.videocam, color: Colors.white, size: 24),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: onJoin,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.blue.shade700,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      side: BorderSide(color: Colors.blue.shade200),
+                    ),
+                    elevation: 0,
+                  ),
+                  icon: const Icon(Icons.open_in_new, size: 18),
+                  label: const Text(
+                    'Join Meeting',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  "Tap to join the online consultation",
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -284,6 +528,7 @@ class _DlandingpageState extends State<Dlandingpage> {
                 child:
                     Image.asset('assets/images/tbisita_logo2.png', height: 44),
               ),
+
               // Month & Year Header aligned with Calendar
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 8),
@@ -358,7 +603,9 @@ class _DlandingpageState extends State<Dlandingpage> {
                   ],
                 ),
               ),
+
               const SizedBox(height: 12),
+
               // Calendar
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 8),
@@ -377,6 +624,10 @@ class _DlandingpageState extends State<Dlandingpage> {
                     setState(() {
                       _selectedDay = selectedDay;
                       _focusedDay = focusedDay;
+                      if (_showAllAppointments &&
+                          _getEventsForDay(selectedDay).isEmpty) {
+                        _showAllAppointments = false;
+                      }
                     });
                   },
                   onFormatChanged: (format) {
@@ -393,26 +644,24 @@ class _DlandingpageState extends State<Dlandingpage> {
                   },
                   headerVisible: false,
                   daysOfWeekHeight: 30,
-                  calendarStyle: CalendarStyle(
-                    todayDecoration: const BoxDecoration(
+                  calendarStyle: const CalendarStyle(
+                    todayDecoration: BoxDecoration(
                         color: Colors.green, shape: BoxShape.circle),
-                    selectedDecoration: const BoxDecoration(
+                    selectedDecoration: BoxDecoration(
                         color: Colors.blueAccent, shape: BoxShape.circle),
-                    outsideTextStyle: const TextStyle(color: Colors.grey),
-                    weekendTextStyle: const TextStyle(color: Colors.redAccent),
-                    defaultTextStyle: const TextStyle(color: Colors.black),
-                    // Remove marker decorations since we'll use calendarBuilders
+                    outsideTextStyle: TextStyle(color: Colors.grey),
+                    weekendTextStyle: TextStyle(color: Colors.redAccent),
+                    defaultTextStyle: TextStyle(color: Colors.black),
                     markersMaxCount: 0,
                     canMarkersOverflow: false,
                   ),
                   calendarBuilders: CalendarBuilders(
-                    // Custom builder for days with appointments
                     defaultBuilder: (context, day, focusedDay) {
                       if (_getEventsForDay(day).isNotEmpty) {
                         return Container(
                           margin: const EdgeInsets.all(4.0),
                           decoration: const BoxDecoration(
-                            color: Colors.redAccent,
+                            color: Colors.green,
                             shape: BoxShape.circle,
                           ),
                           child: Center(
@@ -428,6 +677,24 @@ class _DlandingpageState extends State<Dlandingpage> {
                       }
                       return null;
                     },
+                    todayBuilder: (context, day, focusedDay) {
+                      return Container(
+                        margin: const EdgeInsets.all(4.0),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[400],
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            '${day.day}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
                   ),
                   daysOfWeekStyle: const DaysOfWeekStyle(
                     weekendStyle: TextStyle(
@@ -437,8 +704,24 @@ class _DlandingpageState extends State<Dlandingpage> {
                   ),
                 ),
               ),
+
               const SizedBox(height: 16),
-              // Appointments (only Approved for current doctor)
+
+              // See All button and Appointments (only Approved for current doctor)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _showAllAppointments = !_showAllAppointments;
+                      });
+                    },
+                    child: Text(_showAllAppointments ? 'Show Less' : 'See All'),
+                  ),
+                ],
+              ),
+
               StreamBuilder<QuerySnapshot>(
                 stream: _currentDoctorId != null
                     ? FirebaseFirestore.instance
@@ -447,7 +730,6 @@ class _DlandingpageState extends State<Dlandingpage> {
                         .snapshots()
                     : const Stream.empty(),
                 builder: (context, snapshot) {
-                  // Show loading if doctor ID is not available yet
                   if (_currentDoctorId == null) {
                     return const Center(
                       child: Padding(
@@ -456,22 +738,18 @@ class _DlandingpageState extends State<Dlandingpage> {
                       ),
                     );
                   }
-
                   if (snapshot.hasError) {
                     return const Center(child: Text('Something went wrong'));
                   }
-
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
                   }
 
                   final appointments = snapshot.data?.docs ?? [];
-
-                  // Update appointment dates when data actually changes (not every rebuild)
                   final newDates = <DateTime>[];
+
                   for (var doc in appointments) {
                     final data = doc.data() as Map<String, dynamic>;
-                    // Only process appointments for current doctor
                     if (data['doctorId'] == _currentDoctorId &&
                         data['appointmentDate'] != null) {
                       try {
@@ -494,7 +772,6 @@ class _DlandingpageState extends State<Dlandingpage> {
                     }
                   }
 
-                  // Only update if dates actually changed
                   if (!_listsEqual(_appointmentDates, newDates)) {
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       if (mounted) {
@@ -505,39 +782,52 @@ class _DlandingpageState extends State<Dlandingpage> {
                     });
                   }
 
-                  final filteredAppointments = appointments.where((doc) {
-                    final data = doc.data() as Map<String, dynamic>;
-                    if (data['appointmentDate'] == null) return false;
-                    try {
-                      final appointmentDate =
-                          (data['appointmentDate'] as Timestamp).toDate();
-                      return _selectedDay == null ||
-                          isSameDay(appointmentDate, _selectedDay);
-                    } catch (e) {
-                      debugPrint('Error processing appointment date: $e');
-                      return false;
-                    }
-                  }).toList();
+                  // Filter appointments based on _showAllAppointments
+                  final filteredAppointments = _showAllAppointments
+                      ? appointments
+                      : appointments.where((doc) {
+                          final data = doc.data() as Map<String, dynamic>;
+                          if (data['appointmentDate'] == null) return false;
+                          try {
+                            final appointmentDate =
+                                (data['appointmentDate'] as Timestamp).toDate();
+                            return _selectedDay == null ||
+                                isSameDay(appointmentDate, _selectedDay);
+                          } catch (e) {
+                            debugPrint('Error processing appointment date: $e');
+                            return false;
+                          }
+                        }).toList();
+
+                  if (filteredAppointments.isEmpty) {
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(20),
+                        child: Text('No approved appointments found.'),
+                      ),
+                    );
+                  }
 
                   return Column(
                     children: filteredAppointments.map((doc) {
                       final appointment = doc.data() as Map<String, dynamic>;
-
                       return Card(
                         color: Colors.white,
                         elevation: 3,
                         margin: const EdgeInsets.symmetric(
                             vertical: 6, horizontal: 8),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         child: ListTile(
                           onTap: () => _showAppointmentDetails(appointment),
                           leading: Container(
                             width: 50,
                             height: 50,
                             decoration: BoxDecoration(
-                                color: Colors.green,
-                                borderRadius: BorderRadius.circular(8)),
+                              color: Colors.green,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                             child: Center(
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -547,8 +837,9 @@ class _DlandingpageState extends State<Dlandingpage> {
                                         ? "${(appointment["appointmentDate"] as Timestamp).toDate().day}"
                                         : "--",
                                     style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold),
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                   Text(
                                     appointment["appointmentDate"] != null
@@ -575,7 +866,11 @@ class _DlandingpageState extends State<Dlandingpage> {
                             "${appointment["appointmentTime"] ?? "No time"} - ${appointment["status"]}",
                             style: const TextStyle(color: Colors.green),
                           ),
-                          trailing: const Icon(Icons.more_vert),
+                          trailing: const Icon(
+                            Icons.arrow_forward_ios,
+                            color: Colors.grey,
+                            size: 18,
+                          ),
                         ),
                       );
                     }).toList(),

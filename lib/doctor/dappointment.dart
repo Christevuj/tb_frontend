@@ -275,46 +275,23 @@ class _DappointmentState extends State<Dappointment> {
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              StreamBuilder<QuerySnapshot>(
-                                stream: FirebaseFirestore.instance
-                                    .collection('doctors')
-                                    .where('doctorId',
-                                        isEqualTo: appointment["doctorId"])
-                                    .limit(1)
-                                    .snapshots(),
-                                builder: (context, doctorSnapshot) {
-                                  String doctorName = "Loading...";
-                                  if (doctorSnapshot.hasData &&
-                                      doctorSnapshot.data!.docs.isNotEmpty) {
-                                    final doctorData =
-                                        doctorSnapshot.data!.docs.first.data()
-                                            as Map<String, dynamic>;
-                                    doctorName = doctorData["doctorName"] ??
-                                        "Unknown Doctor";
-                                    debugPrint(
-                                        'Found doctor data: $doctorData');
-                                  } else {
-                                    doctorName = "Doctor not found";
-                                  }
-                                  return Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        date != null
-                                            ? "${date.toLocal().toString().split(" ")[0]} at ${appointment["appointmentTime"] ?? "No time"}"
-                                            : "Date not set",
-                                      ),
-                                      Text(
-                                        doctorName,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey[600],
-                                        ),
-                                      ),
-                                    ],
-                                  );
-                                },
+                              Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    date != null
+                                        ? "${date.toLocal().toString().split(" ")[0]} at ${appointment["appointmentTime"] ?? "No time"}"
+                                        : "Date not set",
+                                  ),
+                                  Text(
+                                    "Pending",
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.orange,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),

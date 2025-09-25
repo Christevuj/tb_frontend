@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:tb_frontend/doctor/dappointment.dart';
 import 'package:tb_frontend/doctor/viewhistory.dart'; // Import Viewhistory
 
@@ -11,24 +13,7 @@ class Dhistory extends StatefulWidget {
 }
 
 class _DhistoryState extends State<Dhistory> {
-  final List<Map<String, dynamic>> _appointments = [
-    {
-      "date": DateTime.now().add(const Duration(days: 1)),
-      "status": "Pending",
-      "doctorName": "Dr. Juan Dela Cruz",
-      "facility": "Buhangin TB DOTS",
-      "experience": "7 years",
-      "time": "2:00 PM",
-    },
-    {
-      "date": DateTime.now().subtract(const Duration(days: 3)),
-      "status": "Completed",
-      "doctorName": "Dr. Maria Santos",
-      "facility": "Agdao TB DOTS",
-      "experience": "10 years",
-      "time": "10:00 AM",
-    },
-  ];
+  String? _currentDoctorId;
 
   @override
   void initState() {
@@ -38,6 +23,93 @@ class _DhistoryState extends State<Dhistory> {
       statusBarIconBrightness: Brightness.dark,
       statusBarBrightness: Brightness.light,
     ));
+    _getCurrentDoctorId();
+  }
+
+  Future<void> _getCurrentDoctorId() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      setState(() {
+        _currentDoctorId = user.uid;
+      });
+    }
+  }
+
+  // Load appointments from history collection
+  Stream<List<Map<String, dynamic>>> _getHistoryStream() {
+    if (_currentDoctorId == null) {
+      return Stream.value([]);
+    }
+
+    return FirebaseFirestore.instance
+        .collection('appointment_history')
+        .where('doctorId', isEqualTo: _currentDoctorId)
+        .snapshots()
+        .asyncMap((snapshot) async {
+      // If no documents found, try different collections
+      if (snapshot.docs.isEmpty) {
+        try {
+          List<Map<String, dynamic>> allAppointments = [];
+          
+          // Get approved appointments
+          final approvedSnapshot = await FirebaseFirestore.instance
+              .collection('approved_appointments')
+              .where('doctorId', isEqualTo: _currentDoctorId)
+              .get();
+          
+          for (var doc in approvedSnapshot.docs) {
+            final data = doc.data();
+            data['id'] = doc.id;
+            allAppointments.add(data);
+          }
+          
+          // Get rejected appointments  
+          final rejectedSnapshot = await FirebaseFirestore.instance
+              .collection('rejected_appointments')
+              .where('doctorId', isEqualTo: _currentDoctorId)
+              .get();
+              
+          for (var doc in rejectedSnapshot.docs) {
+            final data = doc.data();
+            data['id'] = doc.id;
+            allAppointments.add(data);
+          }
+          
+          // Sort by timestamp (either approvedAt or rejectedAt)
+          allAppointments.sort((a, b) {
+            final timestampA = a['approvedAt'] ?? a['rejectedAt'];
+            final timestampB = b['approvedAt'] ?? b['rejectedAt'];
+            if (timestampA == null && timestampB == null) return 0;
+            if (timestampA == null) return 1;
+            if (timestampB == null) return -1;
+            return timestampB.compareTo(timestampA);
+          });
+          
+          return allAppointments;
+        } catch (e) {
+          debugPrint('Error loading from fallback collections: $e');
+          return <Map<String, dynamic>>[];
+        }
+      }
+      
+      // Sort appointment history by timestamp
+      final appointments = snapshot.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        return data;
+      }).toList();
+      
+      appointments.sort((a, b) {
+        final timestampA = a['approvedAt'] ?? a['rejectedAt'];
+        final timestampB = b['approvedAt'] ?? b['rejectedAt'];
+        if (timestampA == null && timestampB == null) return 0;
+        if (timestampA == null) return 1;
+        if (timestampB == null) return -1;
+        return timestampB.compareTo(timestampA);
+      });
+      
+      return appointments;
+    });
   }
 
   // ✅ Show appointment details in a floating dialog
@@ -57,11 +129,58 @@ class _DhistoryState extends State<Dhistory> {
     );
   }
 
+  String _formatDate(dynamic dateValue) {
+    try {
+      DateTime date;
+      if (dateValue is Timestamp) {
+        date = dateValue.toDate();
+      } else if (dateValue is String) {
+        date = DateTime.parse(dateValue);
+      } else if (dateValue is DateTime) {
+        date = dateValue;
+      } else {
+        return 'Invalid date';
+      }
+      return '${date.day}/${date.month}/${date.year}';
+    } catch (e) {
+      debugPrint('Error formatting date: $e');
+      return 'Invalid date';
+    }
+  }
+
+  Widget _buildStatusIcon(String status) {
+    switch (status.toLowerCase()) {
+      case 'approved':
+        return const CircleAvatar(
+          backgroundColor: Colors.green,
+          child: Icon(Icons.check, color: Colors.white),
+        );
+      case 'rejected':
+        return const CircleAvatar(
+          backgroundColor: Colors.red,
+          child: Icon(Icons.close, color: Colors.white),
+        );
+      default:
+        return const CircleAvatar(
+          backgroundColor: Colors.orange,
+          child: Icon(Icons.schedule, color: Colors.white),
+        );
+    }
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'approved':
+        return Colors.green;
+      case 'rejected':
+        return Colors.red;
+      default:
+        return Colors.orange;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final pendingAppointments =
-        _appointments.where((a) => a["status"] == "Pending").toList();
-
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -116,50 +235,119 @@ class _DhistoryState extends State<Dhistory> {
 
                 const SizedBox(height: 20),
 
-                // List of Appointments
-                pendingAppointments.isEmpty
-                    ? const Center(
-                        child: Text(
-                          "No pending appointments.",
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      )
-                    : ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: pendingAppointments.length,
-                        itemBuilder: (context, index) {
-                          final appointment = pendingAppointments[index];
-                          final date = appointment["date"] as DateTime;
+                // StreamBuilder for history data
+                StreamBuilder<List<Map<String, dynamic>>>(
+                  stream: _getHistoryStream(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
 
-                          return Card(
-                            color: Colors.white,
-                            margin: const EdgeInsets.symmetric(vertical: 8),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                    if (snapshot.hasError) {
+                      return Center(
+                        child: Text(
+                          'Error loading history: ${snapshot.error}',
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                      );
+                    }
+
+                    final appointments = snapshot.data ?? [];
+
+                    if (appointments.isEmpty) {
+                      return const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(40),
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.history,
+                                size: 64,
+                                color: Colors.grey,
+                              ),
+                              SizedBox(height: 16),
+                              Text(
+                                "No appointment history yet.",
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+
+                    return ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: appointments.length,
+                      itemBuilder: (context, index) {
+                        final appointment = appointments[index];
+                        DateTime? date;
+                        
+                        try {
+                          final appointmentDate = appointment['appointmentDate'];
+                          if (appointmentDate is Timestamp) {
+                            date = appointmentDate.toDate();
+                          }
+                        } catch (e) {
+                          debugPrint('Error parsing date: $e');
+                        }
+
+                        final status = appointment['status'] ?? 'unknown';
+                        
+                        return Card(
+                          color: Colors.white,
+                          margin: const EdgeInsets.symmetric(vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 2,
+                          child: ListTile(
+                            leading: _buildStatusIcon(status),
+                            title: Text(
+                              appointment["patientName"] ?? "Unknown Patient",
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold),
                             ),
-                            elevation: 2,
-                            child: ListTile(
-                              leading: const CircleAvatar(
-                                backgroundColor: Colors.orange,
-                                child: Icon(Icons.schedule,
-                                    color: Colors.white),
-                              ),
-                              title: Text(
-                                appointment["doctorName"],
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold),
-                              ),
-                              subtitle: Text(
-                                "${appointment["facility"]}\n${date.toLocal().toString().split(" ")[0]} at ${appointment["time"]}",
-                              ),
-                              trailing: const Icon(Icons.arrow_forward_ios,
-                                  size: 16, color: Colors.grey),
-                              onTap: () => _showAppointmentDetails(appointment),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "${appointment["facility"] ?? "Unknown Facility"}\n${date != null ? _formatDate(date) : "No date"} at ${appointment["appointmentTime"] ?? "No time"}",
+                                ),
+                                const SizedBox(height: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: _getStatusColor(status).withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    status.toUpperCase(),
+                                    style: TextStyle(
+                                      color: _getStatusColor(status),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          );
-                        },
-                      ),
+                            trailing: const Icon(Icons.arrow_forward_ios,
+                                size: 16, color: Colors.grey),
+                            onTap: () => _showAppointmentDetails({
+                              ...appointment,
+                              'date': date,
+                            }),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
               ],
             ),
           ),

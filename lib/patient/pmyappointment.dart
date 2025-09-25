@@ -202,274 +202,389 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
   }
 
   void _showAppointmentDetails(Map<String, dynamic> appointment) {
-    // Debug: Print all available fields in the appointment data
-    debugPrint('=== APPOINTMENT DEBUG INFO ===');
-    debugPrint('All appointment data: $appointment');
-    debugPrint('Available keys: ${appointment.keys.toList()}');
-    debugPrint('Doctor Name: ${appointment['doctorName']}');
-    debugPrint('Doctor name alt: ${appointment['doctor_name']}');
-    debugPrint('Time: ${appointment['appointment_time']}');
-    debugPrint('Time alt: ${appointment['appointmentTime']}');
-    debugPrint('Meeting Link: ${appointment['meetingLink']}');
-    debugPrint('Jitsi Link: ${appointment['jitsi_link']}');
-    debugPrint('Meeting Link alt: ${appointment['meeting_link']}');
-    debugPrint('Status: ${appointment['status']}');
-    debugPrint('===============================');
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.7,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          children: [
-            // Handle bar
-            Container(
-              margin: const EdgeInsets.only(top: 12),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-
-            // Header
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Appointment Details',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xE0F44336),
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        maxChildSize: 0.95,
+        minChildSize: 0.5,
+        builder: (_, controller) => Container(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: SingleChildScrollView(
+            controller: controller,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Drag handle
+                Center(
+                  child: Container(
+                    height: 5,
+                    width: 50,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-         
-                ],
-              ),
-            ),
+                ),
 
-            // Content
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Doctor Name
-                    _buildDetailRow(
-                      'Doctor:',
-                      appointment['doctorName'] ??
-                          appointment['doctor_name'] ??
-                          'Not available',
-                      Icons.person,
-                    ),
-                    const SizedBox(height: 16),
+                Center(
+                  child: const Text(
+                    "Appointment Details",
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(height: 20),
 
-                    // Date
-                    _buildDetailRow(
-                      'Date:',
-                      appointment['date'] != null
-                          ? '${appointment['date'].day}/${appointment['date'].month}/${appointment['date'].year}'
-                          : (appointment['appointmentDate'] != null
-                              ? _formatDate(appointment['appointmentDate'])
-                              : (appointment['appointment_date'] != null
-                                  ? _formatDate(appointment['appointment_date'])
-                                  : 'Not set')),
-                      Icons.calendar_today,
-                    ),
-                    const SizedBox(height: 16),
+                // Doctor Name
+                _infoCard(
+                  icon: Icons.medical_services,
+                  iconBg: Colors.teal,
+                  cardBg: Colors.teal.shade50,
+                  value: appointment['doctorName'] ??
+                      appointment['doctor_name'] ??
+                      'Not available',
+                  label: "Doctor",
+                ),
 
-                    // Time
-                    _buildDetailRow(
-                      'Time:',
-                      appointment['appointment_time'] ??
-                          appointment['appointmentTime'] ??
-                          appointment['time'] ??
-                          'Not set',
-                      Icons.access_time,
-                    ),
-                    const SizedBox(height: 16),
+                // Appointment Date
+                _infoCard(
+                  icon: Icons.calendar_today,
+                  iconBg: Colors.indigo,
+                  cardBg: Colors.indigo.shade50,
+                  value: appointment['date'] != null
+                      ? '${appointment['date'].day}/${appointment['date'].month}/${appointment['date'].year}'
+                      : (appointment['appointmentDate'] != null
+                          ? _formatDate(appointment['appointmentDate'])
+                          : (appointment['appointment_date'] != null
+                              ? _formatDate(appointment['appointment_date'])
+                              : 'Not set')),
+                  label: "Appointment Date",
+                ),
 
-                    // Status - Green for approved, grey for others
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color:
-                            (appointment['status']?.toString().toLowerCase() ==
-                                    'approved')
-                                ? Colors.green.shade50
-                                : Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: (appointment['status']
-                                      ?.toString()
-                                      .toLowerCase() ==
-                                  'approved')
-                              ? Colors.green.shade200
-                              : Colors.grey.shade200,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            (appointment['status']?.toString().toLowerCase() ==
-                                    'approved')
-                                ? Icons.check_circle
-                                : Icons.pending,
-                            color: (appointment['status']
-                                        ?.toString()
-                                        .toLowerCase() ==
-                                    'approved')
-                                ? Colors.green.shade600
-                                : Colors.grey.shade600,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Status: ${appointment['status']?.toString().toUpperCase() ?? 'UNKNOWN'}',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: (appointment['status']
-                                          ?.toString()
-                                          .toLowerCase() ==
-                                      'approved')
-                                  ? Colors.green.shade800
-                                  : Colors.grey.shade800,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
+                // Appointment Time
+                _infoCard(
+                  icon: Icons.access_time,
+                  iconBg: Colors.amber,
+                  cardBg: Colors.amber.shade50,
+                  value: appointment['appointment_time'] ??
+                      appointment['appointmentTime'] ??
+                      appointment['time'] ??
+                      'Not set',
+                  label: "Appointment Time",
+                ),
 
-                    // Meeting Link - Always show for debugging
-                    Builder(
-                      builder: (context) {
-                        final meetingLink = appointment['meetingLink'] ??
-                            appointment['jitsi_link'] ??
-                            appointment['meeting_link'];
+                // Fetch Doctor's Clinic Address
+                FutureBuilder<DocumentSnapshot>(
+                  future: FirebaseFirestore.instance
+                      .collection('doctors')
+                      .doc(appointment["doctorId"] ?? appointment["doctor_id"])
+                      .get(),
+                  builder: (context, snapshot) {
+                    String address = "Loading...";
 
-                        debugPrint('Meeting link found: $meetingLink');
+                    if (snapshot.hasData && snapshot.data!.exists) {
+                      final doctorData =
+                          snapshot.data!.data() as Map<String, dynamic>;
+                      if (doctorData["affiliations"] != null &&
+                          (doctorData["affiliations"] as List).isNotEmpty) {
+                        address = (doctorData["affiliations"][0]["address"] ??
+                                "No address")
+                            .toString();
+                      } else {
+                        address = "No address available";
+                      }
+                    } else if (snapshot.hasError) {
+                      address = "Error loading data";
+                    }
 
-                        if (meetingLink != null &&
-                            meetingLink.toString().isNotEmpty) {
-                          return Container(
-                            width: double.infinity,
-                            margin: const EdgeInsets.only(bottom: 16),
-                            child: ElevatedButton.icon(
-                              onPressed: () =>
-                                  _launchUrl(meetingLink.toString()),
-                              icon: const Icon(Icons.videocam,
-                                  color: Colors.white),
-                              label: const Text('Join Meeting',
-                                  style: TextStyle(color: Colors.white)),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blue,
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 14),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                            ),
-                          );
-                        } else {
-                          return Container(
-                            width: double.infinity,
-                            margin: const EdgeInsets.only(bottom: 16),
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade100,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.grey.shade300),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.info,
-                                    color: Colors.grey.shade600, size: 20),
-                                const SizedBox(width: 8),
-                                const Text(
-                                  'Meeting link not yet available',
-                                  style: TextStyle(color: Colors.grey),
-                                ),
-                              ],
-                            ),
-                          );
+                    return _infoCard(
+                      icon: Icons.location_on,
+                      iconBg: Colors.red,
+                      cardBg: Colors.red.shade50,
+                      value: address,
+                      label: "Clinic Address",
+                    );
+                  },
+                ),
+
+                // Status
+                _statusCard(appointment["status"]?.toString() ?? "N/A"),
+
+                // Meeting Link - Only show if status is approved
+                if (appointment["status"]?.toString().toLowerCase() == "approved")
+                  if ((appointment['meetingLink'] ?? appointment['jitsi_link'] ?? appointment['meeting_link']) != null &&
+                      (appointment['meetingLink'] ?? appointment['jitsi_link'] ?? appointment['meeting_link']).toString().isNotEmpty)
+                    _meetingCard(
+                      url: (appointment['meetingLink'] ?? appointment['jitsi_link'] ?? appointment['meeting_link']).toString(),
+                      onJoin: () async {
+                        final Uri uri =
+                            Uri.parse((appointment['meetingLink'] ?? appointment['jitsi_link'] ?? appointment['meeting_link']).toString());
+                        try {
+                          if (await canLaunchUrl(uri)) {
+                            await launchUrl(uri,
+                                mode: LaunchMode.externalApplication);
+                          } else {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content:
+                                        Text("Could not launch meeting link")),
+                              );
+                            }
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text("Error: $e")),
+                            );
+                          }
                         }
                       },
-                    ),
-                  ],
-                ),
-              ),
+                    )
+                  else
+                    _infoCard(
+                      icon: Icons.link_off,
+                      iconBg: Colors.grey,
+                      cardBg: Colors.grey.shade200,
+                      value: "No meeting link available yet",
+                      label: "Meeting Link",
+                    )
+                else
+                  _infoCard(
+                    icon: Icons.schedule,
+                    iconBg: Colors.orange,
+                    cardBg: Colors.orange.shade50,
+                    value: "Meeting will be available once approved",
+                    label: "Meeting Status",
+                  ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildDetailRow(String label, String value, IconData icon,
-      {Color? statusColor}) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 20, color: statusColor ?? Colors.grey.shade600),
-        const SizedBox(width: 8),
-        Expanded(
-          child: RichText(
-            text: TextSpan(
-              style: const TextStyle(color: Colors.black, fontSize: 14),
+  // Styled info card (matches screenshot style)
+  Widget _infoCard({
+    required IconData icon,
+    required Color iconBg,
+    required Color cardBg,
+    required String value,
+    required String label,
+  }) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center, // <-- Center vertically
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: iconBg,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              // <-- Center the icon
+              child: Icon(icon, color: Colors.white, size: 24),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                TextSpan(
-                  text: '$label ',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black,
+                  ),
                 ),
-                TextSpan(
-                  text: value,
+                const SizedBox(height: 4),
+                Text(
+                  label,
                   style: TextStyle(
-                    color: statusColor ?? Colors.black87,
-                    fontWeight: statusColor != null
-                        ? FontWeight.w600
-                        : FontWeight.normal,
+                    fontSize: 13,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  Future<void> _launchUrl(String url) async {
-    try {
-      final Uri uri = Uri.parse(url);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not open the meeting link')),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error opening link: $e')),
-        );
-      }
+  // Status card with custom styling based on status
+  Widget _statusCard(String status) {
+    Color statusColor;
+    Color bgColor;
+    IconData icon;
+
+    switch (status.toLowerCase()) {
+      case 'approved':
+        statusColor = Colors.green;
+        bgColor = Colors.green.shade50;
+        icon = Icons.check_circle;
+        break;
+      case 'pending':
+        statusColor = Colors.orange;
+        bgColor = Colors.orange.shade50;
+        icon = Icons.pending;
+        break;
+      case 'cancelled':
+        statusColor = Colors.red;
+        bgColor = Colors.red.shade50;
+        icon = Icons.cancel;
+        break;
+      default:
+        statusColor = Colors.grey;
+        bgColor = Colors.grey.shade50;
+        icon = Icons.help;
     }
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: statusColor,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              child: Icon(icon, color: Colors.white, size: 24),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  status.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: statusColor,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "Appointment Status",
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Meeting card with join button
+  Widget _meetingCard({required String url, required VoidCallback onJoin}) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.green.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.green.shade200),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: Colors.green,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Center(
+              child: Icon(Icons.videocam, color: Colors.white, size: 24),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Meeting Available",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "Tap to join the virtual appointment",
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton(
+            onPressed: onJoin,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
+            child: const Text(
+              "Join",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

@@ -78,13 +78,57 @@ class Viewpostappointment extends StatelessWidget {
 
               // E-Prescription
               const SectionTitle(title: "E-Prescription"),
-              const InfoField(icon: Icons.picture_as_pdf, text: "e-prescription.pdf"),
+              if (appointment["prescriptionData"] != null) ...[
+                InfoField(
+                  icon: Icons.picture_as_pdf,
+                  text: "Prescription uploaded and verified",
+                ),
+                Container(
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.check_circle, color: Colors.green.shade600),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          "Meeting completed with prescription",
+                          style: TextStyle(
+                            color: Colors.green.shade700,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ] else ...[
+                const InfoField(
+                  icon: Icons.warning,
+                  text: "No prescription data available",
+                ),
+              ],
 
               const SizedBox(height: 20),
 
               // Treatment Completion
               const SectionTitle(title: "Treatment Completion"),
-              const InfoField(icon: Icons.check_box, text: "-"),
+              if (appointment["meetingCompleted"] == true) ...[
+                const InfoField(
+                  icon: Icons.check_circle,
+                  text: "Meeting completed successfully",
+                ),
+              ] else ...[
+                const InfoField(
+                  icon: Icons.pending,
+                  text: "Meeting in progress",
+                ),
+              ],
 
               const SizedBox(height: 20),
 

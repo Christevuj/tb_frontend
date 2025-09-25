@@ -3,6 +3,8 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'prescription.dart';
+import 'viewpost.dart';
 
 bool _showAllAppointments = false; // Track See All state
 
@@ -187,67 +189,7 @@ class _DlandingpageState extends State<Dlandingpage> {
                   label: "Appointment Time",
                 ),
 
-                // Doctor Name
-                _infoCard(
-                  icon: Icons.medical_services,
-                  iconBg: Colors.teal,
-                  cardBg: Colors.teal.shade50,
-                  value: appointment["doctorName"]?.toString() ?? "N/A",
-                  label: "Doctor",
-                ),
 
-                // Fetch Doctor's Address + Experience
-                FutureBuilder<DocumentSnapshot>(
-                  future: FirebaseFirestore.instance
-                      .collection('doctors')
-                      .doc(appointment["doctorId"])
-                      .get(),
-                  builder: (context, snapshot) {
-                    String address = "Loading...";
-                    String experience = "Loading...";
-
-                    if (snapshot.hasData && snapshot.data!.exists) {
-                      final doctorData =
-                          snapshot.data!.data() as Map<String, dynamic>;
-                      if (doctorData["affiliations"] != null &&
-                          (doctorData["affiliations"] as List).isNotEmpty) {
-                        address = (doctorData["affiliations"][0]["address"] ??
-                                "No address")
-                            .toString();
-                      } else {
-                        address = "No address available";
-                      }
-
-                      if (doctorData["experience"] != null) {
-                        experience = "${doctorData["experience"]} years";
-                      } else {
-                        experience = "Not specified";
-                      }
-                    } else if (snapshot.hasError) {
-                      address = "Error loading data";
-                      experience = "Error";
-                    }
-
-                    return Column(
-                      children: [
-                        _infoCard(
-                          icon: Icons.location_on,
-                          iconBg: Colors.red,
-                          cardBg: Colors.red.shade50,
-                          value: address,
-                          label: "Clinic Address",
-                        ),
-                        _infoCard(
-                          icon: Icons.work,
-                          iconBg: Colors.cyan,
-                          cardBg: Colors.cyan.shade50,
-                          value: experience,
-                          label: "Experience",
-                        ),
-                      ],
-                    );
-                  },
-                ),
 
                 // Status
                 _statusCard(appointment["status"]?.toString() ?? "N/A"),
@@ -290,6 +232,12 @@ class _DlandingpageState extends State<Dlandingpage> {
                     value: "No meeting link",
                     label: "Meeting Link",
                   ),
+
+                // Prescription Container
+                _prescriptionCard(appointment),
+
+                // Done Meeting Button
+                _doneMeetingButton(appointment),
               ],
             ),
           ),
@@ -509,6 +457,199 @@ class _DlandingpageState extends State<Dlandingpage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _prescriptionCard(Map<String, dynamic> appointment) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('prescriptions')
+          .where('appointmentId', isEqualTo: appointment['appointmentId'])
+          .snapshots(),
+      builder: (context, snapshot) {
+        bool hasPrescription = false;
+        
+        if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+          hasPrescription = true;
+        }
+
+        return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.symmetric(vertical: 6),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: hasPrescription ? Colors.green.shade50 : Colors.orange.shade50,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: hasPrescription ? Colors.green.shade500 : Colors.orange.shade500,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(
+                  child: Icon(
+                    hasPrescription ? Icons.medical_services : Icons.description,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (hasPrescription) ...[
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => Prescription(appointment: appointment),
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: Colors.green.shade700,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            side: BorderSide(color: Colors.green.shade200),
+                          ),
+                          elevation: 0,
+                        ),
+                        icon: const Icon(Icons.visibility, size: 18),
+                        label: const Text(
+                          'View Prescription',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        "Prescription uploaded successfully",
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ] else ...[
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => Prescription(appointment: appointment),
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: Colors.orange.shade700,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            side: BorderSide(color: Colors.orange.shade200),
+                          ),
+                          elevation: 0,
+                        ),
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text(
+                          'Add Prescription',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        "No prescription uploaded yet",
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ]
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _doneMeetingButton(Map<String, dynamic> appointment) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('prescriptions')
+          .where('appointmentId', isEqualTo: appointment['appointmentId'])
+          .snapshots(),
+      builder: (context, snapshot) {
+        bool hasPrescription = false;
+        Map<String, dynamic>? prescriptionData;
+        
+        if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+          hasPrescription = true;
+          prescriptionData = snapshot.data!.docs.first.data() as Map<String, dynamic>;
+        }
+
+        return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.symmetric(vertical: 12),
+          child: ElevatedButton(
+            onPressed: hasPrescription 
+                ? () async {
+                    // Send prescription data to viewpost
+                    final updatedAppointment = Map<String, dynamic>.from(appointment);
+                    updatedAppointment['prescriptionData'] = prescriptionData;
+                    updatedAppointment['meetingCompleted'] = true;
+                    
+                    // Navigate to viewpost page
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => Viewpostappointment(
+                          appointment: updatedAppointment,
+                        ),
+                      ),
+                    );
+                    
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("Meeting marked as completed and data sent to post-appointment"),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: hasPrescription ? Colors.green.shade600 : Colors.grey.shade400,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: hasPrescription ? 3 : 0,
+            ),
+            child: Text(
+              hasPrescription ? 'DONE MEETING' : 'UPLOAD PRESCRIPTION FIRST',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 

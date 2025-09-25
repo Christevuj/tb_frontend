@@ -952,6 +952,8 @@ class _DlandingpageState extends State<Dlandingpage> {
                   return Column(
                     children: filteredAppointments.map((doc) {
                       final appointment = doc.data() as Map<String, dynamic>;
+                      // Add document ID as appointmentId to ensure unique identification
+                      appointment['appointmentId'] = doc.id;
                       return Card(
                         color: Colors.white,
                         elevation: 3,

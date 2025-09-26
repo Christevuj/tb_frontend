@@ -262,22 +262,6 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
     return poly;
   }
 
-  Future<void> _openExternalMaps(LatLng dest) async {
-    final googleUrl = 'google.navigation:q=${dest.latitude},${dest.longitude}';
-    if (await canLaunchUrl(Uri.parse(googleUrl))) {
-      await launchUrl(Uri.parse(googleUrl));
-    } else {
-      final mapsUrl =
-          'https://www.google.com/maps/dir/?api=1&destination=${dest.latitude},${dest.longitude}';
-      if (await canLaunchUrl(Uri.parse(mapsUrl))) {
-        await launchUrl(Uri.parse(mapsUrl));
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not open maps app.')));
-      }
-    }
-  }
-
   void _onSeeDirectionsPressed() {
     final facility = _facilities[_selectedIndex];
     if (facility.coordinates == null) {
@@ -297,9 +281,9 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (facility.address != null) Text(facility.address!),
+            Text(facility.address),
             const SizedBox(height: 8),
-            if (facility.email != null)
+            if (facility.email != null && facility.email!.isNotEmpty)
               Row(
                 children: [
                   const Icon(Icons.email, size: 18),
@@ -362,7 +346,7 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
                   SizedBox(
                     width: double.infinity,
                     child: Text(
-                      facility.address ?? '',
+                      facility.address,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -491,7 +475,7 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
                                               children: [
                                                 Text(f.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                                                 const SizedBox(height: 6),
-                                                Text(f.address ?? '', style: const TextStyle(fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
+                                                Text(f.address, style: const TextStyle(fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
                                               ],
                                             ),
                                           ),

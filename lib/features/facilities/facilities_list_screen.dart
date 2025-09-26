@@ -3,7 +3,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../models/facility.dart';
 import '../../services/facility_repository.dart';
-import '../map/map_screen_enhanced.dart';
+import '../../screens/tb_dots_map_view.dart';
 
 class FacilitiesListScreen extends StatefulWidget {
   const FacilitiesListScreen({super.key});
@@ -109,7 +109,7 @@ class _FacilitiesListScreenState extends State<FacilitiesListScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => const MapScreenEnhanced(),
+        builder: (context) => const TBDotsFacilitiesMap(),
       ),
     );
   }
@@ -316,7 +316,7 @@ class _FacilitiesListScreenState extends State<FacilitiesListScreen> {
                 ),
               ],
             ),
-            if (facility.email.isNotEmpty) ...[
+            if (facility.email != null && facility.email!.isNotEmpty) ...[
               const SizedBox(height: 8),
               Row(
                 children: [
@@ -324,7 +324,7 @@ class _FacilitiesListScreenState extends State<FacilitiesListScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      facility.email,
+                      facility.email!,
                       style: TextStyle(
                         fontSize: 14,
                         color: Colors.grey.shade700,

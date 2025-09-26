@@ -4,14 +4,14 @@ import 'dart:math';
 class Facility {
   final String name;
   final String address;
-  final String email;
+  final String? email; // Made optional
   final LatLng? coordinates;
   double? _distance; // Distance from current location
 
   Facility({
     required this.name,
     required this.address,
-    required this.email,
+    this.email, // Made optional
     this.coordinates,
   });
 
@@ -50,7 +50,7 @@ class Facility {
     return Facility(
       name: json['name'] ?? '',
       address: json['address'] ?? '',
-      email: json['email'] ?? '',
+      email: json['email'], // Can be null
       coordinates: json['coordinates'] != null
           ? LatLng(
               json['coordinates']['lat'],
@@ -64,7 +64,7 @@ class Facility {
     return {
       'name': name,
       'address': address,
-      'email': email,
+      if (email != null) 'email': email, // Only include if not null
       'coordinates': coordinates != null
           ? {'lat': coordinates!.latitude, 'lng': coordinates!.longitude}
           : null,
@@ -73,7 +73,7 @@ class Facility {
 
   @override
   String toString() {
-    return 'Facility(name: $name, address: $address, email: $email, coordinates: $coordinates)';
+    return 'Facility(name: $name, address: $address, email: ${email ?? 'N/A'}, coordinates: $coordinates)';
   }
 
   @override
@@ -87,6 +87,6 @@ class Facility {
 
   @override
   int get hashCode {
-    return name.hashCode ^ address.hashCode ^ email.hashCode;
+    return name.hashCode ^ address.hashCode ^ (email?.hashCode ?? 0);
   }
 }

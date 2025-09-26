@@ -247,6 +247,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                         affiliations.add({
                           "name": selectedFacility!.name,
                           "address": selectedFacility!.address,
+                          "email": selectedFacility!.email,
                           "latitude": selectedFacility!.latitude,
                           "longitude": selectedFacility!.longitude,
                           "schedules": schedules,
@@ -479,6 +480,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                 affiliations.add({
                                   "name": value.name,
                                   "address": value.address,
+                                  "email": value.email,
                                   "latitude": value.latitude,
                                   "longitude": value.longitude,
                                 });

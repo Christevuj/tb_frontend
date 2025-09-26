@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:tb_frontend/guest/gviewdoctor.dart';
 import 'package:tb_frontend/guest/gappointment.dart';
 import 'package:tb_frontend/guest/gconsultant.dart';
-import 'package:tb_frontend/features/map/map_screen_enhanced.dart';
 import 'package:tb_frontend/guest/gtbfacility.dart';
+import 'package:tb_frontend/guest/glistfacility.dart';
 
 // ✅ Import YouTube player
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
@@ -68,29 +67,26 @@ class _GlandingPageState extends State<GlandingPage> {
               Image.asset("assets/images/tbisita_logo2.png",
                   height: 44, alignment: Alignment.centerLeft),
               const SizedBox(height: 20),
-
               const Text('Quick Actions',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _quickAction(
-                      context, Icons.smart_toy, 'AI\nConsultant', const GConsultant()),
-                  _quickAction(
-                      context, Icons.calendar_today, 'Book\nAppointment', const Gappointment()),
-            _quickAction(
-              context, Icons.medical_services, 'Healthcare\nProviders', const GViewDoctor()),
-                  _quickAction(context, Icons.local_hospital, 'TB DOTS\nFacilities',
-                      const GtbfacilityPage()),
+                  _quickAction(context, Icons.smart_toy, 'AI\nConsultant',
+                      const GConsultant()),
+                  _quickAction(context, Icons.calendar_today,
+                      'Book\nAppointment', const Gappointment()),
+                  _quickAction(context, Icons.medical_services,
+                      'Healthcare\nProviders', const GListFacility()),
+                  _quickAction(context, Icons.local_hospital,
+                      'Facility\nLocator', const GtbfacilityPage()),
                 ],
               ),
               const SizedBox(height: 24),
-
               const Text('TB DOTS Commercial',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-
               _isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : (_youtubeController != null
@@ -102,15 +98,15 @@ class _GlandingPageState extends State<GlandingPage> {
                           ),
                         )
                       : const Text("No video available")),
-
               const SizedBox(height: 8),
               const Text(
                 "Video content © Department of Health (DOH) Philippines & USAID.",
                 style: TextStyle(
-                    fontSize: 12, fontStyle: FontStyle.italic, color: Colors.black54),
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                    color: Colors.black54),
                 textAlign: TextAlign.center,
               ),
-
               const SizedBox(height: 24),
               const Text('Guidelines (NTP MOP - 6th Edition)',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
@@ -118,9 +114,11 @@ class _GlandingPageState extends State<GlandingPage> {
               Card(
                 elevation: 2,
                 color: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
                 child: ListTile(
-                  leading: const Icon(Icons.picture_as_pdf, size: 32, color: Colors.red),
+                  leading: const Icon(Icons.picture_as_pdf,
+                      size: 32, color: Colors.red),
                   title: const Text(
                     'NTP_MOP_6TH_EDITION.pdf',
                     style: TextStyle(fontSize: 14),
@@ -132,12 +130,14 @@ class _GlandingPageState extends State<GlandingPage> {
                         context,
                         MaterialPageRoute(
                           builder: (_) => const PdfViewerScreen(
-                              assetPath: 'assets/documents/NTP_MOP_6TH_EDITION.pdf'),
+                              assetPath:
+                                  'assets/documents/NTP_MOP_6TH_EDITION.pdf'),
                         ),
                       );
                     },
                     style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey, foregroundColor: Colors.white),
+                        backgroundColor: Colors.grey,
+                        foregroundColor: Colors.white),
                     child: const Text('Open PDF'),
                   ),
                 ),
@@ -145,11 +145,12 @@ class _GlandingPageState extends State<GlandingPage> {
               const SizedBox(height: 16),
               Card(
                 elevation: 2,
-                shape:
-                    RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  child: Image.asset('assets/images/guidelines.png', fit: BoxFit.cover),
+                  child: Image.asset('assets/images/guidelines.png',
+                      fit: BoxFit.cover),
                 ),
               ),
               const SizedBox(height: 32),
@@ -175,13 +176,16 @@ class _GlandingPageState extends State<GlandingPage> {
               color: Colors.redAccent,
               shape: BoxShape.circle,
               boxShadow: [
-                BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(2, 2))
+                BoxShadow(
+                    color: Colors.black26, blurRadius: 4, offset: Offset(2, 2))
               ],
             ),
             child: Icon(icon, color: Colors.white, size: 28),
           ),
           const SizedBox(height: 4),
-          Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)),
+          Text(label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 12)),
         ],
       ),
     );

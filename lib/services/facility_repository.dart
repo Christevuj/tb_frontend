@@ -5,100 +5,81 @@ import '../models/facility.dart';
 class FacilityRepository {
   static final List<Facility> _facilities = [
     Facility(
-      name: "AGDAO*",
+      name: "AGDAO",
       address:
           "Agdao Public Market Corner Lapu-Lapu & C. Bangoy St., Agdao, Davao City",
-      email: "agdaohealthcenter@gmail.com",
     ),
     Facility(
       name: "BAGUIO (MALAGOS HC)",
       address: "Purok 2A Malagos, Baguio District, Davao City",
-      email: "baguiodistricthealthcenter@gmail.com",
     ),
     Facility(
       name: "BUHANGIN (NHA BUHANGIN HC)",
       address: "NHA Chapet St., Buhangin, Davao City",
-      email: "buhanginhealthdistrict01@gmail.com",
     ),
     Facility(
-      name: "BUNAWAN*",
+      name: "BUNAWAN",
       address: "Daang Maharlika Highway, Bunawan, Davao City",
-      email: "bunawandistrict2020@gmail.com",
     ),
     Facility(
-      name: "CALINAN*",
+      name: "CALINAN",
       address: "P34, Aurora St., Calinan, Davao City",
-      email: "calinanruralhealthcenter@gmail.com",
     ),
     Facility(
-      name: "DAVAO CHEST CENTER*",
+      name: "DAVAO CHEST CENTER",
       address: "Villa Abrille St., Brgy 30-C, Davao City",
-      email: "davaochestcenter2021@gmail.com",
     ),
     Facility(
       name: "DISTRICT A (TOMAS CLAUDIO HC)",
       address: "Camus Ext., Corner Quirino Ave., Davao City",
-      email: "tomasclaudiohc.davao@gmail.com",
     ),
     Facility(
       name: "DISTRICT B (EL RIO HC)",
       address: "Garcia Heights, Bajada, Davao City",
-      email: "bdistrict20@gmail.com",
     ),
     Facility(
       name: "DISTICT C (MINIFOREST HC)",
       address: "Brgy 23-C, Quezon Boulevard, Davao City",
-      email: "districtc2020@gmail.com",
     ),
     Facility(
       name: "DISTRICT D (JACINTO HC)",
       address: "Emilio Jacinto St., Davao City",
-      email: "healthcenterjacinto@gmail.com",
     ),
     Facility(
       name: "MARILOG (MARAHAN HC)",
       address: "Sitio Marahan, Brgy. Marilog, Davao City",
-      email: "marilogrhu2017@gmail.com",
     ),
     Facility(
       name: "PAQUIBATO (MALABOG HC)",
       address: "Brgy Malabog, Davao City",
-      email: "malabogrhu@gmail.com",
     ),
     Facility(
       name: "SASA",
       address: "Bangoy Km 9,  Sasa, Davao City",
-      email: "sasadistrict@gmail.com",
     ),
     Facility(
       name: "TALOMO CENTRAL (GSIS HC)",
       address: "GSIS Village, Matina, Davao City",
-      email: "talomocentralhc@gmail.com",
     ),
     Facility(
       name: "TALOMO NORTH (SIR HC)",
       address: "Daang Patnubay St., SIR Ph-1, Sandawa, Davao City",
-      email: "talomonorthhc@gmail.com",
     ),
     Facility(
       name: "TALOMO SOUTH (PUAN HC)",
       address: "Puan, Talomo, Davao City",
-      email: "talomosouthhc@gmail.com",
     ),
     Facility(
       name: "TORIL A",
       address: "Agton St., Toril, Davao City",
-      email: "torilhealthcenter2@gmail.com",
     ),
     Facility(
       name: "TORIL B",
       address: "Juan Dela Cruz St., Daliao, Toril, Davao City",
-      email: "chotorilb@gmail.com",
     ),
     Facility(
       name: "TUGBOK",
       address: "Sampaguita St., Mintal, Tugbok District, Davao City",
-      email: "tugbokruralhealthunit@gmail.com",
     ),
   ];
 

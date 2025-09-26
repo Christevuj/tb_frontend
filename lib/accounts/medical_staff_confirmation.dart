@@ -155,6 +155,24 @@ class _MedicalStaffConfirmationPageState
 
       final uid = userCredential.user!.uid;
 
+      // Helper function to get facility ID from Firebase
+      Future<String?> getFacilityId(String facilityName) async {
+        try {
+          final querySnapshot = await FirebaseFirestore.instance
+              .collection('affiliation')
+              .where('name', isEqualTo: facilityName)
+              .limit(1)
+              .get();
+          
+          if (querySnapshot.docs.isNotEmpty) {
+            return querySnapshot.docs.first.id;
+          }
+        } catch (e) {
+          print('Error getting facility ID: $e');
+        }
+        return null;
+      }
+
       // Prepare user data as Map<String, dynamic>
       final Map<String, dynamic> baseData = {
         "email": widget.email,
@@ -166,14 +184,34 @@ class _MedicalStaffConfirmationPageState
 
       // Add role-specific data
       if (widget.role == 'Doctor') {
+        // Process affiliations to get the correct affiliationId
+        List<Map<String, dynamic>> processedAffiliations = [];
+        
+        if (widget.affiliations != null) {
+          for (var affiliation in widget.affiliations!) {
+            final facilityId = await getFacilityId(affiliation['name']);
+            processedAffiliations.add({
+              ...affiliation,
+              'affiliationId': facilityId, // Add the Firebase facility ID
+            });
+          }
+        }
+
         await FirebaseFirestore.instance.collection("doctors").doc(uid).set({
           ...baseData,
-          'affiliations': widget.affiliations ?? <Map<String, dynamic>>[],
+          'affiliations': processedAffiliations,
         });
       } else {
+        // Health Worker - get the affiliationId for the selected facility
+        String? affiliationId;
+        if (widget.facility != null) {
+          affiliationId = await getFacilityId(widget.facility!['name']);
+        }
+
         final Map<String, dynamic> facilityData = {
           ...baseData,
           'facility': widget.facility,
+          'affiliationId': affiliationId, // This is what ghealthworkers.dart looks for
         };
         await FirebaseFirestore.instance
             .collection("healthcare")

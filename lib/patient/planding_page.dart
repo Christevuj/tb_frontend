@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:tb_frontend/patient/pdoclist.dart';
 import 'package:tb_frontend/patient/pviewdoctor.dart';
 import 'package:tb_frontend/guest/gconsultant.dart';
@@ -69,27 +70,24 @@ class _PlandingPageState extends State<PlandingPage> {
               Image.asset("assets/images/tbisita_logo2.png",
                   height: 44, alignment: Alignment.centerLeft),
               const SizedBox(height: 20),
-
               const Text('Quick Actions',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _quickAction(
-                      context, Icons.smart_toy, 'AI\nConsultant', const GConsultant()),
-                  _quickAction(
-                      context, Icons.calendar_today, 'Book\nAppointment', const Pdoclist()),
-                  _quickAction(context, Icons.local_hospital, 'TB DOTS\nFacilities',
-                      const MapScreenEnhanced()),
+                  _quickAction(context, Icons.smart_toy, 'AI\nConsultant',
+                      const GConsultant()),
+                  _quickAction(context, Icons.calendar_today,
+                      'Book\nAppointment', const Pdoclist()),
+                  _quickAction(context, Icons.local_hospital,
+                      'TB DOTS\nFacilities', const MapScreenEnhanced()),
                 ],
               ),
               const SizedBox(height: 24),
-
               const Text('TB DOTS Commercial',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-
               _isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : (_youtubeController != null
@@ -101,15 +99,15 @@ class _PlandingPageState extends State<PlandingPage> {
                           ),
                         )
                       : const Text("No video available")),
-
               const SizedBox(height: 8),
               const Text(
                 "Video content © Department of Health (DOH) Philippines & USAID.",
                 style: TextStyle(
-                    fontSize: 12, fontStyle: FontStyle.italic, color: Colors.black54),
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                    color: Colors.black54),
                 textAlign: TextAlign.center,
               ),
-
               const SizedBox(height: 24),
               const Text('Guidelines (NTP MOP - 6th Edition)',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
@@ -117,9 +115,11 @@ class _PlandingPageState extends State<PlandingPage> {
               Card(
                 elevation: 2,
                 color: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
                 child: ListTile(
-                  leading: const Icon(Icons.picture_as_pdf, size: 32, color: Colors.red),
+                  leading: const Icon(Icons.picture_as_pdf,
+                      size: 32, color: Colors.red),
                   title: const Text(
                     'NTP_MOP_6TH_EDITION.pdf',
                     style: TextStyle(fontSize: 14),
@@ -131,13 +131,15 @@ class _PlandingPageState extends State<PlandingPage> {
                         context,
                         MaterialPageRoute(
                           builder: (_) => const PdfViewerScreen(
-                            assetPath: 'assets/documents/NTP_MOP_6TH_EDITION.pdf',
+                            assetPath:
+                                'assets/documents/NTP_MOP_6TH_EDITION.pdf',
                           ),
                         ),
                       );
                     },
                     style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey, foregroundColor: Colors.white),
+                        backgroundColor: Colors.grey,
+                        foregroundColor: Colors.white),
                     child: const Text('Open PDF'),
                   ),
                 ),
@@ -145,11 +147,12 @@ class _PlandingPageState extends State<PlandingPage> {
               const SizedBox(height: 16),
               Card(
                 elevation: 2,
-                shape:
-                    RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  child: Image.asset('assets/images/guidelines.png', fit: BoxFit.cover),
+                  child: Image.asset('assets/images/guidelines.png',
+                      fit: BoxFit.cover),
                 ),
               ),
               const SizedBox(height: 32),
@@ -163,7 +166,99 @@ class _PlandingPageState extends State<PlandingPage> {
   static Widget _quickAction(
       BuildContext context, IconData icon, String label, Widget destination) {
     return GestureDetector(
-      onTap: () {
+      onTap: () async {
+        // Only intercept for Book Appointment
+        if (label.contains('Book')) {
+          final user = FirebaseAuth.instance.currentUser;
+          final patientEmail = user?.email;
+          if (patientEmail == null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('User not found. Please log in.')),
+            );
+            return;
+          }
+          final blockedStatuses = {
+            'pending',
+            'approved',
+            'consultation completed'
+          };
+          // Fetch from both collections
+          final pendingSnap = await FirebaseFirestore.instance
+              .collection('pending_patient_data')
+              .where('patientEmail', isEqualTo: patientEmail)
+              .get();
+          final approvedSnap = await FirebaseFirestore.instance
+              .collection('approved_appointments')
+              .where('patientEmail', isEqualTo: patientEmail)
+              .get();
+          // Check both collections for blocked statuses
+          bool hasBlocked = false;
+          for (final doc in pendingSnap.docs) {
+            final status =
+                (doc['status'] ?? '').toString().trim().toLowerCase();
+            debugPrint('Checking pending_patient_data status: $status');
+            if (blockedStatuses.contains(status)) {
+              hasBlocked = true;
+              break;
+            }
+          }
+          if (!hasBlocked) {
+            for (final doc in approvedSnap.docs) {
+              final status =
+                  (doc['status'] ?? '').toString().trim().toLowerCase();
+              debugPrint('Checking approved_appointments status: $status');
+              if (blockedStatuses.contains(status)) {
+                hasBlocked = true;
+                break;
+              }
+            }
+          }
+          if (hasBlocked) {
+            showModalBottomSheet(
+              context: context,
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              builder: (ctx) => Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.redAccent, size: 40),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Ongoing Appointment',
+                      style:
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'You already have an ongoing appointment.\nPlease wait for it to be completed or rejected before booking another.',
+                      style: TextStyle(fontSize: 16),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.redAccent,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text('OK', style: TextStyle(fontSize: 16)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+            return;
+          }
+        }
         Navigator.push(
             context, MaterialPageRoute(builder: (context) => destination));
       },
@@ -175,13 +270,16 @@ class _PlandingPageState extends State<PlandingPage> {
               color: Colors.redAccent,
               shape: BoxShape.circle,
               boxShadow: [
-                BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(2, 2))
+                BoxShadow(
+                    color: Colors.black26, blurRadius: 4, offset: Offset(2, 2))
               ],
             ),
             child: Icon(icon, color: Colors.white, size: 28),
           ),
           const SizedBox(height: 4),
-          Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)),
+          Text(label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 12)),
         ],
       ),
     );

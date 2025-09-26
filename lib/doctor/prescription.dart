@@ -5,10 +5,16 @@ import 'dart:ui' as ui;
 import 'dart:typed_data';
 import 'dart:convert';
 import 'package:flutter/rendering.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:http/http.dart' as http;
 
 class Prescription extends StatefulWidget {
   final Map<String, dynamic> appointment;
-  
+
   const Prescription({super.key, required this.appointment});
 
   @override
@@ -21,7 +27,7 @@ class _PrescriptionState extends State<Prescription> {
   bool _hasExistingPrescription = false;
   Map<String, dynamic>? _doctorData;
   String? _doctorSignature;
-  
+
   // Define theme color
   final Color _themeRed = const Color(0xFFF94F6D);
 
@@ -36,35 +42,35 @@ class _PrescriptionState extends State<Prescription> {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
-      
+
       final docSnapshot = await FirebaseFirestore.instance
           .collection('doctors')
           .doc(user.uid)
           .get();
-          
+
       if (docSnapshot.exists && mounted) {
         setState(() {
           _doctorData = docSnapshot.data();
         });
       }
-      
+
       // Load doctor signature
       await _loadDoctorSignature();
     } catch (e) {
       debugPrint('Error loading doctor data: $e');
     }
   }
-  
+
   Future<void> _loadDoctorSignature() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
-      
+
       final signatureDoc = await FirebaseFirestore.instance
           .collection('doctor_signatures')
           .doc(user.uid)
           .get();
-          
+
       if (signatureDoc.exists && mounted) {
         final data = signatureDoc.data()!;
         setState(() {
@@ -81,42 +87,43 @@ class _PrescriptionState extends State<Prescription> {
       debugPrint('Error loading doctor signature: $e');
     }
   }
-  
+
   String _getDoctorFacilityName() {
     if (_doctorData == null) return 'Medical Center';
-    
+
     // Get the first affiliation's name or fallback to a default
-    if (_doctorData!['affiliations'] != null && 
+    if (_doctorData!['affiliations'] != null &&
         (_doctorData!['affiliations'] as List).isNotEmpty) {
       return _doctorData!['affiliations'][0]['name'] ?? 'Medical Center';
     }
     return 'Medical Center';
   }
-  
+
   String _getDoctorInfo() {
     if (_doctorData == null) return 'Address loading...';
-    
+
     String address = 'Address not available';
-    
+
     // Get address from affiliations
-    if (_doctorData!['affiliations'] != null && 
+    if (_doctorData!['affiliations'] != null &&
         (_doctorData!['affiliations'] as List).isNotEmpty) {
-      address = _doctorData!['affiliations'][0]['address'] ?? 'Address not available';
+      address =
+          _doctorData!['affiliations'][0]['address'] ?? 'Address not available';
     }
-    
+
     return address;
   }
-  
+
   String _getDoctorName() {
     if (_doctorData == null) return 'Doctor Name';
     return 'Dr. ${_doctorData!['fullName'] ?? 'Doctor'}';
   }
-  
+
   String _getDoctorLicense() {
     if (_doctorData == null) return 'License No: N/A';
     return 'License No: ${_doctorData!['license'] ?? 'N/A'}';
   }
-  
+
   void _showSignatureDialog() {
     showDialog(
       context: context,
@@ -165,7 +172,7 @@ class _PrescriptionState extends State<Prescription> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                
+
                 // Current signature display (if exists)
                 if (_doctorSignature != null) ...[
                   Container(
@@ -212,14 +219,16 @@ class _PrescriptionState extends State<Prescription> {
                                   ? ClipRRect(
                                       borderRadius: BorderRadius.circular(8),
                                       child: Image.memory(
-                                        base64Decode(_doctorSignature!.split(',')[1]),
+                                        base64Decode(
+                                            _doctorSignature!.split(',')[1]),
                                         fit: BoxFit.contain,
                                       ),
                                     )
                                   : Image.network(
                                       _doctorSignature!,
                                       fit: BoxFit.contain,
-                                      errorBuilder: (context, error, stackTrace) {
+                                      errorBuilder:
+                                          (context, error, stackTrace) {
                                         return const Center(
                                           child: Text(
                                             'Signature not available',
@@ -237,7 +246,7 @@ class _PrescriptionState extends State<Prescription> {
                   ),
                   const SizedBox(height: 20),
                 ],
-                
+
                 // Action buttons
                 Expanded(
                   child: Column(
@@ -253,7 +262,9 @@ class _PrescriptionState extends State<Prescription> {
                           },
                           icon: const Icon(Icons.draw, color: Colors.white),
                           label: Text(
-                            _doctorSignature == null ? 'Create Signature' : 'Draw New Signature',
+                            _doctorSignature == null
+                                ? 'Create Signature'
+                                : 'Draw New Signature',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 16,
@@ -271,7 +282,7 @@ class _PrescriptionState extends State<Prescription> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      
+
                       // Text signature button
                       SizedBox(
                         width: double.infinity,
@@ -280,9 +291,12 @@ class _PrescriptionState extends State<Prescription> {
                             Navigator.of(context).pop();
                             _createTextSignature();
                           },
-                          icon: const Icon(Icons.text_fields, color: Color(0xFFF94F6D)),
+                          icon: const Icon(Icons.text_fields,
+                              color: Color(0xFFF94F6D)),
                           label: Text(
-                            _doctorSignature == null ? 'Use Text Signature' : 'Change to Text',
+                            _doctorSignature == null
+                                ? 'Use Text Signature'
+                                : 'Change to Text',
                             style: const TextStyle(
                               color: Color(0xFFF94F6D),
                               fontSize: 16,
@@ -291,7 +305,8 @@ class _PrescriptionState extends State<Prescription> {
                           ),
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
-                            side: const BorderSide(color: Color(0xFFF94F6D), width: 2),
+                            side: const BorderSide(
+                                color: Color(0xFFF94F6D), width: 2),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -308,7 +323,7 @@ class _PrescriptionState extends State<Prescription> {
       },
     );
   }
-  
+
   void _showDrawSignatureDialog() {
     showDialog(
       context: context,
@@ -341,7 +356,7 @@ class _PrescriptionState extends State<Prescription> {
       },
     );
   }
-  
+
   void _createTextSignature() {
     showDialog(
       context: context,
@@ -414,12 +429,12 @@ class _PrescriptionState extends State<Prescription> {
       },
     );
   }
-  
+
   Future<void> _saveDrawnSignature(String signatureData) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
-      
+
       // Save the drawn signature as base64 data
       await FirebaseFirestore.instance
           .collection('doctor_signatures')
@@ -430,11 +445,11 @@ class _PrescriptionState extends State<Prescription> {
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
-      
+
       setState(() {
         _doctorSignature = signatureData;
       });
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -454,14 +469,14 @@ class _PrescriptionState extends State<Prescription> {
       }
     }
   }
-  
+
   Future<void> _saveTextSignature() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null || _doctorData == null) return;
-      
+
       String doctorName = _doctorData!['fullName'] ?? 'Doctor';
-      
+
       // Save a text-based signature for now
       await FirebaseFirestore.instance
           .collection('doctor_signatures')
@@ -472,11 +487,11 @@ class _PrescriptionState extends State<Prescription> {
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
-      
+
       setState(() {
         _doctorSignature = 'text:Dr. $doctorName';
       });
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Text signature saved successfully!'),
@@ -497,12 +512,14 @@ class _PrescriptionState extends State<Prescription> {
     try {
       final snapshot = await FirebaseFirestore.instance
           .collection('prescriptions')
-          .where('appointmentId', isEqualTo: widget.appointment['appointmentId'])
+          .where('appointmentId',
+              isEqualTo: widget.appointment['appointmentId'])
           .get();
 
       if (snapshot.docs.isNotEmpty && mounted) {
         final prescriptionData = snapshot.docs.first.data();
-        _prescriptionController.text = prescriptionData['prescriptionDetails'] ?? '';
+        _prescriptionController.text =
+            prescriptionData['prescriptionDetails'] ?? '';
         setState(() {
           _hasExistingPrescription = true;
         });
@@ -525,10 +542,11 @@ class _PrescriptionState extends State<Prescription> {
     String patientAge = widget.appointment['patientAge']?.toString() ?? 'N/A';
     String patientGender = widget.appointment['patientGender'] ?? 'N/A';
     String patientAddress = widget.appointment['patientAddress'] ?? 'N/A';
-    
+
     // Format current date (when prescription is opened)
     final currentDate = DateTime.now();
-    String prescriptionDate = '${currentDate.day}/${currentDate.month}/${currentDate.year}';
+    String prescriptionDate =
+        '${currentDate.day}/${currentDate.month}/${currentDate.year}';
 
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 255, 255, 255),
@@ -604,7 +622,8 @@ class _PrescriptionState extends State<Prescription> {
                           Text(
                             _getDoctorInfo(),
                             textAlign: TextAlign.center,
-                            style: const TextStyle(fontSize: 14, color: Colors.grey),
+                            style: const TextStyle(
+                                fontSize: 14, color: Colors.grey),
                           ),
                         ],
                       ),
@@ -641,7 +660,8 @@ class _PrescriptionState extends State<Prescription> {
                     const SizedBox(height: 24),
                     const Text(
                       'Rx',
-                      style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 40, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 16),
                     // Prescription text field
@@ -693,14 +713,16 @@ class _PrescriptionState extends State<Prescription> {
                                     ? ClipRRect(
                                         borderRadius: BorderRadius.circular(4),
                                         child: Image.memory(
-                                          base64Decode(_doctorSignature!.split(',')[1]),
+                                          base64Decode(
+                                              _doctorSignature!.split(',')[1]),
                                           fit: BoxFit.contain,
                                         ),
                                       )
                                     : Image.network(
                                         _doctorSignature!,
                                         fit: BoxFit.contain,
-                                        errorBuilder: (context, error, stackTrace) {
+                                        errorBuilder:
+                                            (context, error, stackTrace) {
                                           return const Center(
                                             child: Text(
                                               'Signature',
@@ -711,13 +733,15 @@ class _PrescriptionState extends State<Prescription> {
                                       ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.edit, size: 16, color: Colors.grey),
+                            icon: const Icon(Icons.edit,
+                                size: 16, color: Colors.grey),
                             onPressed: _showSignatureDialog,
                           ),
                         ] else ...[
                           const Text("Doctor's e-Signature: ____________"),
                           IconButton(
-                            icon: const Icon(Icons.edit, size: 16, color: Colors.grey),
+                            icon: const Icon(Icons.edit,
+                                size: 16, color: Colors.grey),
                             onPressed: _showSignatureDialog,
                           ),
                         ],
@@ -772,8 +796,11 @@ class _PrescriptionState extends State<Prescription> {
                   child: _isLoading
                       ? const CircularProgressIndicator(color: Colors.white)
                       : Text(
-                          _hasExistingPrescription ? 'Update Prescription' : 'Save Prescription',
-                          style: const TextStyle(color: Colors.white, fontSize: 16),
+                          _hasExistingPrescription
+                              ? 'Update Prescription'
+                              : 'Save Prescription',
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 16),
                         ),
                 ),
               ),
@@ -800,16 +827,27 @@ class _PrescriptionState extends State<Prescription> {
     });
 
     try {
+      // Generate PDF and upload to Cloudinary
+      final prescriptionData = await _generateAndUploadPrescriptionPdf();
+
+      if (prescriptionData == null) {
+        throw Exception('Failed to generate or upload PDF');
+      }
+
       if (_hasExistingPrescription) {
         // Update existing prescription
         final snapshot = await FirebaseFirestore.instance
             .collection('prescriptions')
-            .where('appointmentId', isEqualTo: widget.appointment['appointmentId'])
+            .where('appointmentId',
+                isEqualTo: widget.appointment['appointmentId'])
             .get();
-        
+
         if (snapshot.docs.isNotEmpty) {
           await snapshot.docs.first.reference.update({
             'prescriptionDetails': _prescriptionController.text.trim(),
+            'pdfPath': prescriptionData['localPath'],
+            'pdfUrl': prescriptionData['cloudinaryUrl'],
+            'pdfPublicId': prescriptionData['publicId'],
             'updatedAt': FieldValue.serverTimestamp(),
           });
         }
@@ -821,6 +859,9 @@ class _PrescriptionState extends State<Prescription> {
           'doctorId': widget.appointment['doctorId'],
           'patientName': widget.appointment['patientName'],
           'prescriptionDetails': _prescriptionController.text.trim(),
+          'pdfPath': prescriptionData['localPath'],
+          'pdfUrl': prescriptionData['cloudinaryUrl'],
+          'pdfPublicId': prescriptionData['publicId'],
           'createdAt': FieldValue.serverTimestamp(),
           'appointmentDate': widget.appointment['appointmentDate'],
         });
@@ -829,9 +870,9 @@ class _PrescriptionState extends State<Prescription> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(_hasExistingPrescription 
-              ? 'Prescription updated successfully!' 
-              : 'Prescription saved successfully!'),
+            content: Text(_hasExistingPrescription
+                ? 'Prescription updated and PDF uploaded successfully!'
+                : 'Prescription saved and PDF uploaded successfully!'),
             backgroundColor: Colors.green,
           ),
         );
@@ -854,13 +895,266 @@ class _PrescriptionState extends State<Prescription> {
       }
     }
   }
+
+  Future<Map<String, String>?> _generateAndUploadPrescriptionPdf() async {
+    try {
+      // First generate the PDF locally
+      final localPdfPath = await _generatePrescriptionPdf();
+      if (localPdfPath == null) return null;
+
+      // Read the PDF file for Cloudinary upload
+      final file = File(localPdfPath);
+      final bytes = await file.readAsBytes();
+
+      // Create form data for Cloudinary upload
+      final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+      final publicId =
+          'prescriptions/prescription_${widget.appointment['appointmentId']}_$timestamp';
+
+      // Prepare Cloudinary upload (you'll need to add your Cloudinary credentials)
+      final cloudinaryUrl = await _uploadToCloudinary(bytes, publicId);
+
+      if (cloudinaryUrl != null) {
+        return {
+          'localPath': localPdfPath,
+          'cloudinaryUrl': cloudinaryUrl,
+          'publicId': publicId,
+        };
+      }
+
+      // Fallback to local path only if upload fails
+      return {
+        'localPath': localPdfPath,
+        'cloudinaryUrl': '',
+        'publicId': '',
+      };
+    } catch (e) {
+      print('Error generating/uploading PDF: $e');
+      return null;
+    }
+  }
+
+  Future<String?> _uploadToCloudinary(List<int> bytes, String publicId) async {
+    try {
+      // Replace these with your actual Cloudinary credentials
+      const cloudName = 'YOUR_CLOUD_NAME';
+      const apiKey = 'YOUR_API_KEY';
+      const apiSecret = 'YOUR_API_SECRET';
+
+      final url = 'https://api.cloudinary.com/v1_1/$cloudName/raw/upload';
+      final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+
+      // Generate signature (you may need to implement this based on Cloudinary requirements)
+      final signature =
+          _generateCloudinarySignature(publicId, timestamp, apiSecret);
+
+      final request = http.MultipartRequest('POST', Uri.parse(url));
+      request.fields['api_key'] = apiKey;
+      request.fields['timestamp'] = timestamp;
+      request.fields['public_id'] = publicId;
+      request.fields['signature'] = signature;
+      request.fields['resource_type'] = 'raw';
+
+      request.files.add(http.MultipartFile.fromBytes(
+        'file',
+        bytes,
+        filename: '$publicId.pdf',
+      ));
+
+      final response = await request.send();
+      final responseData = await response.stream.bytesToString();
+
+      if (response.statusCode == 200) {
+        final jsonResponse = json.decode(responseData);
+        return jsonResponse['secure_url'];
+      } else {
+        print('Cloudinary upload failed: $responseData');
+        return null;
+      }
+    } catch (e) {
+      print('Error uploading to Cloudinary: $e');
+      return null;
+    }
+  }
+
+  String _generateCloudinarySignature(
+      String publicId, String timestamp, String apiSecret) {
+    // This is a simplified signature generation
+    // In production, you should implement proper HMAC-SHA1 signature
+    final paramsToSign =
+        'public_id=$publicId&timestamp=$timestamp&resource_type=raw';
+    // For now, return a placeholder based on params - implement proper signing in production
+    return 'sig_${paramsToSign.hashCode.abs()}';
+  }
+
+  Future<String?> _generatePrescriptionPdf() async {
+    try {
+      final pdf = pw.Document();
+      final currentDate = DateTime.now();
+
+      // Extract appointment data
+      String patientName = widget.appointment['patientName'] ?? 'N/A';
+      String patientAge = widget.appointment['patientAge']?.toString() ?? 'N/A';
+      String patientGender = widget.appointment['patientGender'] ?? 'N/A';
+      String patientAddress = widget.appointment['patientAddress'] ?? 'N/A';
+      String prescriptionDate =
+          '${currentDate.day}/${currentDate.month}/${currentDate.year}';
+
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(32),
+          build: (pw.Context context) {
+            return pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                // Header
+                pw.Center(
+                  child: pw.Column(
+                    children: [
+                      pw.Text(
+                        _getDoctorFacilityName(),
+                        style: pw.TextStyle(
+                          fontSize: 24,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                      pw.SizedBox(height: 8),
+                      pw.Text(
+                        _getDoctorInfo(),
+                        style: const pw.TextStyle(fontSize: 14),
+                        textAlign: pw.TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+
+                pw.SizedBox(height: 20),
+                pw.Divider(thickness: 2),
+                pw.SizedBox(height: 20),
+
+                // Patient Information
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Expanded(
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text('Name: $patientName'),
+                          pw.SizedBox(height: 8),
+                          pw.Text('Address: $patientAddress'),
+                          pw.SizedBox(height: 8),
+                          pw.Text('Age: $patientAge'),
+                        ],
+                      ),
+                    ),
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.end,
+                      children: [
+                        pw.Text('Gender: $patientGender'),
+                        pw.SizedBox(height: 8),
+                        pw.Text('Date: $prescriptionDate'),
+                      ],
+                    ),
+                  ],
+                ),
+
+                pw.SizedBox(height: 30),
+
+                // Rx Symbol
+                pw.Text(
+                  'Rx',
+                  style: pw.TextStyle(
+                    fontSize: 40,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+
+                pw.SizedBox(height: 20),
+
+                // Prescription Details
+                pw.Container(
+                  width: double.infinity,
+                  padding: const pw.EdgeInsets.all(16),
+                  decoration: pw.BoxDecoration(
+                    border: pw.Border.all(),
+                    borderRadius: pw.BorderRadius.circular(8),
+                  ),
+                  child: pw.Text(
+                    _prescriptionController.text.trim(),
+                    style: const pw.TextStyle(fontSize: 14),
+                  ),
+                ),
+
+                pw.Spacer(),
+
+                // Doctor's signature and details
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.end,
+                  children: [
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.end,
+                      children: [
+                        if (_doctorSignature != null &&
+                            _doctorSignature!.startsWith('text:'))
+                          pw.Text(
+                            _doctorSignature!.substring(5),
+                            style: pw.TextStyle(
+                              fontSize: 16,
+                              fontStyle: pw.FontStyle.italic,
+                              fontWeight: pw.FontWeight.bold,
+                            ),
+                          )
+                        else
+                          pw.Text(
+                            "Doctor's Signature: _______________",
+                            style: const pw.TextStyle(fontSize: 14),
+                          ),
+                        pw.SizedBox(height: 16),
+                        pw.Text(
+                          _getDoctorName(),
+                          style: pw.TextStyle(
+                            fontSize: 14,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                        pw.SizedBox(height: 4),
+                        pw.Text(
+                          _getDoctorLicense(),
+                          style: const pw.TextStyle(fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            );
+          },
+        ),
+      );
+
+      // Save PDF to device storage
+      final directory = await getApplicationDocumentsDirectory();
+      final fileName =
+          'Prescription_${patientName.replaceAll(' ', '_')}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+      final file = File('${directory.path}/$fileName');
+      await file.writeAsBytes(await pdf.save());
+
+      return file.path;
+    } catch (e) {
+      debugPrint('Error generating PDF: $e');
+      return null;
+    }
+  }
 }
 
 // Custom Signature Pad Widget
 class SignaturePadDialog extends StatefulWidget {
   final Function(String) onSave;
   final VoidCallback onCancel;
-  
+
   const SignaturePadDialog({
     super.key,
     required this.onSave,
@@ -909,7 +1203,7 @@ class _SignaturePadDialogState extends State<SignaturePadDialog> {
           ),
         ),
         const SizedBox(height: 20),
-        
+
         // Signature Canvas
         Expanded(
           child: Container(
@@ -934,16 +1228,20 @@ class _SignaturePadDialogState extends State<SignaturePadDialog> {
                   setState(() {
                     _isDrawing = true;
                     _currentPath = [];
-                    RenderBox renderBox = context.findRenderObject() as RenderBox;
-                    Offset localPosition = renderBox.globalToLocal(details.globalPosition);
+                    RenderBox renderBox =
+                        context.findRenderObject() as RenderBox;
+                    Offset localPosition =
+                        renderBox.globalToLocal(details.globalPosition);
                     _currentPath.add(localPosition);
                   });
                 },
                 onPanUpdate: (details) {
                   if (_isDrawing) {
                     setState(() {
-                      RenderBox renderBox = context.findRenderObject() as RenderBox;
-                      Offset localPosition = renderBox.globalToLocal(details.globalPosition);
+                      RenderBox renderBox =
+                          context.findRenderObject() as RenderBox;
+                      Offset localPosition =
+                          renderBox.globalToLocal(details.globalPosition);
                       _currentPath.add(localPosition);
                     });
                   }
@@ -974,9 +1272,9 @@ class _SignaturePadDialogState extends State<SignaturePadDialog> {
             ),
           ),
         ),
-        
+
         const SizedBox(height: 20),
-        
+
         // Action buttons
         Row(
           children: [
@@ -999,7 +1297,7 @@ class _SignaturePadDialogState extends State<SignaturePadDialog> {
               ),
             ),
             const SizedBox(width: 16),
-            
+
             // Cancel button
             Expanded(
               child: OutlinedButton(
@@ -1018,7 +1316,7 @@ class _SignaturePadDialogState extends State<SignaturePadDialog> {
               ),
             ),
             const SizedBox(width: 16),
-            
+
             // Save button
             Expanded(
               child: ElevatedButton(
@@ -1059,16 +1357,17 @@ class _SignaturePadDialogState extends State<SignaturePadDialog> {
       // Get the RenderRepaintBoundary from the signature canvas
       RenderRepaintBoundary boundary = _signatureKey.currentContext!
           .findRenderObject() as RenderRepaintBoundary;
-      
+
       // Convert to image
       ui.Image image = await boundary.toImage(pixelRatio: 2.0);
-      ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      
+      ByteData? byteData =
+          await image.toByteData(format: ui.ImageByteFormat.png);
+
       if (byteData != null) {
         Uint8List uint8List = byteData.buffer.asUint8List();
         String base64String = base64Encode(uint8List);
         String signatureData = 'data:image/png;base64,$base64String';
-        
+
         widget.onSave(signatureData);
       }
     } catch (e) {

@@ -3,6 +3,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:printing/printing.dart';
+import 'dart:io';
+import 'package:flutter/services.dart';
+import 'package:pdf/pdf.dart';
+import 'dart:typed_data';
 
 class PMyAppointmentScreen extends StatefulWidget {
   const PMyAppointmentScreen({super.key});
@@ -40,6 +45,49 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
       List.generate(10, (index) => DateTime.now().year - 5 + index);
 
   List<DateTime> _appointmentDates = [];
+
+  // Filter for appointments
+  String _selectedFilter = 'All'; // Updated filter options
+
+  // Available filter options
+  final List<Map<String, dynamic>> _filterOptions = [
+    {
+      'key': 'All',
+      'label': 'All',
+      'icon': Icons.list,
+      'color': Colors.blue,
+    },
+    {
+      'key': 'Pending',
+      'label': 'Pending',
+      'icon': Icons.pending,
+      'color': Colors.amber,
+    },
+    {
+      'key': 'Approved',
+      'label': 'Approved',
+      'icon': Icons.check_circle,
+      'color': Colors.green,
+    },
+    {
+      'key': 'Consultation Completed',
+      'label': 'Consultation\nCompleted',
+      'icon': Icons.medical_services,
+      'color': Colors.orange,
+    },
+    {
+      'key': 'Treatment Completed',
+      'label': 'Treatment\nCompleted',
+      'icon': Icons.verified,
+      'color': Colors.purple,
+    },
+    {
+      'key': 'Rejected',
+      'label': 'Rejected',
+      'icon': Icons.cancel,
+      'color': Colors.red,
+    },
+  ];
 
   @override
   void initState() {
@@ -160,6 +208,7 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
         final data = doc.data();
         data['status'] = 'pending';
         data['id'] = doc.id;
+        data['appointmentSource'] = 'pending';
         allAppointments.add(data);
       }
 
@@ -173,6 +222,53 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
         final data = doc.data();
         data['status'] = 'approved';
         data['id'] = doc.id;
+        data['appointmentSource'] = 'approved';
+        allAppointments.add(data);
+      }
+
+      // Get completed appointments
+      final completedSnapshot = await FirebaseFirestore.instance
+          .collection('completed_appointments')
+          .where('patientUid', isEqualTo: _currentPatientId)
+          .get();
+
+      for (var doc in completedSnapshot.docs) {
+        final data = doc.data();
+
+        // Check if certificate has been sent to determine status
+        bool certificateSent = false;
+        try {
+          final notificationSnapshot = await FirebaseFirestore.instance
+              .collection('patient_notifications')
+              .where('patientUid', isEqualTo: _currentPatientId)
+              .where('appointmentId', isEqualTo: data['appointmentId'])
+              .where('type', isEqualTo: 'certificate_available')
+              .get();
+
+          certificateSent = notificationSnapshot.docs.isNotEmpty;
+        } catch (e) {
+          debugPrint('Error checking certificate status: $e');
+        }
+
+        data['status'] =
+            certificateSent ? 'treatment_completed' : 'consultation_finished';
+        data['id'] = doc.id;
+        data['appointmentSource'] = 'completed';
+        data['certificateSent'] = certificateSent;
+        allAppointments.add(data);
+      }
+
+      // Get rejected appointments
+      final rejectedSnapshot = await FirebaseFirestore.instance
+          .collection('rejected_appointments')
+          .where('patientUid', isEqualTo: _currentPatientId)
+          .get();
+
+      for (var doc in rejectedSnapshot.docs) {
+        final data = doc.data();
+        data['status'] = 'rejected';
+        data['id'] = doc.id;
+        data['appointmentSource'] = 'rejected';
         allAppointments.add(data);
       }
 
@@ -201,7 +297,136 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
     }
   }
 
-  void _showAppointmentDetails(Map<String, dynamic> appointment) {
+  String _getDoctorName(Map<String, dynamic>? doctorData) {
+    if (doctorData == null) return 'Doctor Name';
+
+    // Try different possible field combinations
+    if (doctorData['fullName'] != null) {
+      return 'Dr. ${doctorData['fullName']}';
+    } else if (doctorData['firstName'] != null &&
+        doctorData['lastName'] != null) {
+      return 'Dr. ${doctorData['firstName']} ${doctorData['lastName']}';
+    } else if (doctorData['firstName'] != null) {
+      return 'Dr. ${doctorData['firstName']}';
+    } else if (doctorData['doctorName'] != null) {
+      return '${doctorData['doctorName']}';
+    } else {
+      return 'Dr. Doctor';
+    }
+  }
+
+  Future<void> _deleteRejectedAppointment(
+      Map<String, dynamic> appointment) async {
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Delete Rejected Appointment'),
+          content: const Text(
+              'Are you sure you want to delete this rejected appointment? This action cannot be undone.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true) {
+      try {
+        // Delete from rejected_appointments collection
+        await FirebaseFirestore.instance
+            .collection('rejected_appointments')
+            .doc(appointment['id'])
+            .delete();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Rejected appointment deleted successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        debugPrint('Error deleting rejected appointment: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error deleting appointment: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  void _showAppointmentDetails(Map<String, dynamic> appointment) async {
+    // For completed appointments, fetch additional data
+    Map<String, dynamic>? prescriptionData;
+    Map<String, dynamic>? doctorData;
+
+    if (appointment['appointmentSource'] == 'completed') {
+      // Fetch prescription data
+      try {
+        final appointmentId = appointment['appointmentId'] ?? appointment['id'];
+        debugPrint('Fetching prescription for appointmentId: $appointmentId');
+
+        final prescriptionSnapshot = await FirebaseFirestore.instance
+            .collection('prescriptions')
+            .where('appointmentId', isEqualTo: appointmentId)
+            .get();
+
+        debugPrint(
+            'Prescription query results: ${prescriptionSnapshot.docs.length} documents found');
+
+        if (prescriptionSnapshot.docs.isNotEmpty) {
+          prescriptionData = prescriptionSnapshot.docs.first.data();
+          debugPrint(
+              'Prescription data found: ${prescriptionData['prescriptionDetails'] != null ? 'Has prescriptionDetails' : 'No prescriptionDetails'}');
+          debugPrint('PDF Path: ${prescriptionData['pdfPath']}');
+          debugPrint('PDF URL: ${prescriptionData['pdfUrl']}');
+        } else {
+          debugPrint(
+              'No prescription documents found for appointmentId: $appointmentId');
+        }
+      } catch (e) {
+        debugPrint('Error fetching prescription: $e');
+      }
+
+      // Fetch doctor data
+      try {
+        if (appointment['doctorId'] != null) {
+          final doctorDoc = await FirebaseFirestore.instance
+              .collection('doctors')
+              .doc(appointment['doctorId'])
+              .get();
+
+          if (doctorDoc.exists) {
+            doctorData = doctorDoc.data();
+            debugPrint('Doctor data fields: ${doctorData?.keys.toList()}');
+            debugPrint('Doctor fullName: ${doctorData?['fullName']}');
+            debugPrint('Doctor firstName: ${doctorData?['firstName']}');
+            debugPrint('Doctor lastName: ${doctorData?['lastName']}');
+            debugPrint('Doctor doctorName: ${doctorData?['doctorName']}');
+          }
+        }
+      } catch (e) {
+        debugPrint('Error fetching doctor data: $e');
+      }
+    }
+
+    if (!mounted) return;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -242,18 +467,194 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // Doctor Name
+                // Status first - most important info
+                _statusCard(appointment["status"]?.toString() ?? "N/A"),
+
+                // Rejection reason for rejected appointments
+                if (appointment["status"]?.toString() == "rejected" &&
+                    appointment['rejectionReason'] != null) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.red.shade200, width: 1),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.red.shade100,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(
+                                Icons.info_outline,
+                                color: Colors.red.shade600,
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              "Rejection Reason",
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.red.shade700,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          appointment['rejectionReason'],
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.red.shade600,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                // Patient Details (for completed appointments, show more details)
+                if (appointment['appointmentSource'] == 'completed') ...[
+                  const SizedBox(height: 16),
+                  const Text(
+                    "Patient Information",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  _infoCard(
+                    icon: Icons.person,
+                    iconBg: Colors.blue,
+                    cardBg: Colors.blue.shade50,
+                    value: appointment['patientName'] ?? 'Not available',
+                    label: "Patient Name",
+                  ),
+                  _infoCard(
+                    icon: Icons.email,
+                    iconBg: Colors.teal,
+                    cardBg: Colors.teal.shade50,
+                    value: appointment['patientEmail'] ?? 'Not available',
+                    label: "Email",
+                  ),
+                  _infoCard(
+                    icon: Icons.phone,
+                    iconBg: Colors.green,
+                    cardBg: Colors.green.shade50,
+                    value: appointment['patientPhone'] ?? 'Not available',
+                    label: "Phone Number",
+                  ),
+                  if (appointment['patientAge'] != null)
+                    _infoCard(
+                      icon: Icons.calendar_today,
+                      iconBg: Colors.orange,
+                      cardBg: Colors.orange.shade50,
+                      value: appointment['patientAge'].toString() + ' years',
+                      label: "Age",
+                    ),
+                  if (appointment['patientGender'] != null)
+                    _infoCard(
+                      icon: Icons.person_outline,
+                      iconBg: Colors.purple,
+                      cardBg: Colors.purple.shade50,
+                      value: appointment['patientGender'],
+                      label: "Gender",
+                    ),
+                ],
+
+                // Doctor Information
+                const SizedBox(height: 16),
+                const Text(
+                  "Doctor Information",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+
                 _infoCard(
                   icon: Icons.medical_services,
                   iconBg: Colors.teal,
                   cardBg: Colors.teal.shade50,
-                  value: appointment['doctorName'] ??
-                      appointment['doctor_name'] ??
-                      'Not available',
-                  label: "Doctor",
+                  value: appointment['appointmentSource'] == 'completed' &&
+                          doctorData != null
+                      ? _getDoctorName(doctorData)
+                      : (appointment['doctorName'] ??
+                          appointment['doctor_name'] ??
+                          'Not available'),
+                  label: "Doctor Name",
                 ),
 
-                // Appointment Date
+                // Doctor address and experience (for completed appointments)
+                if (appointment['appointmentSource'] == 'completed' &&
+                    doctorData != null) ...[
+                  if (doctorData['address'] != null)
+                    _infoCard(
+                      icon: Icons.location_on,
+                      iconBg: Colors.red,
+                      cardBg: Colors.red.shade50,
+                      value: doctorData['address'],
+                      label: "Doctor's Address",
+                    ),
+                  if (doctorData['experience'] != null)
+                    _infoCard(
+                      icon: Icons.badge,
+                      iconBg: Colors.indigo,
+                      cardBg: Colors.indigo.shade50,
+                      value: '${doctorData['experience']} years experience',
+                      label: "Experience",
+                    ),
+                ] else
+                  // Fetch Doctor's Clinic Address for other appointments
+                  FutureBuilder<DocumentSnapshot>(
+                    future: FirebaseFirestore.instance
+                        .collection('doctors')
+                        .doc(
+                            appointment["doctorId"] ?? appointment["doctor_id"])
+                        .get(),
+                    builder: (context, snapshot) {
+                      String address = "Loading...";
+
+                      if (snapshot.hasData && snapshot.data!.exists) {
+                        final doctorData =
+                            snapshot.data!.data() as Map<String, dynamic>;
+                        if (doctorData["affiliations"] != null &&
+                            (doctorData["affiliations"] as List).isNotEmpty) {
+                          address = (doctorData["affiliations"][0]["address"] ??
+                                  "No address")
+                              .toString();
+                        } else {
+                          address = "No address available";
+                        }
+                      } else if (snapshot.hasError) {
+                        address = "Error loading data";
+                      }
+
+                      return _infoCard(
+                        icon: Icons.location_on,
+                        iconBg: Colors.red,
+                        cardBg: Colors.red.shade50,
+                        value: address,
+                        label: "Clinic Address",
+                      );
+                    },
+                  ),
+
+                // Appointment Schedule
+                const SizedBox(height: 16),
+                const Text(
+                  "Schedule",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+
                 _infoCard(
                   icon: Icons.calendar_today,
                   iconBg: Colors.indigo,
@@ -268,7 +669,6 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                   label: "Appointment Date",
                 ),
 
-                // Appointment Time
                 _infoCard(
                   icon: Icons.access_time,
                   iconBg: Colors.amber,
@@ -280,52 +680,35 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                   label: "Appointment Time",
                 ),
 
-                // Fetch Doctor's Clinic Address
-                FutureBuilder<DocumentSnapshot>(
-                  future: FirebaseFirestore.instance
-                      .collection('doctors')
-                      .doc(appointment["doctorId"] ?? appointment["doctor_id"])
-                      .get(),
-                  builder: (context, snapshot) {
-                    String address = "Loading...";
-
-                    if (snapshot.hasData && snapshot.data!.exists) {
-                      final doctorData =
-                          snapshot.data!.data() as Map<String, dynamic>;
-                      if (doctorData["affiliations"] != null &&
-                          (doctorData["affiliations"] as List).isNotEmpty) {
-                        address = (doctorData["affiliations"][0]["address"] ??
-                                "No address")
-                            .toString();
-                      } else {
-                        address = "No address available";
-                      }
-                    } else if (snapshot.hasError) {
-                      address = "Error loading data";
-                    }
-
-                    return _infoCard(
-                      icon: Icons.location_on,
-                      iconBg: Colors.red,
-                      cardBg: Colors.red.shade50,
-                      value: address,
-                      label: "Clinic Address",
-                    );
-                  },
-                ),
-
-                // Status
-                _statusCard(appointment["status"]?.toString() ?? "N/A"),
-
-                // Meeting Link - Only show if status is approved
-                if (appointment["status"]?.toString().toLowerCase() == "approved")
-                  if ((appointment['meetingLink'] ?? appointment['jitsi_link'] ?? appointment['meeting_link']) != null &&
-                      (appointment['meetingLink'] ?? appointment['jitsi_link'] ?? appointment['meeting_link']).toString().isNotEmpty)
+                // Meeting Information
+                if (appointment["status"]?.toString().toLowerCase() ==
+                    "approved")
+                  if ((appointment['meetingLink'] ??
+                              appointment['jitsi_link'] ??
+                              appointment['meeting_link']) !=
+                          null &&
+                      (appointment['meetingLink'] ??
+                              appointment['jitsi_link'] ??
+                              appointment['meeting_link'])
+                          .toString()
+                          .isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    const Text(
+                      "Meeting",
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
                     _meetingCard(
-                      url: (appointment['meetingLink'] ?? appointment['jitsi_link'] ?? appointment['meeting_link']).toString(),
+                      url: (appointment['meetingLink'] ??
+                              appointment['jitsi_link'] ??
+                              appointment['meeting_link'])
+                          .toString(),
                       onJoin: () async {
-                        final Uri uri =
-                            Uri.parse((appointment['meetingLink'] ?? appointment['jitsi_link'] ?? appointment['meeting_link']).toString());
+                        final Uri uri = Uri.parse((appointment['meetingLink'] ??
+                                appointment['jitsi_link'] ??
+                                appointment['meeting_link'])
+                            .toString());
                         try {
                           if (await canLaunchUrl(uri)) {
                             await launchUrl(uri,
@@ -347,16 +730,20 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                           }
                         }
                       },
-                    )
-                  else
+                    ),
+                  ] else ...[
+                    const SizedBox(height: 16),
                     _infoCard(
                       icon: Icons.link_off,
                       iconBg: Colors.grey,
                       cardBg: Colors.grey.shade200,
                       value: "No meeting link available yet",
                       label: "Meeting Link",
-                    )
-                else
+                    ),
+                  ]
+                else if (appointment["status"]?.toString().toLowerCase() ==
+                    "pending") ...[
+                  const SizedBox(height: 16),
                   _infoCard(
                     icon: Icons.schedule,
                     iconBg: Colors.orange,
@@ -364,6 +751,163 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                     value: "Meeting will be available once approved",
                     label: "Meeting Status",
                   ),
+                ],
+
+                // Prescription Information (for completed appointments)
+                if (appointment['appointmentSource'] == 'completed') ...[
+                  const SizedBox(height: 16),
+                  const Text(
+                    "Treatment Information",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+
+                  if (prescriptionData != null) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.green.shade200),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.medical_services,
+                                  color: Colors.green, size: 24),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Prescription Available',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+
+                          // Check if it's the new prescription format with prescriptionDetails
+                          if (prescriptionData['prescriptionDetails'] !=
+                              null) ...[
+                            // New prescription format
+                            const Text(
+                              'Prescription Details:',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.grey.shade300),
+                              ),
+                              child: Text(
+                                prescriptionData['prescriptionDetails']
+                                    .toString(),
+                                style: const TextStyle(fontSize: 14),
+                              ),
+                            ),
+
+                            // PDF viewing button
+                            if (prescriptionData['pdfPath'] != null ||
+                                (prescriptionData['pdfUrl'] != null &&
+                                    prescriptionData['pdfUrl']
+                                        .toString()
+                                        .isNotEmpty)) ...[
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  onPressed: () =>
+                                      _viewPrescriptionPdf(prescriptionData!),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.blue,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  icon: const Icon(Icons.picture_as_pdf,
+                                      size: 20),
+                                  label: const Text('View Prescription PDF'),
+                                ),
+                              ),
+                            ],
+                          ] else ...[
+                            // Old prescription format (medicines and notes)
+                            _buildMedicinesSection(prescriptionData),
+
+                            // Notes section
+                            if (prescriptionData['notes'] != null) ...[
+                              const SizedBox(height: 12),
+                              const Text(
+                                'Additional Instructions:',
+                                style: TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(prescriptionData['notes'].toString()),
+                            ],
+                          ],
+                        ],
+                      ),
+                    ),
+                  ] else ...[
+                    _infoCard(
+                      icon: Icons.info,
+                      iconBg: Colors.grey,
+                      cardBg: Colors.grey.shade50,
+                      value: "No prescription data available",
+                      label: "Prescription Status",
+                    ),
+                  ],
+
+                  // Certificate Status
+                  const SizedBox(height: 12),
+                  if (appointment['certificateSent'] == true) ...[
+                    _infoCard(
+                      icon: Icons.verified,
+                      iconBg: Colors.purple,
+                      cardBg: Colors.purple.shade50,
+                      value: "Treatment completion certificate available",
+                      label: "Certificate Status",
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _viewCertificatePdf(appointment),
+                        icon: const Icon(Icons.verified),
+                        label: const Text('View Certificate PDF'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.purple,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ] else ...[
+                    _infoCard(
+                      icon: Icons.pending,
+                      iconBg: Colors.orange,
+                      cardBg: Colors.orange.shade50,
+                      value:
+                          "Certificate will be available once issued by doctor",
+                      label: "Certificate Status",
+                    ),
+                  ],
+                ],
               ],
             ),
           ),
@@ -449,6 +993,16 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
         statusColor = Colors.orange;
         bgColor = Colors.orange.shade50;
         icon = Icons.pending;
+        break;
+      case 'consultation_finished':
+        statusColor = Colors.blue;
+        bgColor = Colors.blue.shade50;
+        icon = Icons.medical_services;
+        break;
+      case 'treatment_completed':
+        statusColor = Colors.purple;
+        bgColor = Colors.purple.shade50;
+        icon = Icons.verified;
         break;
       case 'cancelled':
         statusColor = Colors.red;
@@ -584,6 +1138,56 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  // Helper method to build medicines section safely
+  Widget _buildMedicinesSection(Map<String, dynamic> prescriptionData) {
+    if (prescriptionData['medicines'] == null ||
+        prescriptionData['medicines'] is! List) {
+      return const SizedBox.shrink();
+    }
+
+    final medicinesList = prescriptionData['medicines'] as List;
+    if (medicinesList.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Prescribed Medicines:',
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 8),
+        ...medicinesList.asMap().entries.map((entry) {
+          final index = entry.key;
+          final medicine = entry.value as Map<String, dynamic>;
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 6),
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  medicine['name']?.toString() ?? 'Medicine ${index + 1}',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                if (medicine['dosage'] != null)
+                  Text('Dosage: ${medicine['dosage']}'),
+                if (medicine['frequency'] != null)
+                  Text('Frequency: ${medicine['frequency']}'),
+              ],
+            ),
+          );
+        }).toList(),
+      ],
     );
   }
 
@@ -756,6 +1360,58 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
 
               const SizedBox(height: 16),
 
+              // Filter carousel
+              SizedBox(
+                height: 50,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  itemCount: _filterOptions.length,
+                  itemBuilder: (context, index) {
+                    final filter = _filterOptions[index];
+                    final isSelected = _selectedFilter == filter['key'];
+
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _selectedFilter = filter['key'];
+                          });
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isSelected
+                              ? Colors.redAccent
+                              : Colors.grey.shade200,
+                          foregroundColor:
+                              isSelected ? Colors.white : Colors.black54,
+                          elevation: isSelected ? 3 : 1,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
+                        ),
+                        icon: Icon(
+                          filter['icon'],
+                          size: 18,
+                          color: isSelected ? Colors.white : Colors.black54,
+                        ),
+                        label: Text(
+                          filter['label'].replaceAll('\n', ' '),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
               // Appointments list
               if (_currentPatientId != null)
                 StreamBuilder<List<Map<String, dynamic>>>(
@@ -782,35 +1438,122 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                     debugPrint(
                         'Total appointments found: ${allAppointments.length}');
 
-                    if (allAppointments.isEmpty) {
-                      return const Center(
+                    // Filter appointments based on selected filter
+                    List<Map<String, dynamic>> filteredAppointments;
+                    switch (_selectedFilter) {
+                      case 'Pending':
+                        filteredAppointments = allAppointments
+                            .where((appointment) =>
+                                appointment['status'] == 'pending')
+                            .toList();
+                        break;
+                      case 'Approved':
+                        filteredAppointments = allAppointments
+                            .where((appointment) =>
+                                appointment['status'] == 'approved')
+                            .toList();
+                        break;
+                      case 'Consultation Completed':
+                        filteredAppointments = allAppointments
+                            .where((appointment) =>
+                                appointment['status'] ==
+                                'consultation_finished')
+                            .toList();
+                        break;
+                      case 'Treatment Completed':
+                        filteredAppointments = allAppointments
+                            .where((appointment) =>
+                                appointment['status'] == 'treatment_completed')
+                            .toList();
+                        break;
+                      case 'Rejected':
+                        filteredAppointments = allAppointments
+                            .where((appointment) =>
+                                appointment['status'] == 'rejected')
+                            .toList();
+                        break;
+                      case 'All':
+                      default:
+                        filteredAppointments = allAppointments;
+                        break;
+                    }
+
+                    if (filteredAppointments.isEmpty) {
+                      String emptyMessage;
+                      switch (_selectedFilter) {
+                        case 'Pending':
+                          emptyMessage = 'No pending appointments found';
+                          break;
+                        case 'Approved':
+                          emptyMessage = 'No approved appointments found';
+                          break;
+                        case 'Consultation Completed':
+                          emptyMessage =
+                              'No consultation completed appointments found';
+                          break;
+                        case 'Treatment Completed':
+                          emptyMessage =
+                              'No treatment completed appointments found';
+                          break;
+                        case 'Rejected':
+                          emptyMessage = 'No rejected appointments found';
+                          break;
+                        default:
+                          emptyMessage = 'No appointments found';
+                          break;
+                      }
+
+                      return Center(
                         child: Padding(
-                          padding: EdgeInsets.all(20),
+                          padding: const EdgeInsets.all(20),
                           child: Text(
-                            'No appointments found',
-                            style: TextStyle(color: Colors.grey),
+                            emptyMessage,
+                            style: const TextStyle(color: Colors.grey),
                           ),
                         ),
                       );
                     }
 
                     return Column(
-                      children: allAppointments.map((appointment) {
-                        // Determine status - check if it's from approved collection
-                        final isApproved =
-                            appointment['status'] == 'approved' ||
-                                appointment['approvedAt'] != null;
-                        final status = isApproved ? 'Approved' : 'Pending';
-                        final statusColor =
-                            isApproved ? Colors.green : Colors.orange;
+                      children: filteredAppointments.map((appointment) {
+                        // Determine status and colors based on appointment source and state
+                        String status;
+                        Color statusColor;
+
+                        switch (appointment['status']) {
+                          case 'pending':
+                            status = 'Pending';
+                            statusColor = Colors.orange;
+                            break;
+                          case 'approved':
+                            status = 'Approved';
+                            statusColor = Colors.green;
+                            break;
+                          case 'consultation_finished':
+                            status = 'Consultation Finished';
+                            statusColor = Colors.blue;
+                            break;
+                          case 'treatment_completed':
+                            status = 'Treatment Completed';
+                            statusColor = Colors.purple;
+                            break;
+                          case 'rejected':
+                            status = 'Rejected';
+                            statusColor = Colors.red;
+                            break;
+                          default:
+                            status = 'Unknown';
+                            statusColor = Colors.grey;
+                        }
 
                         DateTime? date;
                         try {
                           final appointmentDate =
-                              appointment['appointment_date'];
+                              appointment['appointmentDate'] ??
+                                  appointment['appointment_date'];
                           if (appointmentDate is Timestamp) {
                             date = appointmentDate.toDate();
-                          } else {
+                          } else if (appointmentDate != null) {
                             date = DateTime.parse(appointmentDate.toString());
                           }
                         } catch (e) {
@@ -892,7 +1635,8 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                                                 fontWeight: FontWeight.bold)),
 
                                         // Meeting link indicator for approved appointments
-                                        if (isApproved &&
+                                        if (appointment['status'] ==
+                                                'approved' &&
                                             ((appointment['meetingLink'] ??
                                                         appointment[
                                                             'jitsi_link'] ??
@@ -941,11 +1685,24 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                                       ],
                                     ),
                                   ),
-                                  const Icon(
-                            Icons.arrow_forward_ios,
-                            color: Colors.grey,
-                            size: 18,
-                          ),
+                                  // Show delete button for rejected appointments, otherwise show arrow
+                                  if (appointment['status'] == 'rejected')
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.delete,
+                                        color: Colors.red,
+                                        size: 24,
+                                      ),
+                                      onPressed: () =>
+                                          _deleteRejectedAppointment(
+                                              appointment),
+                                    )
+                                  else
+                                    const Icon(
+                                      Icons.arrow_forward_ios,
+                                      color: Colors.grey,
+                                      size: 18,
+                                    ),
                                 ],
                               ),
                             ));
@@ -962,6 +1719,211 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                 ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  // Method to view prescription PDF in-app
+  Future<void> _viewPrescriptionPdf(
+      Map<String, dynamic> prescriptionData) async {
+    try {
+      String filename = 'Prescription.pdf';
+
+      // Check for Cloudinary URL first
+      if (prescriptionData['pdfUrl'] != null &&
+          prescriptionData['pdfUrl'].toString().isNotEmpty) {
+        // For now, show a message about cloud PDF - you can implement web viewing later
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Cloud PDF viewing - will be implemented soon'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
+      // Check for local PDF path
+      if (prescriptionData['pdfPath'] != null) {
+        final file = File(prescriptionData['pdfPath']);
+        if (await file.exists()) {
+          final pdfBytes = await file.readAsBytes();
+          // Show in-app PDF viewer
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => _PdfViewerScreen(
+                pdfBytes: pdfBytes,
+                title: 'Prescription PDF',
+                filename: filename,
+                backgroundColor: Colors.blue,
+              ),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  'PDF file not found. It may have been moved or deleted.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('PDF version not available.'),
+            backgroundColor: Colors.blue,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error viewing prescription: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  // Method to view certificate PDF in-app
+  Future<void> _viewCertificatePdf(Map<String, dynamic> appointment) async {
+    try {
+      // Query the certificates collection for this appointment
+      final appointmentId = appointment['appointmentId'] ?? appointment['id'];
+      final certificateSnapshot = await FirebaseFirestore.instance
+          .collection('certificates')
+          .where('appointmentId', isEqualTo: appointmentId)
+          .get();
+
+      if (certificateSnapshot.docs.isNotEmpty) {
+        final certificateData = certificateSnapshot.docs.first.data();
+
+        // Check for local PDF path first
+        if (certificateData['pdfPath'] != null) {
+          final file = File(certificateData['pdfPath']);
+          if (await file.exists()) {
+            final pdfBytes = await file.readAsBytes();
+            // Show in-app PDF viewer
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => _PdfViewerScreen(
+                  pdfBytes: pdfBytes,
+                  title: 'TB Treatment Certificate',
+                  filename: 'TB_Certificate.pdf',
+                  backgroundColor: Colors.purple,
+                ),
+              ),
+            );
+            return;
+          }
+        }
+
+        // Check for Cloudinary URL
+        if (certificateData['pdfUrl'] != null &&
+            certificateData['pdfUrl'].toString().isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content:
+                  Text('Cloud certificate viewing - will be implemented soon'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          return;
+        }
+      }
+
+      // No certificate found or no PDF available
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Certificate PDF not found. It may have been moved or deleted.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error viewing certificate: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+}
+
+// In-app PDF Viewer Screen
+class _PdfViewerScreen extends StatelessWidget {
+  final Uint8List pdfBytes;
+  final String title;
+  final String filename;
+  final Color? backgroundColor;
+
+  const _PdfViewerScreen({
+    required this.pdfBytes,
+    required this.title,
+    required this.filename,
+    this.backgroundColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(title),
+        backgroundColor: backgroundColor ?? Colors.red,
+        foregroundColor: Colors.white,
+        actions: [
+          // Share/Download button
+          IconButton(
+            icon: const Icon(Icons.share),
+            onPressed: () async {
+              try {
+                await Printing.sharePdf(
+                  bytes: pdfBytes,
+                  filename: filename,
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error sharing PDF: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+          ),
+          // Print button
+          IconButton(
+            icon: const Icon(Icons.print),
+            onPressed: () async {
+              try {
+                await Printing.layoutPdf(
+                  onLayout: (format) => pdfBytes,
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error printing PDF: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+          ),
+        ],
+      ),
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        child: PdfPreview(
+          build: (format) => pdfBytes,
+          allowPrinting: true,
+          allowSharing: true,
+          canChangePageFormat: false,
+          canDebug: false,
+          initialPageFormat: PdfPageFormat.a4,
+          pdfFileName: filename,
         ),
       ),
     );

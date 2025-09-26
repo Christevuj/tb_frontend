@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tb_frontend/login_screen.dart';
 import 'package:tb_frontend/services/auth_service.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -116,25 +115,9 @@ class _SignupScreenState extends State<SignupScreen> {
 
     setState(() => _isLoading = false);
 
-    if (error == null) {
-      // Force sign out after sign up
-      await FirebaseAuth.instance.signOut();
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content:
-                Text('Patient account created successfully! Please log in.')),
-      );
-
-      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => const TBisitaLoginScreen()),
-        (route) => false,
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error)),
-      );
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(error ?? 'An error occurred')),
+    );
   }
 
   @override

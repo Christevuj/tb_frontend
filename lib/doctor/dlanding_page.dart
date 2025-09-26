@@ -4,7 +4,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'prescription.dart';
-import 'viewpost.dart';
 
 bool _showAllAppointments = false; // Track See All state
 
@@ -188,8 +187,6 @@ class _DlandingpageState extends State<Dlandingpage> {
                   value: appointment["appointmentTime"]?.toString() ?? "N/A",
                   label: "Appointment Time",
                 ),
-
-
 
                 // Status
                 _statusCard(appointment["status"]?.toString() ?? "N/A"),
@@ -468,7 +465,7 @@ class _DlandingpageState extends State<Dlandingpage> {
           .snapshots(),
       builder: (context, snapshot) {
         bool hasPrescription = false;
-        
+
         if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
           hasPrescription = true;
         }
@@ -478,7 +475,8 @@ class _DlandingpageState extends State<Dlandingpage> {
           margin: const EdgeInsets.symmetric(vertical: 6),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: hasPrescription ? Colors.green.shade50 : Colors.orange.shade50,
+            color:
+                hasPrescription ? Colors.green.shade50 : Colors.orange.shade50,
             borderRadius: BorderRadius.circular(16),
           ),
           child: Row(
@@ -488,12 +486,16 @@ class _DlandingpageState extends State<Dlandingpage> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: hasPrescription ? Colors.green.shade500 : Colors.orange.shade500,
+                  color: hasPrescription
+                      ? Colors.green.shade500
+                      : Colors.orange.shade500,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Center(
                   child: Icon(
-                    hasPrescription ? Icons.medical_services : Icons.description,
+                    hasPrescription
+                        ? Icons.medical_services
+                        : Icons.description,
                     color: Colors.white,
                     size: 24,
                   ),
@@ -510,7 +512,8 @@ class _DlandingpageState extends State<Dlandingpage> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => Prescription(appointment: appointment),
+                              builder: (context) =>
+                                  Prescription(appointment: appointment),
                             ),
                           );
                         },
@@ -546,7 +549,8 @@ class _DlandingpageState extends State<Dlandingpage> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => Prescription(appointment: appointment),
+                              builder: (context) =>
+                                  Prescription(appointment: appointment),
                             ),
                           );
                         },
@@ -596,43 +600,83 @@ class _DlandingpageState extends State<Dlandingpage> {
       builder: (context, snapshot) {
         bool hasPrescription = false;
         Map<String, dynamic>? prescriptionData;
-        
+
         if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
           hasPrescription = true;
-          prescriptionData = snapshot.data!.docs.first.data() as Map<String, dynamic>;
+          prescriptionData =
+              snapshot.data!.docs.first.data() as Map<String, dynamic>;
         }
 
         return Container(
           width: double.infinity,
           margin: const EdgeInsets.symmetric(vertical: 12),
           child: ElevatedButton(
-            onPressed: hasPrescription 
+            onPressed: hasPrescription
                 ? () async {
-                    // Send prescription data to viewpost
-                    final updatedAppointment = Map<String, dynamic>.from(appointment);
-                    updatedAppointment['prescriptionData'] = prescriptionData;
-                    updatedAppointment['meetingCompleted'] = true;
-                    
-                    // Navigate to viewpost page
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => Viewpostappointment(
-                          appointment: updatedAppointment,
-                        ),
-                      ),
-                    );
-                    
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text("Meeting marked as completed and data sent to post-appointment"),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
+                    try {
+                      // Create a completed appointment record first
+                      await FirebaseFirestore.instance
+                          .collection('completed_appointments')
+                          .add({
+                        ...appointment,
+                        'prescriptionData': prescriptionData,
+                        'meetingCompleted': true,
+                        'completedAt': FieldValue.serverTimestamp(),
+                      });
+
+                      // Send notification to patient about completed meeting and e-prescription
+                      await FirebaseFirestore.instance
+                          .collection('patient_notifications')
+                          .add({
+                        'patientUid': appointment['patientUid'] ??
+                            appointment['patientId'],
+                        'appointmentId': appointment['appointmentId'],
+                        'type': 'meeting_completed',
+                        'title': 'Meeting Completed',
+                        'message':
+                            'Your appointment with the doctor has been completed. E-prescription is now available for viewing and download.',
+                        'prescriptionData': prescriptionData,
+                        'createdAt': FieldValue.serverTimestamp(),
+                        'isRead': false,
+                        'doctorName':
+                            appointment['doctorName'] ?? 'Your Doctor',
+                      });
+
+                      // Remove the appointment from approved_appointments (this removes it from both patient and doctor views)
+                      await FirebaseFirestore.instance
+                          .collection('approved_appointments')
+                          .doc(appointment['appointmentId'])
+                          .delete();
+
+                      if (context.mounted) {
+                        // Show success message
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                                "Meeting completed successfully! Appointment removed from active appointments. Patient notified about e-prescription."),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+
+                        // Navigate back to doctor dashboard
+                        Navigator.of(context).pop();
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text("Error completing meeting: $e"),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    }
                   }
                 : null,
             style: ElevatedButton.styleFrom(
-              backgroundColor: hasPrescription ? Colors.green.shade600 : Colors.grey.shade400,
+              backgroundColor: hasPrescription
+                  ? Colors.green.shade600
+                  : Colors.grey.shade400,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(

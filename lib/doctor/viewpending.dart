@@ -103,40 +103,46 @@ class _ViewpendingState extends State<Viewpending> {
 
   Future<void> _generateJitsiLink(Map<String, dynamic> appointment) async {
     try {
-      // Generate a unique room name using appointment ID and timestamp
+      // Generate a unique Whereby room name using appointment ID and timestamp
       final roomName =
-          'appointment_${appointment['id']}_${DateTime.now().millisecondsSinceEpoch}';
-      final jitsiLink = 'https://meet.jit.si/$roomName';
+          'tbisita${appointment['id']}${DateTime.now().millisecondsSinceEpoch}';
+      // Whereby free plan: public room, up to 2 participants, no login required for guests
+      final meetingLink = 'https://whereby.com/$roomName';
 
-      // Update the appointment in pending_patient_data collection (where it currently exists)
+      // Update the appointment in pending_patient_data collection
       await FirebaseFirestore.instance
           .collection('pending_patient_data')
           .doc(appointment['id'])
           .update({
-        'meetingLink': jitsiLink,
+        'meetingLink': meetingLink,
+        'meetingPlatform': 'Whereby',
         'linkGeneratedAt': FieldValue.serverTimestamp(),
       });
 
       // Update the local appointment data to reflect the change immediately
       setState(() {
-        widget.appointment['meetingLink'] = jitsiLink;
+        widget.appointment['meetingLink'] = meetingLink;
+        widget.appointment['meetingPlatform'] = 'Whereby';
       });
 
-      // Show success message
+      // Show success message with direct link access
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Meeting link generated successfully!'),
+            content: const Text(
+                'Whereby video call link generated! No login required for guests.'),
             backgroundColor: Colors.green,
+            duration: const Duration(seconds: 4),
             action: SnackBarAction(
               label: 'Copy Link',
               textColor: Colors.white,
               onPressed: () {
-                Clipboard.setData(ClipboardData(text: jitsiLink));
+                Clipboard.setData(ClipboardData(text: meetingLink));
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Link copied to clipboard!'),
-                    duration: Duration(seconds: 2),
+                    content:
+                        Text('Link copied! Anyone with the link can join.'),
+                    duration: Duration(seconds: 3),
                   ),
                 );
               },
@@ -149,7 +155,7 @@ class _ViewpendingState extends State<Viewpending> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error generating link: $e'),
+            content: Text('Error generating video call link: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -161,7 +167,7 @@ class _ViewpendingState extends State<Viewpending> {
     final appointment = widget.appointment;
     DateTime? currentDate;
     String currentTime = appointment["appointmentTime"] ?? "09:00 AM";
-    
+
     try {
       final dynamic appointmentDate = appointment["appointmentDate"];
       if (appointmentDate is Timestamp) {
@@ -170,9 +176,9 @@ class _ViewpendingState extends State<Viewpending> {
     } catch (e) {
       debugPrint('Error converting appointmentDate: $e');
     }
-    
+
     currentDate ??= DateTime.now();
-    
+
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
       barrierDismissible: false,
@@ -192,28 +198,20 @@ class _ViewpendingState extends State<Viewpending> {
   Future<void> _updateSchedule(DateTime newDate, String newTime) async {
     try {
       final firestore = FirebaseFirestore.instance;
-
-      // Update the appointment in pending_patient_data collection
-      await firestore
-          .collection('pending_patient_data')
-          .doc(widget.appointment['id'])
-          .update({
-        'appointmentDate': Timestamp.fromDate(newDate),
-        'appointmentTime': newTime,
-        'scheduleUpdatedAt': FieldValue.serverTimestamp(),
-      });
-
-      // Update the local appointment data to reflect the change immediately
-      setState(() {
-        widget.appointment['appointmentDate'] = Timestamp.fromDate(newDate);
-        widget.appointment['appointmentTime'] = newTime;
-      });
+      final docId = widget.appointment['id'];
+      if (docId != null) {
+        await firestore.collection('pending_patient_data').doc(docId).update({
+          'appointmentDate': Timestamp.fromDate(newDate),
+          'appointmentTime': newTime,
+          'lastScheduleUpdatedAt': FieldValue.serverTimestamp(),
+        });
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Schedule updated successfully!'),
-            backgroundColor: Colors.green.shade600,
+            content: const Text('Schedule updated successfully'),
+            backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
@@ -348,8 +346,9 @@ class _ViewpendingState extends State<Viewpending> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: IconButton(
-                              icon: Icon(Icons.close, 
-                                color: Colors.grey.shade700, 
+                              icon: Icon(
+                                Icons.close,
+                                color: Colors.grey.shade700,
                                 size: 22,
                               ),
                               onPressed: () => Navigator.pop(context),
@@ -418,14 +417,17 @@ class _ViewpendingState extends State<Viewpending> {
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       CircularProgressIndicator(
-                                        value: loadingProgress.expectedTotalBytes !=
+                                        value: loadingProgress
+                                                    .expectedTotalBytes !=
                                                 null
                                             ? loadingProgress
                                                     .cumulativeBytesLoaded /
-                                                loadingProgress.expectedTotalBytes!
+                                                loadingProgress
+                                                    .expectedTotalBytes!
                                             : null,
                                         strokeWidth: 3,
-                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
                                           Colors.blue.shade600,
                                         ),
                                       ),
@@ -451,7 +453,8 @@ class _ViewpendingState extends State<Viewpending> {
                                         padding: const EdgeInsets.all(16),
                                         decoration: BoxDecoration(
                                           color: Colors.red.shade50,
-                                          borderRadius: BorderRadius.circular(12),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
                                         ),
                                         child: Icon(
                                           Icons.error_outline,
@@ -485,7 +488,8 @@ class _ViewpendingState extends State<Viewpending> {
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: Colors.grey.shade200, width: 1),
+                          border:
+                              Border.all(color: Colors.grey.shade200, width: 1),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withOpacity(0.04),
@@ -591,12 +595,13 @@ class _ViewpendingState extends State<Viewpending> {
                                   Container(
                                     padding: const EdgeInsets.all(8),
                                     decoration: BoxDecoration(
-                                      color: appointment["meetingLink"] != null &&
-                                              appointment["meetingLink"]
-                                                  .toString()
-                                                  .isNotEmpty
-                                          ? Colors.blue.shade100
-                                          : Colors.grey.shade100,
+                                      color:
+                                          appointment["meetingLink"] != null &&
+                                                  appointment["meetingLink"]
+                                                      .toString()
+                                                      .isNotEmpty
+                                              ? Colors.blue.shade100
+                                              : Colors.grey.shade100,
                                       borderRadius: BorderRadius.circular(10),
                                     ),
                                     child: Icon(
@@ -606,19 +611,21 @@ class _ViewpendingState extends State<Viewpending> {
                                                   .isNotEmpty
                                           ? Icons.videocam
                                           : Icons.link_off,
-                                      color: appointment["meetingLink"] != null &&
-                                              appointment["meetingLink"]
-                                                  .toString()
-                                                  .isNotEmpty
-                                          ? Colors.blue.shade600
-                                          : Colors.grey.shade500,
+                                      color:
+                                          appointment["meetingLink"] != null &&
+                                                  appointment["meetingLink"]
+                                                      .toString()
+                                                      .isNotEmpty
+                                              ? Colors.blue.shade600
+                                              : Colors.grey.shade500,
                                       size: 20,
                                     ),
                                   ),
                                   const SizedBox(width: 16),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           appointment["meetingLink"] != null &&
@@ -630,7 +637,8 @@ class _ViewpendingState extends State<Viewpending> {
                                           style: TextStyle(
                                             fontSize: 14,
                                             fontWeight: FontWeight.w600,
-                                            color: appointment["meetingLink"] != null &&
+                                            color: appointment["meetingLink"] !=
+                                                        null &&
                                                     appointment["meetingLink"]
                                                         .toString()
                                                         .isNotEmpty
@@ -638,18 +646,21 @@ class _ViewpendingState extends State<Viewpending> {
                                                 : Colors.grey.shade600,
                                           ),
                                         ),
-                                        if (appointment["meetingLink"] != null &&
+                                        if (appointment["meetingLink"] !=
+                                                null &&
                                             appointment["meetingLink"]
                                                 .toString()
                                                 .isNotEmpty)
                                           Padding(
-                                            padding: const EdgeInsets.only(top: 4),
+                                            padding:
+                                                const EdgeInsets.only(top: 4),
                                             child: Text(
                                               appointment["meetingLink"],
                                               style: TextStyle(
                                                 fontSize: 12,
                                                 color: Colors.blue.shade600,
-                                                decoration: TextDecoration.underline,
+                                                decoration:
+                                                    TextDecoration.underline,
                                               ),
                                               overflow: TextOverflow.ellipsis,
                                             ),
@@ -682,8 +693,8 @@ class _ViewpendingState extends State<Viewpending> {
                                           appointment["meetingLink"]
                                               .toString()
                                               .isNotEmpty
-                                      ? "Regenerate Link"
-                                      : "Generate Meeting Link",
+                                      ? "Regenerate"
+                                      : "Generate Link",
                                   style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
@@ -693,7 +704,8 @@ class _ViewpendingState extends State<Viewpending> {
                                   backgroundColor: Colors.blue.shade600,
                                   foregroundColor: Colors.white,
                                   elevation: 0,
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 12),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
@@ -782,7 +794,10 @@ class _ViewpendingState extends State<Viewpending> {
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [Colors.orange.shade50, Colors.orange.shade100],
+                          colors: [
+                            Colors.orange.shade50,
+                            Colors.orange.shade100
+                          ],
                         ),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: Colors.orange.shade200),
@@ -829,8 +844,14 @@ class _ViewpendingState extends State<Viewpending> {
                                       appointment['meetingLink']
                                           .toString()
                                           .isNotEmpty)
-                                  ? [Colors.green.shade400, Colors.green.shade600]
-                                  : [Colors.grey.shade400, Colors.grey.shade500],
+                                  ? [
+                                      Colors.green.shade400,
+                                      Colors.green.shade600
+                                    ]
+                                  : [
+                                      Colors.grey.shade400,
+                                      Colors.grey.shade500
+                                    ],
                             ),
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
@@ -853,7 +874,9 @@ class _ViewpendingState extends State<Viewpending> {
                               onTap: () async {
                                 // Check if meeting link exists before allowing approval
                                 if (appointment['meetingLink'] == null ||
-                                    appointment['meetingLink'].toString().isEmpty) {
+                                    appointment['meetingLink']
+                                        .toString()
+                                        .isEmpty) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: const Text(
@@ -885,7 +908,9 @@ class _ViewpendingState extends State<Viewpending> {
                                       'Created approved appointment: ${approvedRef.id}');
 
                                   // Also save to history
-                                  await firestore.collection('appointment_history').add({
+                                  await firestore
+                                      .collection('appointment_history')
+                                      .add({
                                     ...appointment,
                                     'status': 'approved',
                                     'approvedAt': FieldValue.serverTimestamp(),
@@ -900,7 +925,8 @@ class _ViewpendingState extends State<Viewpending> {
                                         .add({
                                       ...appointment,
                                       'status': 'approved',
-                                      'approvedAt': FieldValue.serverTimestamp(),
+                                      'approvedAt':
+                                          FieldValue.serverTimestamp(),
                                     });
                                   }
 
@@ -916,7 +942,8 @@ class _ViewpendingState extends State<Viewpending> {
                                       'approved'); // Return 'approved' status
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: const Text('Appointment approved successfully'),
+                                      content: const Text(
+                                          'Appointment approved successfully'),
                                       backgroundColor: Colors.green.shade600,
                                       behavior: SnackBarBehavior.floating,
                                       shape: RoundedRectangleBorder(
@@ -927,8 +954,8 @@ class _ViewpendingState extends State<Viewpending> {
                                 } catch (e) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content:
-                                          Text('Error approving appointment: $e'),
+                                      content: Text(
+                                          'Error approving appointment: $e'),
                                       backgroundColor: Colors.red.shade600,
                                       behavior: SnackBarBehavior.floating,
                                       shape: RoundedRectangleBorder(
@@ -942,18 +969,26 @@ class _ViewpendingState extends State<Viewpending> {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   if (appointment['meetingLink'] == null ||
-                                      appointment['meetingLink'].toString().isEmpty)
+                                      appointment['meetingLink']
+                                          .toString()
+                                          .isEmpty)
                                     const Icon(Icons.warning_rounded,
                                         size: 18, color: Colors.white),
                                   if (appointment['meetingLink'] == null ||
-                                      appointment['meetingLink'].toString().isEmpty)
+                                      appointment['meetingLink']
+                                          .toString()
+                                          .isEmpty)
                                     const SizedBox(width: 8),
                                   if (appointment['meetingLink'] != null &&
-                                      appointment['meetingLink'].toString().isNotEmpty)
+                                      appointment['meetingLink']
+                                          .toString()
+                                          .isNotEmpty)
                                     const Icon(Icons.check_circle_rounded,
                                         size: 18, color: Colors.white),
                                   if (appointment['meetingLink'] != null &&
-                                      appointment['meetingLink'].toString().isNotEmpty)
+                                      appointment['meetingLink']
+                                          .toString()
+                                          .isNotEmpty)
                                     const SizedBox(width: 8),
                                   Text(
                                     (appointment['meetingLink'] != null &&
@@ -1068,12 +1103,12 @@ class _ModernRejectDialogState extends State<_ModernRejectDialog>
   @override
   void initState() {
     super.initState();
-    
+
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 400),
       vsync: this,
     );
-    
+
     _scaleAnimation = Tween<double>(
       begin: 0.8,
       end: 1.0,
@@ -1081,7 +1116,7 @@ class _ModernRejectDialogState extends State<_ModernRejectDialog>
       parent: _animationController,
       curve: Curves.elasticOut,
     ));
-    
+
     _fadeAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
@@ -1089,7 +1124,7 @@ class _ModernRejectDialogState extends State<_ModernRejectDialog>
       parent: _animationController,
       curve: Curves.easeIn,
     ));
-    
+
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, 0.1),
       end: Offset.zero,
@@ -1097,7 +1132,7 @@ class _ModernRejectDialogState extends State<_ModernRejectDialog>
       parent: _animationController,
       curve: Curves.easeOut,
     ));
-    
+
     _animationController.forward();
   }
 
@@ -1219,7 +1254,7 @@ class _ModernRejectDialogState extends State<_ModernRejectDialog>
                       ],
                     ),
                   ),
-                  
+
                   // Content
                   Padding(
                     padding: const EdgeInsets.all(28),
@@ -1252,10 +1287,14 @@ class _ModernRejectDialogState extends State<_ModernRejectDialog>
                                 decoration: BoxDecoration(
                                   gradient: isSelected
                                       ? LinearGradient(
-                                          colors: [Colors.red.shade400, Colors.red.shade500],
+                                          colors: [
+                                            Colors.red.shade400,
+                                            Colors.red.shade500
+                                          ],
                                         )
                                       : null,
-                                  color: isSelected ? null : Colors.grey.shade100,
+                                  color:
+                                      isSelected ? null : Colors.grey.shade100,
                                   borderRadius: BorderRadius.circular(20),
                                   border: Border.all(
                                     color: isSelected
@@ -1277,11 +1316,11 @@ class _ModernRejectDialogState extends State<_ModernRejectDialog>
                                   reason,
                                   style: TextStyle(
                                     fontSize: 12,
-                                    fontWeight: isSelected 
-                                        ? FontWeight.w600 
+                                    fontWeight: isSelected
+                                        ? FontWeight.w600
                                         : FontWeight.w500,
-                                    color: isSelected 
-                                        ? Colors.white 
+                                    color: isSelected
+                                        ? Colors.white
                                         : Colors.grey.shade700,
                                   ),
                                 ),
@@ -1289,9 +1328,9 @@ class _ModernRejectDialogState extends State<_ModernRejectDialog>
                             );
                           }).toList(),
                         ),
-                        
+
                         const SizedBox(height: 24),
-                        
+
                         // Custom reason
                         Text(
                           'Custom Reason',
@@ -1316,22 +1355,26 @@ class _ModernRejectDialogState extends State<_ModernRejectDialog>
                           child: TextField(
                             controller: widget.reasonController,
                             decoration: InputDecoration(
-                              hintText: 'Enter specific reason for rejection...',
+                              hintText:
+                                  'Enter specific reason for rejection...',
                               hintStyle: TextStyle(
                                 color: Colors.grey.shade500,
                                 fontSize: 14,
                               ),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(16),
-                                borderSide: BorderSide(color: Colors.grey.shade300),
+                                borderSide:
+                                    BorderSide(color: Colors.grey.shade300),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(16),
-                                borderSide: BorderSide(color: Colors.grey.shade300),
+                                borderSide:
+                                    BorderSide(color: Colors.grey.shade300),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(16),
-                                borderSide: BorderSide(color: Colors.red.shade400, width: 2),
+                                borderSide: BorderSide(
+                                    color: Colors.red.shade400, width: 2),
                               ),
                               filled: true,
                               fillColor: Colors.grey.shade50,
@@ -1364,7 +1407,7 @@ class _ModernRejectDialogState extends State<_ModernRejectDialog>
                       ],
                     ),
                   ),
-                  
+
                   // Actions
                   Container(
                     padding: const EdgeInsets.all(28),
@@ -1382,7 +1425,8 @@ class _ModernRejectDialogState extends State<_ModernRejectDialog>
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: Colors.grey.shade300, width: 2),
+                              border: Border.all(
+                                  color: Colors.grey.shade300, width: 2),
                             ),
                             child: Material(
                               color: Colors.transparent,
@@ -1410,7 +1454,10 @@ class _ModernRejectDialogState extends State<_ModernRejectDialog>
                             height: 52,
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
-                                colors: [Colors.red.shade500, Colors.red.shade600],
+                                colors: [
+                                  Colors.red.shade500,
+                                  Colors.red.shade600
+                                ],
                               ),
                               borderRadius: BorderRadius.circular(14),
                               boxShadow: [
@@ -1426,20 +1473,25 @@ class _ModernRejectDialogState extends State<_ModernRejectDialog>
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(14),
                                 onTap: () {
-                                  if (widget.reasonController.text.trim().isEmpty) {
+                                  if (widget.reasonController.text
+                                      .trim()
+                                      .isEmpty) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                        content: const Text('Please provide a reason for rejection'),
+                                        content: const Text(
+                                            'Please provide a reason for rejection'),
                                         backgroundColor: Colors.red.shade600,
                                         behavior: SnackBarBehavior.floating,
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(12),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
                                         ),
                                       ),
                                     );
                                     return;
                                   }
-                                  Navigator.of(context).pop(widget.reasonController.text.trim());
+                                  Navigator.of(context)
+                                      .pop(widget.reasonController.text.trim());
                                 },
                                 child: const Center(
                                   child: Row(
@@ -1506,24 +1558,27 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
   late int selectedMinute;
   late String selectedPeriod;
 
-  final FixedExtentScrollController _hourController = FixedExtentScrollController();
-  final FixedExtentScrollController _minuteController = FixedExtentScrollController();
-  final FixedExtentScrollController _periodController = FixedExtentScrollController();
+  final FixedExtentScrollController _hourController =
+      FixedExtentScrollController();
+  final FixedExtentScrollController _minuteController =
+      FixedExtentScrollController();
+  final FixedExtentScrollController _periodController =
+      FixedExtentScrollController();
 
   @override
   void initState() {
     super.initState();
     selectedDate = widget.initialDate;
     selectedTime = widget.initialTime;
-    
+
     // Parse initial time
     _parseInitialTime();
-    
+
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    
+
     _scaleAnimation = Tween<double>(
       begin: 0.7,
       end: 1.0,
@@ -1531,7 +1586,7 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
       parent: _animationController,
       curve: Curves.elasticOut,
     ));
-    
+
     _fadeAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
@@ -1539,9 +1594,9 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
       parent: _animationController,
       curve: Curves.easeIn,
     ));
-    
+
     _animationController.forward();
-    
+
     // Set initial scroll positions after a delay to ensure widgets are built
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _hourController.jumpToItem(selectedHour - 1);
@@ -1556,7 +1611,7 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
       final parts = selectedTime.split(' ');
       final timePart = parts[0];
       selectedPeriod = parts[1];
-      
+
       final timeComponents = timePart.split(':');
       selectedHour = int.parse(timeComponents[0]);
       selectedMinute = int.parse(timeComponents[1]);
@@ -1585,8 +1640,18 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
 
   String _formatDate(DateTime date) {
     final months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December'
     ];
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
@@ -1682,7 +1747,7 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                     ],
                   ),
                 ),
-                
+
                 // Content
                 Padding(
                   padding: const EdgeInsets.all(24),
@@ -1705,7 +1770,8 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                             context: context,
                             initialDate: selectedDate,
                             firstDate: DateTime.now(),
-                            lastDate: DateTime.now().add(const Duration(days: 365)),
+                            lastDate:
+                                DateTime.now().add(const Duration(days: 365)),
                             builder: (context, child) {
                               return Theme(
                                 data: Theme.of(context).copyWith(
@@ -1735,10 +1801,14 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                             gradient: LinearGradient(
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
-                              colors: [Colors.blue.shade50, Colors.blue.shade100],
+                              colors: [
+                                Colors.blue.shade50,
+                                Colors.blue.shade100
+                              ],
                             ),
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.blue.shade200, width: 2),
+                            border: Border.all(
+                                color: Colors.blue.shade200, width: 2),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.blue.withOpacity(0.1),
@@ -1753,7 +1823,10 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                                 padding: const EdgeInsets.all(10),
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
-                                    colors: [Colors.blue.shade400, Colors.blue.shade600],
+                                    colors: [
+                                      Colors.blue.shade400,
+                                      Colors.blue.shade600
+                                    ],
                                   ),
                                   borderRadius: BorderRadius.circular(10),
                                   boxShadow: [
@@ -1812,9 +1885,9 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                           ),
                         ),
                       ),
-                      
+
                       const SizedBox(height: 24),
-                      
+
                       // Time Selection
                       Text(
                         'Select Time',
@@ -1875,7 +1948,7 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                                 ],
                               ),
                             ),
-                            
+
                             // Minute picker
                             Expanded(
                               child: Column(
@@ -1917,7 +1990,7 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                                 ],
                               ),
                             ),
-                            
+
                             // AM/PM picker
                             Expanded(
                               child: Column(
@@ -1939,7 +2012,8 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                                       itemExtent: 40,
                                       onSelectedItemChanged: (index) {
                                         setState(() {
-                                          selectedPeriod = index == 0 ? 'AM' : 'PM';
+                                          selectedPeriod =
+                                              index == 0 ? 'AM' : 'PM';
                                         });
                                       },
                                       children: ['AM', 'PM'].map((period) {
@@ -1965,7 +2039,7 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                     ],
                   ),
                 ),
-                
+
                 // Actions
                 Container(
                   padding: const EdgeInsets.all(24),
@@ -2011,7 +2085,10 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                           height: 50,
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
-                              colors: [Colors.blue.shade500, Colors.blue.shade600],
+                              colors: [
+                                Colors.blue.shade500,
+                                Colors.blue.shade600
+                              ],
                             ),
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
@@ -2132,7 +2209,7 @@ class InfoField extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
-              icon, 
+              icon,
               color: Colors.blue.shade600,
               size: 20,
             ),
@@ -2154,4 +2231,3 @@ class InfoField extends StatelessWidget {
     );
   }
 }
-

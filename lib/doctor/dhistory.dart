@@ -151,6 +151,7 @@ class _DhistoryState extends State<Dhistory> {
   Widget _buildStatusIcon(String status) {
     switch (status.toLowerCase()) {
       case 'approved':
+      case 'completed':
         return const CircleAvatar(
           backgroundColor: Colors.green,
           child: Icon(Icons.check, color: Colors.white),
@@ -171,6 +172,7 @@ class _DhistoryState extends State<Dhistory> {
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'approved':
+      case 'completed':
         return Colors.green;
       case 'rejected':
         return Colors.red;
@@ -285,19 +287,31 @@ class _DhistoryState extends State<Dhistory> {
                       itemCount: appointments.length,
                       itemBuilder: (context, index) {
                         final appointment = appointments[index];
-                        DateTime? date;
-                        
-                        try {
-                          final appointmentDate = appointment['appointmentDate'];
-                          if (appointmentDate is Timestamp) {
-                            date = appointmentDate.toDate();
+                        // Use the timestamp when the data was sent to history (approvedAt or rejectedAt)
+                        DateTime? historyDate;
+                        String? historyTime;
+                        var approvedAt = appointment['approvedAt'];
+                        var rejectedAt = appointment['rejectedAt'];
+                        var timestamp = approvedAt ?? rejectedAt;
+                        if (timestamp is Timestamp) {
+                          historyDate = timestamp.toDate();
+                          historyTime = "${historyDate.hour.toString().padLeft(2, '0')}:${historyDate.minute.toString().padLeft(2, '0')}";
+                        } else if (timestamp is String) {
+                          try {
+                            historyDate = DateTime.parse(timestamp);
+                            historyTime = "${historyDate.hour.toString().padLeft(2, '0')}:${historyDate.minute.toString().padLeft(2, '0')}";
+                          } catch (e) {
+                            historyDate = null;
+                            historyTime = null;
                           }
-                        } catch (e) {
-                          debugPrint('Error parsing date: $e');
                         }
 
-                        final status = appointment['status'] ?? 'unknown';
-                        
+                        String status = appointment['status'] ?? 'unknown';
+                        // If status is 'approved', show as 'completed' in UI
+                        if (status.toLowerCase() == 'approved') {
+                          status = 'completed';
+                        }
+
                         return Card(
                           color: Colors.white,
                           margin: const EdgeInsets.symmetric(vertical: 8),
@@ -316,7 +330,7 @@ class _DhistoryState extends State<Dhistory> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  "${appointment["facility"] ?? "Unknown Facility"}\n${date != null ? _formatDate(date) : "No date"} at ${appointment["appointmentTime"] ?? "No time"}",
+                                  "${appointment["facility"] ?? "Unknown Facility"}\n${historyDate != null ? _formatDate(historyDate) : "No date"} at ${historyTime ?? "No time"}",
                                 ),
                                 const SizedBox(height: 4),
                                 Container(
@@ -340,7 +354,7 @@ class _DhistoryState extends State<Dhistory> {
                                 size: 16, color: Colors.grey),
                             onTap: () => _showAppointmentDetails({
                               ...appointment,
-                              'date': date,
+                              'date': historyDate,
                             }),
                           ),
                         );

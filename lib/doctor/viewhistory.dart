@@ -159,7 +159,9 @@ class Viewhistory extends StatelessWidget {
                     const SizedBox(width: 16),
                     Expanded(
                       child: Text(
-                        appointment["status"]?.toString().toUpperCase() ?? "UNKNOWN",
+            (appointment["status"]?.toString().toLowerCase() == "approved"
+              ? "COMPLETED"
+              : appointment["status"]?.toString().toUpperCase() ?? "UNKNOWN"),
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,

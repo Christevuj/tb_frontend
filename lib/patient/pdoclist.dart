@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:tb_frontend/models/doctor.dart';
 import 'package:tb_frontend/patient/pviewdoctor.dart';
+import 'package:tb_frontend/patient/pbooking1.dart';
 
 class Pdoclist extends StatefulWidget {
   const Pdoclist({super.key});
@@ -110,10 +111,12 @@ class _PdoclistState extends State<Pdoclist> {
                   }
 
                   final doctors = snapshot.data ?? [];
-                  final filteredDoctors = doctors.where((doc) {
-                    final name = doc.name.toLowerCase();
-                    return name.contains(_searchQuery.toLowerCase());
-                  }).toList();
+
+                    final filteredDoctors = doctors.where((doc) {
+                      final name = doc.name.toLowerCase();
+                      return name.contains(_searchQuery.toLowerCase());
+                    }).toList()
+                      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
 
                   if (filteredDoctors.isEmpty) {
                     return const Center(
@@ -225,9 +228,12 @@ class DoctorCard extends StatelessWidget {
                           style: const TextStyle(
                               fontWeight: FontWeight.bold, fontSize: 18)),
                       const SizedBox(height: 4),
-                      Text(doctor.specialization,
-                          style: const TextStyle(fontSize: 14)),
-                      const SizedBox(height: 6),
+          Text(
+            doctor.experience.isNotEmpty ? '${doctor.experience} years experience' : 'Experience N/A',
+            style: const TextStyle(fontSize: 14),
+          ),
+          const SizedBox(height: 6),
+          const SizedBox(height: 6),
                       Row(
                         children: [
                           const Icon(Icons.location_on,
@@ -260,18 +266,7 @@ class DoctorCard extends StatelessWidget {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: List.generate(5, (index) {
-                          return Icon(
-                            index < doctor.rating.floor()
-                                ? Icons.star
-                                : Icons.star_border,
-                            size: 16,
-                            color: Colors.orange,
-                          );
-                        }),
-                      ),
+                      // Rating removed
                     ],
                   ),
                 ),
@@ -286,7 +281,7 @@ class DoctorCard extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => PViewDoctor(doctor: doctor),
+                      builder: (context) => Pbooking1(doctor: doctor),
                     ),
                   );
                 },
@@ -298,7 +293,7 @@ class DoctorCard extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
                 child: const Text(
-                  "View Details",
+                  "Book Appointment",
                   style: TextStyle(
                       color: Colors.pink, fontWeight: FontWeight.bold),
                 ),

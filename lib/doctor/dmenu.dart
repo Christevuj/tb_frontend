@@ -3,6 +3,7 @@ import 'package:tb_frontend/doctor/dlanding_page.dart';
 import 'package:tb_frontend/doctor/dappointment.dart';
 // ❌ remove dmessages import
 import 'package:tb_frontend/doctor/daccount.dart';
+import 'package:tb_frontend/doctor/dmessages.dart';
 
 // ✅ import the shared UserListScreen
 import 'package:tb_frontend/chat_screens/user_list_screen.dart';
@@ -21,7 +22,7 @@ class _DoctorMainWrapperState extends State<DoctorMainWrapper> {
   final List<Widget> _pages = const [
     Dlandingpage(),
     Dappointment(),
-    UserListScreen(), // ✅ replaced Dmessages with UserListScreen
+    Dmessages(), // ✅ replaced UserListScreen with Dmessages
     Daccount(),
   ];
 

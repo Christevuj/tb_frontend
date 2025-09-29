@@ -4,9 +4,8 @@ import 'package:tb_frontend/patient/pmyappointment.dart';
 // REMOVE pmessages import since we’re not using it anymore
 import 'package:tb_frontend/patient/paccount.dart';
 import 'package:tb_frontend/login_screen.dart';
-
+import 'package:tb_frontend/patient/pmessages.dart';
 // ✅ Import the new UserListScreen we created
-import 'package:tb_frontend/chat_screens/user_list_screen.dart';
 
 // ------------------ MAIN WRAPPER WITH NAVBAR & DRAWER ------------------
 class PatientMainWrapper extends StatefulWidget {
@@ -23,7 +22,7 @@ class _PatientMainWrapperState extends State<PatientMainWrapper> {
   final List<Widget> _pages = [
     const PlandingPage(),
     const PMyAppointmentScreen(),
-    const UserListScreen(), // ✅ replaced Pmessages with UserListScreen
+    const Pmessages(), // ✅ replaced Pmessages with UserListScreen
     const Paccount(),
   ];
 

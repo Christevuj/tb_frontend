@@ -16,6 +16,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 // Local imports
 import 'package:tb_frontend/models/doctor.dart';
+import 'package:tb_frontend/services/auth_service.dart';
 
 class Pbooking1 extends StatefulWidget {
   final Doctor doctor;
@@ -30,6 +31,8 @@ class Pbooking1 extends StatefulWidget {
 }
 
 class _Pbooking1State extends State<Pbooking1> {
+  // Import AuthService
+  final _authService = AuthService();
   // Controllers for patient details
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
@@ -44,8 +47,8 @@ class _Pbooking1State extends State<Pbooking1> {
   XFile? _idImage;
   Uint8List? _webImage;
 
-  final List<String> _genders = ['Male', 'Female', 'Other'];
-  final List<String> _validIDs = ['Passport', 'Driver\'s License', 'ID Card'];
+  final List<String> _genders = ['Select gender', 'Male', 'Female', 'Other'];
+  final List<String> _validIDs = ['Select Valid ID', 'Passport', 'Driver\'s License', 'ID Card'];
 
   // Time slots for appointment
   final List<String> _timeSlots = [
@@ -61,9 +64,24 @@ class _Pbooking1State extends State<Pbooking1> {
   void initState() {
     super.initState();
     // Set default values
-    _selectedGender = _genders.first;
-    _selectedID = _validIDs.first;
+  _selectedGender = null;
+  _selectedID = null;
     _selectedTime = _timeSlots.first;
+
+    // Pre-fill name and email from Firestore user data
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      _emailController.text = user.email ?? '';
+      _authService.getCurrentUserDetails().then((details) {
+        if (details != null) {
+          final firstName = details['firstName'] ?? '';
+          final lastName = details['lastName'] ?? '';
+          setState(() {
+            _nameController.text = (firstName + ' ' + lastName).trim();
+          });
+        }
+      });
+    }
   }
 
   Future<void> _pickImage() async {
@@ -89,12 +107,34 @@ class _Pbooking1State extends State<Pbooking1> {
     }
   }
 
+  String _formatDate(DateTime date) {
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+  }
+
   Future<void> _pickDate() async {
     final DateTime? date = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
+      initialDate: _selectedDate ?? DateTime.now(),
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 60)),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: const Color(0xE0F44336),
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.grey.shade800,
+            ),
+            dialogBackgroundColor: Colors.white,
+          ),
+          child: child!,
+        );
+      },
     );
 
     if (date != null) {
@@ -113,10 +153,12 @@ class _Pbooking1State extends State<Pbooking1> {
         _phoneController.text.isEmpty ||
         _ageController.text.isEmpty ||
         _selectedGender == null ||
+        _selectedGender == _genders.first ||
         _selectedID == null ||
+        _selectedID == _validIDs.first ||
         _idImage == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all fields and upload ID')),
+        const SnackBar(content: Text('Please fill all fields, select gender and valid ID, and upload ID')),
       );
       return;
     }
@@ -244,26 +286,40 @@ class _Pbooking1State extends State<Pbooking1> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.shade300,
-            blurRadius: 6,
-            offset: const Offset(0, 3),
+            color: Colors.grey.shade200,
+            blurRadius: 8,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: TextField(
         controller: controller,
         keyboardType: keyboardType,
+        style: const TextStyle(fontSize: 16),
         decoration: InputDecoration(
           labelText: label,
+          labelStyle: TextStyle(
+            color: Colors.grey[600],
+            fontSize: 14,
+          ),
+          floatingLabelStyle: const TextStyle(
+            color: Color(0xE0F44336),
+            fontWeight: FontWeight.w600,
+          ),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             borderSide: BorderSide.none,
           ),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Color(0xE0F44336), width: 2),
+          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+          fillColor: Colors.white,
+          filled: true,
         ),
       ),
     );
@@ -278,26 +334,46 @@ class _Pbooking1State extends State<Pbooking1> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.shade300,
-            blurRadius: 6,
-            offset: const Offset(0, 3),
+            color: Colors.grey.shade200,
+            blurRadius: 8,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: DropdownButtonFormField<T>(
         value: value,
         decoration: InputDecoration(
           labelText: label,
+          labelStyle: TextStyle(
+            color: Colors.grey[600],
+            fontSize: 14,
+          ),
+          floatingLabelStyle: const TextStyle(
+            color: Color(0xE0F44336),
+            fontWeight: FontWeight.w600,
+          ),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             borderSide: BorderSide.none,
           ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Color(0xE0F44336), width: 2),
+          ),
           contentPadding:
-              const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
+              const EdgeInsets.symmetric(horizontal: 8, vertical: 20),
+          fillColor: Colors.white,
+          filled: true,
+        ),
+        icon: const Icon(Icons.arrow_drop_down_rounded, color: Color(0xE0F44336)),
+        dropdownColor: Colors.white,
+        style: const TextStyle(
+          fontSize: 16,
+          color: Colors.black87,
         ),
         items: items
             .map((item) => DropdownMenuItem(
@@ -361,80 +437,217 @@ class _Pbooking1State extends State<Pbooking1> {
               const SizedBox(height: 20),
 
               // SELECT DATE
-              const Center(
-                child: Text(
-                  'Select Date',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-              ),
-              const SizedBox(height: 8),
-              GestureDetector(
-                onTap: _pickDate,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade300),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.shade300,
-                        blurRadius: 6,
-                        offset: const Offset(0, 3),
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(left: 4, bottom: 8),
+                      child: Text(
+                        'Select Date',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                          color: Color(0xFF2D3142),
+                        ),
                       ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        _selectedDate == null
-                            ? 'Select date'
-                            : '${_selectedDate!.month}/${_selectedDate!.day}/${_selectedDate!.year}',
+                    ),
+                    InkWell(
+                      onTap: _pickDate,
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              const Color(0xFFFEEBEE),
+                              const Color(0xFFFFCDD2),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: const Color(0xFFEF9A9A),
+                            width: 2,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xE0F44336).withOpacity(0.1),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    const Color(0xE0F44336),
+                                    Colors.red.shade400,
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(10),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xE0F44336).withOpacity(0.3),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(
+                                Icons.calendar_today_rounded,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _selectedDate == null
+                                        ? 'Select a date'
+                                        : _formatDate(_selectedDate!),
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.red.shade900,
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Tap to change date',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.red.shade700,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.red.shade200,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                Icons.edit_rounded,
+                                color: Colors.red.shade700,
+                                size: 16,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      const Icon(Icons.calendar_today, color: Colors.redAccent),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 20),
 
               // SELECT TIME
-              const Center(
-                child: Text(
-                  'Available Slots',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(left: 4, bottom: 12),
+                      child: Text(
+                        'Available Slots',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                          color: Color(0xFF2D3142),
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.shade200,
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        children: _timeSlots.map((time) {
+                          final isSelected = _selectedTime == time;
+                          return Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () {
+                                setState(() {
+                                  _selectedTime = time;
+                                });
+                              },
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? const Color(0xE0F44336)
+                                      : const Color(0xFFF5F5F5),
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: isSelected
+                                      ? [
+                                          BoxShadow(
+                                            color: const Color(0xE0F44336).withOpacity(0.3),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 4),
+                                          ),
+                                        ]
+                                      : null,
+                                ),
+                                child: Text(
+                                  time,
+                                  style: TextStyle(
+                                    color: isSelected ? Colors.white : Colors.black87,
+                                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: _timeSlots.map((time) {
-                  final isSelected = _selectedTime == time;
-                  return ChoiceChip(
-                    label: Text(time),
-                    selected: isSelected,
-                    onSelected: (_) {
-                      setState(() {
-                        _selectedTime = time;
-                      });
-                    },
-                    selectedColor: Colors.redAccent,
-                    backgroundColor: Colors.grey.shade200,
-                    labelStyle: TextStyle(
-                        color: isSelected ? Colors.white : Colors.black87),
-                  );
-                }).toList(),
               ),
               const SizedBox(height: 20),
 
               // PATIENT DETAILS
-              const Center(
-                child: Text(
+              Container(
+                margin: const EdgeInsets.only(left: 4),
+                child: const Text(
                   'Patient Details',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                    color: Color(0xFF2D3142),
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
@@ -465,123 +678,158 @@ class _Pbooking1State extends State<Pbooking1> {
               const SizedBox(height: 20),
 
               // Upload ID
-              const Center(
-                child: Text(
-                  'Upload Valid ID (Capture Photo)',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-              ),
-              const SizedBox(height: 8),
-              GestureDetector(
-                onTap: _pickImage,
-                child: Container(
-                  height: 120,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade300),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.shade300,
-                        blurRadius: 6,
-                        offset: const Offset(0, 3),
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(left: 4, bottom: 12),
+                      child: Text(
+                        'Upload Valid ID (Capture Photo)',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                          color: Color(0xFF2D3142),
+                        ),
                       ),
-                    ],
-                  ),
-                  child: _idImage == null
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.add_photo_alternate,
-                                  size: 40, color: Colors.grey),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Tap to Upload ID',
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
+                    ),
+                    InkWell(
+                      onTap: _pickImage,
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        height: 160,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: _idImage == null
+                                ? Colors.grey.shade300
+                                : const Color(0xE0F44336),
+                            width: _idImage == null ? 1 : 2,
                           ),
-                        )
-                      : Stack(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: kIsWeb
-                                  ? Image.memory(
-                                      _webImage!,
-                                      fit: BoxFit.cover,
-                                      width: double.infinity,
-                                      height: double.infinity,
-                                      errorBuilder:
-                                          (context, error, stackTrace) {
-                                        return const Center(
-                                          child: Text('Error loading image'),
-                                        );
-                                      },
-                                    )
-                                  : Image.file(
-                                      File(_idImage!.path),
-                                      fit: BoxFit.cover,
-                                      width: double.infinity,
-                                      height: double.infinity,
-                                      errorBuilder:
-                                          (context, error, stackTrace) {
-                                        return const Center(
-                                          child: Text('Error loading image'),
-                                        );
-                                      },
-                                    ),
-                            ),
-                            Positioned(
-                              top: 8,
-                              right: 8,
-                              child: GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    _idImage = null;
-                                    _webImage = null;
-                                  });
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.5),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.close,
-                                    color: Colors.white,
-                                    size: 20,
-                                  ),
-                                ),
-                              ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.shade200,
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
                             ),
                           ],
                         ),
+                        child: _idImage == null
+                            ? Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFEEBEE),
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    child: const Icon(
+                                      Icons.add_photo_alternate_rounded,
+                                      size: 40,
+                                      color: Color(0xE0F44336),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'Tap to Upload ID',
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : Stack(
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: kIsWeb
+                                        ? Image.memory(
+                                            _webImage!,
+                                            fit: BoxFit.cover,
+                                            width: double.infinity,
+                                            height: double.infinity,
+                                            errorBuilder:
+                                                (context, error, stackTrace) {
+                                              return const Center(
+                                                child: Text('Error loading image'),
+                                              );
+                                            },
+                                          )
+                                        : Image.file(
+                                            File(_idImage!.path),
+                                            fit: BoxFit.cover,
+                                            width: double.infinity,
+                                            height: double.infinity,
+                                            errorBuilder:
+                                                (context, error, stackTrace) {
+                                              return const Center(
+                                                child: Text('Error loading image'),
+                                              );
+                                            },
+                                          ),
+                                  ),
+                                  Positioned(
+                                    top: 12,
+                                    right: 12,
+                                    child: InkWell(
+                                      onTap: () {
+                                        setState(() {
+                                          _idImage = null;
+                                          _webImage = null;
+                                        });
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withOpacity(0.6),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: const Icon(
+                                          Icons.close_rounded,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 20),
 
               // Submit Button
-              SizedBox(
+              Container(
+                margin: const EdgeInsets.only(top: 12),
                 width: double.infinity,
+                height: 56,
                 child: ElevatedButton(
                   onPressed: _submitBooking,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.redAccent,
+                    backgroundColor: const Color(0xE0F44336),
+                    elevation: 4,
+                    shadowColor: const Color(0xE0F44336).withOpacity(0.4),
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
                     ),
                   ),
                   child: const Text(
                     'Confirm Booking',
-                    style: TextStyle(fontSize: 16, color: Colors.white),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),

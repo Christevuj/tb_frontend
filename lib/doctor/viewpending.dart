@@ -3,6 +3,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:tb_frontend/chat_screens/chat_screen.dart';
+import 'package:tb_frontend/services/chat_service.dart';
 
 class Viewpending extends StatefulWidget {
   final Map<String, dynamic> appointment;
@@ -228,6 +231,67 @@ class _ViewpendingState extends State<Viewpending> {
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _openChat() async {
+    try {
+      final ChatService chatService = ChatService();
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        throw Exception('No authenticated user found');
+      }
+
+      final patientId = widget.appointment['patientUid'];
+      final patientName = widget.appointment['patientName'] ?? 'Unknown Patient';
+
+      if (patientId == null) {
+        throw Exception('Patient ID not found');
+      }
+
+      // Create or update user docs for chat - ensure both users exist in users collection
+      await chatService.createUserDoc(
+        userId: currentUser.uid,
+        name: 'Dr. ${currentUser.displayName ?? 'Doctor'}',
+        role: 'doctor',
+      );
+
+      await chatService.createUserDoc(
+        userId: patientId,
+        name: patientName,
+        role: 'patient',
+      );
+
+      // Navigate to chat screen
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChatScreen(
+              currentUserId: currentUser.uid,
+              otherUserId: patientId,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error opening chat: $e'),
+            backgroundColor: Colors.red.shade600,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            action: SnackBarAction(
+              label: 'Dismiss',
+              textColor: Colors.white,
+              onPressed: () {},
             ),
           ),
         );
@@ -751,7 +815,7 @@ class _ViewpendingState extends State<Viewpending> {
                 child: InkWell(
                   borderRadius: BorderRadius.circular(16),
                   onTap: () {
-                    // TODO: Open chat/message screen
+                    _openChat();
                   },
                   child: Container(
                     padding: const EdgeInsets.all(16),
@@ -831,6 +895,31 @@ class _ViewpendingState extends State<Viewpending> {
                         ],
                       ),
                     ),
+                  // Message Patient Button
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    child: ElevatedButton.icon(
+                      onPressed: _openChat,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue.shade600,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 2,
+                      ),
+                      icon: const Icon(Icons.message, size: 20),
+                      label: const Text(
+                        'MESSAGE PATIENT',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
                   Row(
                     children: [
                       Expanded(

@@ -137,4 +137,37 @@ class ChatService {
               };
             }).toList());
   }
+
+  /// --------------------------
+  /// 🔹 Delete entire conversation
+  /// --------------------------
+  Future<void> deleteConversation(String userA, String userB) async {
+    final chatId = generateChatId(userA, userB);
+    
+    try {
+      // Delete all messages in the conversation
+      final messagesQuery = await _db
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .get();
+      
+      // Delete each message document
+      final batch = _db.batch();
+      for (var doc in messagesQuery.docs) {
+        batch.delete(doc.reference);
+      }
+      
+      // Delete the chat document itself
+      batch.delete(_db.collection('chats').doc(chatId));
+      
+      // Execute all deletions
+      await batch.commit();
+      
+      print('Successfully deleted conversation: $chatId');
+    } catch (e) {
+      print('Error deleting conversation $chatId: $e');
+      rethrow; // Re-throw so the UI can handle the error
+    }
+  }
 }

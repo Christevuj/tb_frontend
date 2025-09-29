@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:tb_frontend/login_screen.dart';
 import 'package:tb_frontend/services/auth_service.dart';
+// import '../data/tb_dots_facilities.dart' show TBDotsFacility, tbDotsFacilities;
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -10,6 +11,7 @@ class SignupScreen extends StatefulWidget {
 }
 
 class _SignupScreenState extends State<SignupScreen> {
+  // TBDotsFacility? _selectedFacility;
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _emailController = TextEditingController();

@@ -37,6 +37,7 @@ dependencies:
   path_provider: ^2.1.1
   video_player: ^2.9.2
   jitsi_meet_flutter_sdk: ^10.2.0
+  google_generative_ai: ^0.2.2
 
 dev_dependencies:
   flutter_test:

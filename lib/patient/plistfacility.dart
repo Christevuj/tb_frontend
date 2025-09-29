@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'ghealthworkers.dart';
+import 'phealthworker.dart';
 
 class Facility {
   final String name;
@@ -9,14 +9,14 @@ class Facility {
   Facility({required this.name, required this.address});
 }
 
-class GListFacility extends StatefulWidget {
-  const GListFacility({super.key});
+class PListFacility extends StatefulWidget {
+  const PListFacility({super.key});
 
   @override
-  State<GListFacility> createState() => _GListFacilityState();
+  State<PListFacility> createState() => _PListFacilityState();
 }
 
-class _GListFacilityState extends State<GListFacility> {
+class _PListFacilityState extends State<PListFacility> {
   Future<int> _getTotalWorkersByAddress(String address) async {
     // Count healthcare workers with matching facility.address
     final healthcareSnap = await FirebaseFirestore.instance
@@ -330,7 +330,7 @@ class _GListFacilityState extends State<GListFacility> {
                 context,
                 MaterialPageRoute(
                   builder: (context) => GHealthWorkers(
-                    facilityId: '',
+                    facilityId: facilityId ?? '',
                     facilityName: facility.name,
                     facilityAddress: facility.address,
                   ),

@@ -3,9 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:tb_frontend/patient/pdoclist.dart';
 import 'package:tb_frontend/guest/gconsultant.dart';
-import 'package:tb_frontend/guest/glistfacility.dart';
+import 'package:tb_frontend/patient/plistfacility.dart';
 import 'package:tb_frontend/guest/gtbfacility.dart';
-
 
 // ✅ Import YouTube player
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
@@ -75,12 +74,12 @@ class _PlandingPageState extends State<PlandingPage> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _quickAction(
-                      context, Icons.smart_toy, 'AI\nConsultant', const GConsultant()),
-                  _quickAction(
-                      context, Icons.calendar_today, 'Book\nAppointment', const Pdoclist()),
+                  _quickAction(context, Icons.smart_toy, 'AI\nConsultant',
+                      const GConsultant()),
+                  _quickAction(context, Icons.calendar_today,
+                      'Book\nAppointment', const Pdoclist()),
                   _quickAction(context, Icons.medical_services,
-                      'Healthcare\nProviders', const GListFacility()),
+                      'Healthcare\nProviders', const PListFacility()),
                   _quickAction(context, Icons.local_hospital,
                       'Facility\nLocator', const GtbfacilityPage()),
                 ],

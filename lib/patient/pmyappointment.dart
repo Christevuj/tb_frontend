@@ -413,11 +413,16 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
 
           if (doctorDoc.exists) {
             doctorData = doctorDoc.data();
-            debugPrint('Doctor data fields: ${doctorData?.keys.toList()}');
-            debugPrint('Doctor fullName: ${doctorData?['fullName']}');
-            debugPrint('Doctor firstName: ${doctorData?['firstName']}');
-            debugPrint('Doctor lastName: ${doctorData?['lastName']}');
-            debugPrint('Doctor doctorName: ${doctorData?['doctorName']}');
+            debugPrint(
+                'Doctor data fields: ${doctorData != null ? doctorData.keys.toList() : 'null'}');
+            debugPrint(
+                'Doctor fullName: ${doctorData != null ? doctorData['fullName'] : 'null'}');
+            debugPrint(
+                'Doctor firstName: ${doctorData != null ? doctorData['firstName'] : 'null'}');
+            debugPrint(
+                'Doctor lastName: ${doctorData != null ? doctorData['lastName'] : 'null'}');
+            debugPrint(
+                'Doctor doctorName: ${doctorData != null ? doctorData['doctorName'] : 'null'}');
           }
         }
       } catch (e) {

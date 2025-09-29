@@ -422,24 +422,7 @@ class GHealthWorkers extends StatelessWidget {
                   Expanded(
                     child: GestureDetector(
                       onTap: () {
-                        if (worker['type'] == 'Doctor') {
-                          showDialog(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('Login Required'),
-                              content: const Text(
-                                  'You need to login to message a doctor.'),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.of(context).pop(),
-                                  child: const Text('OK'),
-                                ),
-                              ],
-                            ),
-                          );
-                        } else {
-                          // TODO: Implement messaging for non-doctor
-                        }
+                        // TODO: Implement messaging for all roles (including doctor)
                       },
                       child: Container(
                         height: 40,

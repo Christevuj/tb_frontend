@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:tb_frontend/ollama_service.dart';
-import 'dart:math';
+import 'package:google_generative_ai/google_generative_ai.dart';
 
 class PConsultant extends StatelessWidget {
   const PConsultant({super.key});
@@ -20,7 +19,15 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   final TextEditingController _controller = TextEditingController();
-  final List<Map<String, String>> _messages = [];
+  final List<Map<String, String>> _messages = [
+    {
+      "role": "system",
+      "content":
+          "You are a helpful and knowledgeable TB (Tuberculosis) consultant. Greet the user as a TB consultant and only answer medical questions, especially those related to TB. If a question is not medical, politely redirect the user to ask about TB or medical topics."
+    },
+  ];
+  bool _serviceAvailable = true;
+  String? _serviceError;
   final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
 
   bool _loading = false;
@@ -29,15 +36,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   late final AnimationController _quickFadeController;
   late final Animation<Offset> _quickSlideAnimation;
 
-  late final OllamaService _ollamaService;
-
-  final List<String> _greetings = [
-    "👋 Hello! I'm your AI consultant. How can I help you today?",
-    "🤖 Hi there! Ask me anything about TB care or general health concerns.",
-    "💬 Welcome! I’m here to assist you. What would you like to talk about?",
-    "🧠 Hello! Got questions? I’ve got answers. Let’s chat!",
-    "✨ Hi! I'm here to support your TB journey. How can I help?",
-  ];
+  late final GenerativeModel _geminiModel;
 
   final List<String> _quickQuestions = [
     "What are the symptoms of TB?",
@@ -53,8 +52,15 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   void initState() {
     super.initState();
 
-    _ollamaService = OllamaService();
-    _ollamaService.start();
+    // Use the provided Gemini API key directly
+    _geminiModel = GenerativeModel(
+      model: 'models/gemini-2.5-pro',
+      apiKey: 'AIzaSyDwzLT5nxbepTR5wQgwo3l3gL_0IYNhEQg',
+    );
+
+    // Check Gemini service availability
+    _checkGeminiService();
+    if (!_serviceAvailable) return;
 
     _quickFadeController = AnimationController(
       vsync: this,
@@ -80,12 +86,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _showTypingGreeting() async {
-    final random = Random();
-    final greeting = _greetings[random.nextInt(_greetings.length)];
-
+    // Always greet as a TB consultant
+    const greeting =
+        "👋 Hello! I am your TB consultant. How can I assist you with your medical or TB-related questions today?";
     _addMessage({"role": "assistant", "content": ""});
     final int botIndex = _messages.length - 1;
-
     for (int i = 0; i < greeting.length; i++) {
       await Future.delayed(animatedGreetingSpeed, () {
         setState(() {
@@ -94,12 +99,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         });
       });
     }
-
     await Future.delayed(const Duration(milliseconds: 500));
     setState(() {
       _greetingDone = true;
     });
-
     _quickFadeController.forward();
   }
 
@@ -109,6 +112,13 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   }
 
   void _sendMessage([String? customText]) async {
+    if (!_serviceAvailable) {
+      setState(() {
+        _serviceError =
+            'The AI service is currently unavailable. Please try again later.';
+      });
+      return;
+    }
     final text = customText ?? _controller.text.trim();
     if (text.isEmpty) return;
 
@@ -124,10 +134,27 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     final int botIndex = _messages.length - 1;
 
     try {
-      await for (final chunk in _ollamaService.streamMessage(text)) {
+      // Compose the conversation for Gemini, including system prompt and all previous messages
+      final content = _messages
+          .where((m) => m['role'] != null && m['content'] != null)
+          .map((m) {
+            if (m['role'] == 'user') return Content.text(m['content']!);
+            if (m['role'] == 'assistant') return Content.text(m['content']!);
+            // For system prompt, prepend as plain text (Gemini API doesn't support system role directly)
+            if (m['role'] == 'system') return Content.text(m['content']!);
+            return null;
+          })
+          .whereType<Content>()
+          .toList();
+      final response = await _geminiModel.generateContent(content);
+      // Live typing effect for AI response
+      final aiText = response.text ?? "(No response)";
+      _messages[botIndex]['content'] = "";
+      for (int i = 0; i < aiText.length; i++) {
+        await Future.delayed(const Duration(milliseconds: 18));
         setState(() {
           _messages[botIndex]['content'] =
-              (_messages[botIndex]['content'] ?? '') + chunk;
+              (_messages[botIndex]['content'] ?? '') + aiText[i];
         });
       }
     } catch (e) {
@@ -145,6 +172,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   Widget _buildMessage(
       Map<String, String> message, Animation<double> animation) {
+    if (message['role'] == 'system')
+      return const SizedBox.shrink(); // Hide system prompt
     final isUser = message['role'] == 'user';
     final isTyping = message['content'] == '' && !isUser;
 
@@ -374,10 +403,46 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             ),
           ),
           if (_loading) const LinearProgressIndicator(),
+          if (!_serviceAvailable && _serviceError != null)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                _serviceError!,
+                style: const TextStyle(
+                    color: Colors.red, fontWeight: FontWeight.bold),
+              ),
+            ),
           _buildQuickQuestions(),
           _buildInputArea(),
         ],
       ),
     );
+  }
+
+  Future<void> _checkGeminiService() async {
+    try {
+      // Send a minimal request to check service
+      final response =
+          await _geminiModel.generateContent([Content.text('ping')]);
+      if (response.text == null ||
+          response.text!.toLowerCase().contains('error')) {
+        setState(() {
+          _serviceAvailable = false;
+          _serviceError =
+              'The AI service is currently unavailable. Please try again later.';
+        });
+      } else {
+        setState(() {
+          _serviceAvailable = true;
+          _serviceError = null;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _serviceAvailable = false;
+        _serviceError =
+            'The AI service is currently unavailable. Please try again later.';
+      });
+    }
   }
 }

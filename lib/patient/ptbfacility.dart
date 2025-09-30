@@ -12,16 +12,19 @@ import 'package:tb_frontend/models/facility.dart';
 
 // Replace this import with the actual path in your project:
 import 'package:tb_frontend/services/facility_repository.dart';
-import 'plistfacility.dart' as plist;
+import 'plistfacility.dart' as glist;
+import 'phealthworker.dart';
 
 class PtbfacilityPage extends StatefulWidget {
   final String? selectedFacilityName;
   final String? selectedFacilityAddress;
+  final bool allowDoctorMessage;
 
   const PtbfacilityPage({
     super.key,
     this.selectedFacilityName,
     this.selectedFacilityAddress,
+    this.allowDoctorMessage = false,
   });
 
   @override
@@ -1083,7 +1086,7 @@ class _PtbfacilityPageState extends State<PtbfacilityPage> {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1091,7 +1094,7 @@ class _PtbfacilityPageState extends State<PtbfacilityPage> {
               children: [
                 // Profile Picture
                 CircleAvatar(
-                  radius: 25,
+                  radius: 30,
                   backgroundColor: const Color(0xE0F44336),
                   backgroundImage:
                       profilePicture != null && profilePicture.isNotEmpty
@@ -1118,7 +1121,7 @@ class _PtbfacilityPageState extends State<PtbfacilityPage> {
                       Text(
                         name,
                         style: const TextStyle(
-                          fontSize: 16,
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF2C3E50),
                         ),
@@ -1223,32 +1226,15 @@ class _PtbfacilityPageState extends State<PtbfacilityPage> {
                   Expanded(
                     child: GestureDetector(
                       onTap: () {
-                        if (worker['type'] == 'Doctor') {
-                          showDialog(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('Login Required'),
-                              content: const Text(
-                                  'You need to login to message a doctor.'),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.of(context).pop(),
-                                  child: const Text('OK'),
-                                ),
-                              ],
-                            ),
-                          );
-                        } else {
-                          // TODO: Implement messaging for non-doctor
-                        }
+                        // TODO: Implement messaging for all staff (doctor or non-doctor)
                       },
                       child: Container(
-                        height: 35,
+                        height: 40,
                         decoration: BoxDecoration(
                           color: Colors.redAccent,
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
@@ -1256,8 +1242,8 @@ class _PtbfacilityPageState extends State<PtbfacilityPage> {
                               color: Colors.white,
                               size: 20,
                             ),
-                            SizedBox(width: 8),
-                            Text(
+                            const SizedBox(width: 8),
+                            const Text(
                               'Message',
                               style: TextStyle(
                                 color: Colors.white,
@@ -1359,6 +1345,7 @@ class _PtbfacilityPageState extends State<PtbfacilityPage> {
                           },
                           decoration: InputDecoration(
                             hintText: 'Search facilities or locations...',
+                            // Redirect to GHealthWorkers (patient's health worker list)
                             hintStyle: TextStyle(color: Colors.grey.shade500),
                             prefixIcon:
                                 Icon(Icons.search, color: Colors.grey.shade600),
@@ -1533,7 +1520,7 @@ class _PtbfacilityPageState extends State<PtbfacilityPage> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const plist.PListFacility(),
+                          builder: (context) => const glist.Plistfacility(),
                         ),
                       );
                     },

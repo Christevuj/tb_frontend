@@ -1371,13 +1371,7 @@ class _SignaturePadDialogState extends State<SignaturePadDialog> {
         String signatureData = 'data:image/png;base64,$base64String';
         widget.onSave(signatureData);
       } else {
-        debugPrint('Error: byteData is null when saving signature');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to save signature. Please try again.'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        debugPrint('Error: byteData is null');
       }
     } catch (e) {
       debugPrint('Error saving signature: $e');

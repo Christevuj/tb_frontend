@@ -17,11 +17,13 @@ import 'glistfacility.dart' as glist;
 class GtbfacilityPage extends StatefulWidget {
   final String? selectedFacilityName;
   final String? selectedFacilityAddress;
+  final bool allowDoctorMessage;
 
   const GtbfacilityPage({
     super.key,
     this.selectedFacilityName,
     this.selectedFacilityAddress,
+    this.allowDoctorMessage = false,
   });
 
   @override
@@ -1069,6 +1071,7 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
     final profilePicture = worker['profilePicture'] as String?;
     final type = worker['type'] ?? 'Health Worker';
 
+    final allowDoctorMessage = widget.allowDoctorMessage;
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -1223,7 +1226,7 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
                   Expanded(
                     child: GestureDetector(
                       onTap: () {
-                        if (worker['type'] == 'Doctor') {
+                        if (worker['type'] == 'Doctor' && !allowDoctorMessage) {
                           showDialog(
                             context: context,
                             builder: (context) => AlertDialog(
@@ -1239,7 +1242,7 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
                             ),
                           );
                         } else {
-                          // TODO: Implement messaging for non-doctor
+                          // TODO: Implement messaging for doctor or non-doctor
                         }
                       },
                       child: Container(

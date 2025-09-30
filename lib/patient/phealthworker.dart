@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-class GHealthWorkers extends StatelessWidget {
+class Phealthworker extends StatelessWidget {
   final String facilityId;
   final String facilityName;
   final String facilityAddress;
 
-  const GHealthWorkers({
+  const Phealthworker({
     super.key,
     required this.facilityId,
     required this.facilityName,
@@ -424,7 +424,7 @@ class GHealthWorkers extends StatelessWidget {
                   Expanded(
                     child: GestureDetector(
                       onTap: () {
-                        // TODO: Implement messaging for all roles (including doctor)
+                        // TODO: Implement messaging for all staff (doctor or non-doctor)
                       },
                       child: Container(
                         height: 40,

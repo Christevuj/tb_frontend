@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:tb_frontend/patient/pdoclist.dart';
 import 'package:tb_frontend/guest/gconsultant.dart';
 import 'package:tb_frontend/patient/plistfacility.dart';
-import 'package:tb_frontend/guest/gtbfacility.dart';
+import 'package:tb_frontend/patient/ptbfacility.dart';
 
 // ✅ Import YouTube player
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
@@ -81,7 +81,7 @@ class _PlandingPageState extends State<PlandingPage> {
                   _quickAction(context, Icons.medical_services,
                       'Healthcare\nProviders', const PListFacility()),
                   _quickAction(context, Icons.local_hospital,
-                      'Facility\nLocator', const GtbfacilityPage()),
+                      'Facility\nLocator', const PtbfacilityPage()),
                 ],
               ),
               const SizedBox(height: 24),

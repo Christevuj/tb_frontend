@@ -167,20 +167,22 @@ class _GListFacilityState extends State<GListFacility> {
               children: [
                 // Back Button
                 Container(
+                  width: 48,
+                  height: 48,
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    shape: BoxShape.circle,
+                    borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.grey.shade300,
-                        blurRadius: 6,
-                        offset: const Offset(0, 3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
                       ),
                     ],
                   ),
                   child: IconButton(
-                    icon:
-                        const Icon(Icons.arrow_back, color: Color(0xE0F44336)),
+                    icon: const Icon(Icons.arrow_back_ios,
+                        color: Color(0xE0F44336)),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ),

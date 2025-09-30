@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:tb_frontend/models/doctor.dart';
-import 'package:tb_frontend/patient/pviewdoctor.dart';
 import 'package:tb_frontend/patient/pbooking1.dart';
 
 class Pdoclist extends StatefulWidget {
@@ -24,73 +23,80 @@ class _PdoclistState extends State<Pdoclist> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F3F5),
+      backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Back and Search container
               Row(
                 children: [
-                  // Circular Back button
+                  // Modern Back button
                   Container(
+                    height: 48,
+                    width: 48,
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      shape: BoxShape.circle,
+                      borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.grey.shade300,
-                          blurRadius: 6,
-                          offset: const Offset(0, 3),
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 20,
+                          offset: const Offset(0, 4),
                         ),
                       ],
                     ),
                     child: IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.pink),
+                      icon: const Icon(Icons.arrow_back_ios_new,
+                          color: Color(0xFF1F2937), size: 20),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  // Search bar
+                  const SizedBox(width: 16),
+                  // Modern Search bar
                   Expanded(
                     child: Container(
+                      height: 48,
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.grey.shade300,
-                            blurRadius: 6,
-                            offset: const Offset(0, 3),
+                            color: Colors.black.withOpacity(0.04),
+                            blurRadius: 20,
+                            offset: const Offset(0, 4),
                           ),
                         ],
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: TextField(
                         controller: _searchController,
                         onChanged: (value) =>
                             setState(() => _searchQuery = value),
-                        decoration: const InputDecoration(
-                          hintText: 'Search Doctor',
+                        decoration: InputDecoration(
+                          hintText: 'Search doctors...',
+                          hintStyle: TextStyle(
+                            color: Colors.grey.shade500,
+                            fontSize: 16,
+                          ),
                           border: InputBorder.none,
-                          suffixIcon: Icon(Icons.search),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 12),
+                          suffixIcon: Container(
+                            margin: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF3B82F6),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.search,
+                                color: Colors.white, size: 20),
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ],
-              ),
-              const SizedBox(height: 20),
-
-              // Title
-              const Text(
-                'Available Doctors',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
               ),
               const SizedBox(height: 16),
 
@@ -112,11 +118,12 @@ class _PdoclistState extends State<Pdoclist> {
 
                   final doctors = snapshot.data ?? [];
 
-                    final filteredDoctors = doctors.where((doc) {
-                      final name = doc.name.toLowerCase();
-                      return name.contains(_searchQuery.toLowerCase());
-                    }).toList()
-                      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+                  final filteredDoctors = doctors.where((doc) {
+                    final name = doc.name.toLowerCase();
+                    return name.contains(_searchQuery.toLowerCase());
+                  }).toList()
+                    ..sort((a, b) =>
+                        a.name.toLowerCase().compareTo(b.name.toLowerCase()));
 
                   if (filteredDoctors.isEmpty) {
                     return const Center(
@@ -157,14 +164,25 @@ class DoctorCard extends StatelessWidget {
         : '?';
 
     return Container(
-      color: Colors.redAccent.withOpacity(0.1),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.redAccent,
+            Colors.deepOrange.shade400,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Center(
         child: Text(
           initials,
           style: const TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Colors.redAccent,
+            fontSize: 28,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+            letterSpacing: 1,
           ),
         ),
       ),
@@ -173,134 +191,172 @@ class DoctorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => PViewDoctor(doctor: doctor)),
-      ),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.shade200,
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                // Photo
-                Container(
-                  width: 100,
-                  height: 100,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.grey.shade200),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(9),
-                    child: doctor.imageUrl.isNotEmpty &&
-                            !doctor.imageUrl.startsWith('assets/')
-                        ? Image.network(
-                            doctor.imageUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return _doctorPlaceholder(doctor.name);
-                            },
-                          )
-                        : _doctorPlaceholder(doctor.name),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // Info
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(doctor.name,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 18)),
-                      const SizedBox(height: 4),
-          Text(
-            doctor.experience.isNotEmpty ? '${doctor.experience} years experience' : 'Experience N/A',
-            style: const TextStyle(fontSize: 14),
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 15,
+            offset: const Offset(0, 4),
           ),
-          const SizedBox(height: 6),
-          const SizedBox(height: 6),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              // Modern Photo with gradient overlay
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.redAccent.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: doctor.imageUrl.isNotEmpty &&
+                          !doctor.imageUrl.startsWith('assets/')
+                      ? Image.network(
+                          doctor.imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return _doctorPlaceholder(doctor.name);
+                          },
+                        )
+                      : _doctorPlaceholder(doctor.name),
+                ),
+              ),
+              const SizedBox(width: 16),
+              // Modern Info Section
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      doctor.name,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1A1A1A),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Experience with icon
+                    Row(
+                      children: [
+                        Icon(Icons.work_outline_rounded,
+                            size: 17,
+                            color: const Color.fromARGB(255, 156, 156, 156)),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            doctor.experience.isNotEmpty
+                                ? '${doctor.experience} years experience'
+                                : 'Experience N/A',
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: const Color.fromARGB(255, 186, 186, 186),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    // Facility name with icon
+                    if (doctor.facility.isNotEmpty) ...[
+                      const SizedBox(height: 4),
                       Row(
                         children: [
-                          const Icon(Icons.location_on,
-                              size: 17, color: Colors.blue),
+                          Icon(Icons.local_hospital_rounded,
+                              size: 17, color: Colors.redAccent),
                           const SizedBox(width: 4),
                           Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  doctor.facility, // Facility name
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: Colors.blue,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                if (doctor.facilityAddress.isNotEmpty)
-                                  Text(
-                                    doctor.facilityAddress, // Facility address
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                              ],
+                            child: Text(
+                              doctor.facility,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.redAccent,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
                         ],
                       ),
-                      // Rating removed
                     ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            // Outlined button
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => Pbooking1(doctor: doctor),
-                    ),
-                  );
-                },
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.pink),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                child: const Text(
-                  "Book Appointment",
-                  style: TextStyle(
-                      color: Colors.pink, fontWeight: FontWeight.bold),
+
+                    // Facility address with icon
+                    if (doctor.facilityAddress.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(Icons.place_rounded,
+                              size: 17,
+                              color: const Color.fromARGB(255, 44, 157, 227)),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              doctor.facilityAddress,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: const Color.fromARGB(255, 44, 157, 227),
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
                 ),
               ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Book Appointment Button
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => Pbooking1(doctor: doctor),
+                  ),
+                );
+              },
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Colors.redAccent),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              child: const Text(
+                "Book Appointment",
+                style: TextStyle(
+                    color: Colors.redAccent, fontWeight: FontWeight.bold),
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

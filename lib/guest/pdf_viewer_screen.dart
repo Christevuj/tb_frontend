@@ -1,6 +1,5 @@
 // lib/guest/pdf_viewer_screen.dart
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:pdfx/pdfx.dart';
 
 class PdfViewerScreen extends StatefulWidget {
@@ -59,19 +58,21 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
               children: [
                 // Back Button
                 Container(
+                  width: 48,
+                  height: 48,
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    shape: BoxShape.circle,
+                    borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.grey.shade300,
-                        blurRadius: 6,
-                        offset: const Offset(0, 3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
                       ),
                     ],
                   ),
                   child: IconButton(
-                    icon: Icon(Icons.arrow_back, color: themeRed),
+                    icon: Icon(Icons.arrow_back_ios, color: themeRed),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ),

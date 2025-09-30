@@ -25,22 +25,24 @@ class GHealthWorkers extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Back Button
+                // Modern Back Button
                 Container(
+                  height: 48,
+                  width: 48,
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    shape: BoxShape.circle,
+                    borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.grey.shade300,
-                        blurRadius: 6,
-                        offset: const Offset(0, 3),
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 20,
+                        offset: const Offset(0, 4),
                       ),
                     ],
                   ),
                   child: IconButton(
-                    icon:
-                        const Icon(Icons.arrow_back, color: Color(0xE0F44336)),
+                    icon: const Icon(Icons.arrow_back_ios_new,
+                        color: Color(0xFF1F2937), size: 20),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ),
@@ -119,10 +121,12 @@ class GHealthWorkers extends StatelessWidget {
                   .where('affiliationId', isEqualTo: facilityId)
                   .snapshots(),
               builder: (context, healthcareSnapshot) {
-                if (healthcareSnapshot.connectionState == ConnectionState.waiting) {
+                if (healthcareSnapshot.connectionState ==
+                    ConnectionState.waiting) {
                   return const Center(
                     child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xE0F44336)),
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(Color(0xE0F44336)),
                     ),
                   );
                 }
@@ -132,15 +136,18 @@ class GHealthWorkers extends StatelessWidget {
                       .collection('doctors')
                       .snapshots(),
                   builder: (context, doctorsSnapshot) {
-                    if (doctorsSnapshot.connectionState == ConnectionState.waiting) {
+                    if (doctorsSnapshot.connectionState ==
+                        ConnectionState.waiting) {
                       return const Center(
                         child: CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xE0F44336)),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Color(0xE0F44336)),
                         ),
                       );
                     }
 
-                    if (healthcareSnapshot.hasError || doctorsSnapshot.hasError) {
+                    if (healthcareSnapshot.hasError ||
+                        doctorsSnapshot.hasError) {
                       return const Center(
                         child: Text(
                           'Error loading staff',
@@ -149,7 +156,8 @@ class GHealthWorkers extends StatelessWidget {
                       );
                     }
 
-                    if (!healthcareSnapshot.hasData || !doctorsSnapshot.hasData) {
+                    if (!healthcareSnapshot.hasData ||
+                        !doctorsSnapshot.hasData) {
                       return const Center(
                         child: Text(
                           'No data available',
@@ -160,7 +168,7 @@ class GHealthWorkers extends StatelessWidget {
 
                     // Combine health workers and doctors
                     List<Map<String, dynamic>> allStaff = [];
-                    
+
                     // Add health workers
                     for (var doc in healthcareSnapshot.data!.docs) {
                       final data = doc.data() as Map<String, dynamic>;
@@ -170,17 +178,18 @@ class GHealthWorkers extends StatelessWidget {
                         'type': 'Health Worker',
                       });
                     }
-                    
+
                     // Add doctors who have this facility in their affiliations
                     for (var doc in doctorsSnapshot.data!.docs) {
                       final data = doc.data() as Map<String, dynamic>;
                       final affiliations = data['affiliations'] as List? ?? [];
-                      
+
                       // Check if this doctor is affiliated with this facility
                       for (var affiliation in affiliations) {
                         if (affiliation['affiliationId'] == facilityId) {
                           allStaff.add({
-                            'name': data['fullName'] ?? data['name'], // Handle both field names
+                            'name': data['fullName'] ??
+                                data['name'], // Handle both field names
                             'fullName': data['fullName'],
                             'email': data['email'],
                             'role': data['role'],
@@ -276,9 +285,10 @@ class GHealthWorkers extends StatelessWidget {
             CircleAvatar(
               radius: 30,
               backgroundColor: const Color(0xE0F44336),
-              backgroundImage: profilePicture != null && profilePicture.isNotEmpty
-                  ? NetworkImage(profilePicture)
-                  : null,
+              backgroundImage:
+                  profilePicture != null && profilePicture.isNotEmpty
+                      ? NetworkImage(profilePicture)
+                      : null,
               child: profilePicture == null || profilePicture.isEmpty
                   ? Text(
                       name.isNotEmpty ? name[0].toUpperCase() : '?',
@@ -307,9 +317,10 @@ class GHealthWorkers extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
-                      color: type == 'Doctor' 
+                      color: type == 'Doctor'
                           ? Colors.blue.withOpacity(0.1)
                           : const Color(0xE0F44336).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
@@ -319,7 +330,7 @@ class GHealthWorkers extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: type == 'Doctor' 
+                        color: type == 'Doctor'
                             ? Colors.blue
                             : const Color(0xE0F44336),
                       ),

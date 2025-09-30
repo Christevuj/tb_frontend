@@ -61,10 +61,25 @@ class PViewDoctor extends StatelessWidget {
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
                 child: Row(
                   children: [
-                    IconButton(
-                      icon:
-                          const Icon(Icons.arrow_back, color: Colors.redAccent),
-                      onPressed: () => Navigator.pop(context),
+                    Container(
+                      height: 48,
+                      width: 48,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.04),
+                            blurRadius: 20,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: IconButton(
+                        icon: const Icon(Icons.arrow_back_ios_new,
+                            color: Color(0xFF1F2937), size: 20),
+                        onPressed: () => Navigator.pop(context),
+                      ),
                     ),
                     const SizedBox(width: 10),
                     const Text(

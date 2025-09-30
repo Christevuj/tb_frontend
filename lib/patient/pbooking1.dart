@@ -48,7 +48,12 @@ class _Pbooking1State extends State<Pbooking1> {
   Uint8List? _webImage;
 
   final List<String> _genders = ['Select gender', 'Male', 'Female', 'Other'];
-  final List<String> _validIDs = ['Select Valid ID', 'Passport', 'Driver\'s License', 'ID Card'];
+  final List<String> _validIDs = [
+    'Select Valid ID',
+    'Passport',
+    'Driver\'s License',
+    'ID Card'
+  ];
 
   // Time slots for appointment
   final List<String> _timeSlots = [
@@ -64,8 +69,8 @@ class _Pbooking1State extends State<Pbooking1> {
   void initState() {
     super.initState();
     // Set default values
-  _selectedGender = null;
-  _selectedID = null;
+    _selectedGender = null;
+    _selectedID = null;
     _selectedTime = _timeSlots.first;
 
     // Pre-fill name and email from Firestore user data
@@ -109,8 +114,18 @@ class _Pbooking1State extends State<Pbooking1> {
 
   String _formatDate(DateTime date) {
     const months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December'
     ];
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
@@ -158,7 +173,9 @@ class _Pbooking1State extends State<Pbooking1> {
         _selectedID == _validIDs.first ||
         _idImage == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all fields, select gender and valid ID, and upload ID')),
+        const SnackBar(
+            content: Text(
+                'Please fill all fields, select gender and valid ID, and upload ID')),
       );
       return;
     }
@@ -317,7 +334,8 @@ class _Pbooking1State extends State<Pbooking1> {
             borderRadius: BorderRadius.circular(16),
             borderSide: const BorderSide(color: Color(0xE0F44336), width: 2),
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
           fillColor: Colors.white,
           filled: true,
         ),
@@ -369,7 +387,8 @@ class _Pbooking1State extends State<Pbooking1> {
           fillColor: Colors.white,
           filled: true,
         ),
-        icon: const Icon(Icons.arrow_drop_down_rounded, color: Color(0xE0F44336)),
+        icon:
+            const Icon(Icons.arrow_drop_down_rounded, color: Color(0xE0F44336)),
         dropdownColor: Colors.white,
         style: const TextStyle(
           fontSize: 16,
@@ -403,22 +422,24 @@ class _Pbooking1State extends State<Pbooking1> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Back Button
+                    // Modern Back Button
                     Container(
+                      height: 48,
+                      width: 48,
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        shape: BoxShape.circle,
+                        borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.grey.shade300,
-                            blurRadius: 6,
-                            offset: const Offset(0, 3),
+                            color: Colors.black.withOpacity(0.04),
+                            blurRadius: 20,
+                            offset: const Offset(0, 4),
                           ),
                         ],
                       ),
                       child: IconButton(
-                        icon: const Icon(Icons.arrow_back,
-                            color: Color(0xE0F44336)),
+                        icon: const Icon(Icons.arrow_back_ios_new,
+                            color: Color(0xFF1F2937), size: 20),
                         onPressed: () => Navigator.pop(context),
                       ),
                     ),
@@ -494,7 +515,8 @@ class _Pbooking1State extends State<Pbooking1> {
                                 borderRadius: BorderRadius.circular(10),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xE0F44336).withOpacity(0.3),
+                                    color: const Color(0xE0F44336)
+                                        .withOpacity(0.3),
                                     blurRadius: 4,
                                     offset: const Offset(0, 2),
                                   ),
@@ -612,7 +634,8 @@ class _Pbooking1State extends State<Pbooking1> {
                                   boxShadow: isSelected
                                       ? [
                                           BoxShadow(
-                                            color: const Color(0xE0F44336).withOpacity(0.3),
+                                            color: const Color(0xE0F44336)
+                                                .withOpacity(0.3),
                                             blurRadius: 8,
                                             offset: const Offset(0, 4),
                                           ),
@@ -622,8 +645,12 @@ class _Pbooking1State extends State<Pbooking1> {
                                 child: Text(
                                   time,
                                   style: TextStyle(
-                                    color: isSelected ? Colors.white : Colors.black87,
-                                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : Colors.black87,
+                                    fontWeight: isSelected
+                                        ? FontWeight.w600
+                                        : FontWeight.normal,
                                     fontSize: 14,
                                   ),
                                 ),
@@ -757,7 +784,8 @@ class _Pbooking1State extends State<Pbooking1> {
                                             errorBuilder:
                                                 (context, error, stackTrace) {
                                               return const Center(
-                                                child: Text('Error loading image'),
+                                                child:
+                                                    Text('Error loading image'),
                                               );
                                             },
                                           )
@@ -769,7 +797,8 @@ class _Pbooking1State extends State<Pbooking1> {
                                             errorBuilder:
                                                 (context, error, stackTrace) {
                                               return const Center(
-                                                child: Text('Error loading image'),
+                                                child:
+                                                    Text('Error loading image'),
                                               );
                                             },
                                           ),
@@ -788,7 +817,8 @@ class _Pbooking1State extends State<Pbooking1> {
                                         padding: const EdgeInsets.all(8),
                                         decoration: BoxDecoration(
                                           color: Colors.black.withOpacity(0.6),
-                                          borderRadius: BorderRadius.circular(12),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
                                         ),
                                         child: const Icon(
                                           Icons.close_rounded,

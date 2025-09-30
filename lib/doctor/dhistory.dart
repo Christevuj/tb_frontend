@@ -50,31 +50,31 @@ class _DhistoryState extends State<Dhistory> {
       if (snapshot.docs.isEmpty) {
         try {
           List<Map<String, dynamic>> allAppointments = [];
-          
+
           // Get approved appointments
           final approvedSnapshot = await FirebaseFirestore.instance
               .collection('approved_appointments')
               .where('doctorId', isEqualTo: _currentDoctorId)
               .get();
-          
+
           for (var doc in approvedSnapshot.docs) {
             final data = doc.data();
             data['id'] = doc.id;
             allAppointments.add(data);
           }
-          
-          // Get rejected appointments  
+
+          // Get rejected appointments
           final rejectedSnapshot = await FirebaseFirestore.instance
               .collection('rejected_appointments')
               .where('doctorId', isEqualTo: _currentDoctorId)
               .get();
-              
+
           for (var doc in rejectedSnapshot.docs) {
             final data = doc.data();
             data['id'] = doc.id;
             allAppointments.add(data);
           }
-          
+
           // Sort by timestamp (either approvedAt or rejectedAt)
           allAppointments.sort((a, b) {
             final timestampA = a['approvedAt'] ?? a['rejectedAt'];
@@ -84,21 +84,21 @@ class _DhistoryState extends State<Dhistory> {
             if (timestampB == null) return -1;
             return timestampB.compareTo(timestampA);
           });
-          
+
           return allAppointments;
         } catch (e) {
           debugPrint('Error loading from fallback collections: $e');
           return <Map<String, dynamic>>[];
         }
       }
-      
+
       // Sort appointment history by timestamp
       final appointments = snapshot.docs.map((doc) {
         final data = doc.data();
         data['id'] = doc.id;
         return data;
       }).toList();
-      
+
       appointments.sort((a, b) {
         final timestampA = a['approvedAt'] ?? a['rejectedAt'];
         final timestampB = b['approvedAt'] ?? b['rejectedAt'];
@@ -107,7 +107,7 @@ class _DhistoryState extends State<Dhistory> {
         if (timestampB == null) return -1;
         return timestampB.compareTo(timestampA);
       });
-      
+
       return appointments;
     });
   }
@@ -199,19 +199,21 @@ class _DhistoryState extends State<Dhistory> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Container(
+                        width: 48,
+                        height: 48,
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          shape: BoxShape.circle,
+                          borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.grey.shade300,
-                              blurRadius: 6,
-                              offset: const Offset(0, 3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
                             ),
                           ],
                         ),
                         child: IconButton(
-                          icon: const Icon(Icons.arrow_back,
+                          icon: const Icon(Icons.arrow_back_ios,
                               color: Color(0xE0F44336)),
                           onPressed: () {
                             Navigator.pushReplacement(
@@ -295,11 +297,13 @@ class _DhistoryState extends State<Dhistory> {
                         var timestamp = approvedAt ?? rejectedAt;
                         if (timestamp is Timestamp) {
                           historyDate = timestamp.toDate();
-                          historyTime = "${historyDate.hour.toString().padLeft(2, '0')}:${historyDate.minute.toString().padLeft(2, '0')}";
+                          historyTime =
+                              "${historyDate.hour.toString().padLeft(2, '0')}:${historyDate.minute.toString().padLeft(2, '0')}";
                         } else if (timestamp is String) {
                           try {
                             historyDate = DateTime.parse(timestamp);
-                            historyTime = "${historyDate.hour.toString().padLeft(2, '0')}:${historyDate.minute.toString().padLeft(2, '0')}";
+                            historyTime =
+                                "${historyDate.hour.toString().padLeft(2, '0')}:${historyDate.minute.toString().padLeft(2, '0')}";
                           } catch (e) {
                             historyDate = null;
                             historyTime = null;
@@ -323,8 +327,8 @@ class _DhistoryState extends State<Dhistory> {
                             leading: _buildStatusIcon(status),
                             title: Text(
                               appointment["patientName"] ?? "Unknown Patient",
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold),
                             ),
                             subtitle: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -334,9 +338,11 @@ class _DhistoryState extends State<Dhistory> {
                                 ),
                                 const SizedBox(height: 4),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: _getStatusColor(status).withOpacity(0.1),
+                                    color: _getStatusColor(status)
+                                        .withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Text(

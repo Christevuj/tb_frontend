@@ -205,19 +205,21 @@ class _CertificateState extends State<Certificate> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
+                  width: 48,
+                  height: 48,
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    shape: BoxShape.circle,
+                    borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.grey.shade300,
-                        blurRadius: 6,
-                        offset: const Offset(0, 3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
                       ),
                     ],
                   ),
                   child: IconButton(
-                    icon: Icon(Icons.arrow_back, color: _themeRed),
+                    icon: Icon(Icons.arrow_back_ios, color: _themeRed),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ),

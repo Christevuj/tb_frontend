@@ -25,6 +25,21 @@ class Doctor {
 
   factory Doctor.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+
+    // Get the first affiliation from the affiliations array
+    String facilityName = '';
+    String facilityAddress = '';
+
+    if (data['affiliations'] != null &&
+        data['affiliations'] is List &&
+        (data['affiliations'] as List).isNotEmpty) {
+      final firstAffiliation = data['affiliations'][0];
+      if (firstAffiliation is Map<String, dynamic>) {
+        facilityName = firstAffiliation['name'] ?? '';
+        facilityAddress = firstAffiliation['address'] ?? '';
+      }
+    }
+
     return Doctor(
       id: doc.id,
       name: data['fullName'] ??
@@ -32,8 +47,9 @@ class Doctor {
           '', // Try fullName first, fallback to name
       specialization: data['specialization'] ?? '',
       experience: data['experience']?.toString() ?? '',
-      facility: data['0']?['name'] ?? '', // Get facility name
-      facilityAddress: data['0']?['address'] ?? '', // Get facility address
+      facility: facilityName, // Get facility name from affiliations
+      facilityAddress:
+          facilityAddress, // Get facility address from affiliations
       imageUrl: data['imageUrl'] ?? 'assets/images/doc1.png',
       rating: (data['rating'] ?? 0.0).toDouble(),
       email: data['email'] ?? '',

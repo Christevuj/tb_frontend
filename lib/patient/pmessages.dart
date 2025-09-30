@@ -26,18 +26,16 @@ class _PmessagesState extends State<Pmessages> {
   Future<void> _testFirestoreConnection() async {
     try {
       print('Testing Firestore connection for patient...');
-      final testQuery = await FirebaseFirestore.instance
-          .collection('chats')
-          .limit(1)
-          .get();
-      print('Firestore connection successful. Found ${testQuery.docs.length} chats in total');
-      
+      final testQuery =
+          await FirebaseFirestore.instance.collection('chats').limit(1).get();
+      print(
+          'Firestore connection successful. Found ${testQuery.docs.length} chats in total');
+
       // Check if there are any chats at all
-      final allChats = await FirebaseFirestore.instance
-          .collection('chats')
-          .get();
+      final allChats =
+          await FirebaseFirestore.instance.collection('chats').get();
       print('Total chats in database: ${allChats.docs.length}');
-      
+
       for (var doc in allChats.docs) {
         print('Chat ${doc.id}: ${doc.data()}');
       }
@@ -61,37 +59,68 @@ class _PmessagesState extends State<Pmessages> {
 
   Future<String> _getDoctorName(String doctorId) async {
     try {
+      // Try to get from 'doctors' collection first
+      final doctorDoc = await FirebaseFirestore.instance
+          .collection('doctors')
+          .doc(doctorId)
+          .get();
+      if (doctorDoc.exists) {
+        final data = doctorDoc.data();
+        if (data != null &&
+            data['fullName'] != null &&
+            (data['fullName'] as String).trim().isNotEmpty) {
+          return data['fullName'];
+        }
+        // fallback to 'name' if present
+        if (data != null &&
+            data['name'] != null &&
+            (data['name'] as String).trim().isNotEmpty) {
+          return data['name'];
+        }
+      }
+
+      // Fallback to previous logic: users collection
       final userDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(doctorId)
           .get();
-      
       if (userDoc.exists) {
-        return userDoc.data()?['name'] ?? 'Unknown Doctor';
+        final userData = userDoc.data();
+        if (userData != null &&
+            userData['name'] != null &&
+            (userData['name'] as String).trim().isNotEmpty) {
+          return userData['name'];
+        }
       }
-      
+
       // If no user document, try to get name from appointments
       final appointmentQuery = await FirebaseFirestore.instance
           .collection('pending_patient_data')
           .where('doctorUid', isEqualTo: doctorId)
           .limit(1)
           .get();
-      
       if (appointmentQuery.docs.isNotEmpty) {
-        return appointmentQuery.docs.first.data()['doctorName'] ?? 'Unknown Doctor';
+        final docData = appointmentQuery.docs.first.data();
+        if (docData['doctorName'] != null &&
+            (docData['doctorName'] as String).trim().isNotEmpty) {
+          return docData['doctorName'];
+        }
       }
-      
+
       // Try approved appointments
       final approvedQuery = await FirebaseFirestore.instance
           .collection('approved_appointments')
           .where('doctorUid', isEqualTo: doctorId)
           .limit(1)
           .get();
-      
       if (approvedQuery.docs.isNotEmpty) {
-        return approvedQuery.docs.first.data()['doctorName'] ?? 'Unknown Doctor';
+        final docData = approvedQuery.docs.first.data();
+        if (docData['doctorName'] != null &&
+            (docData['doctorName'] as String).trim().isNotEmpty) {
+          return docData['doctorName'];
+        }
       }
-      
+
       return 'Unknown Doctor';
     } catch (e) {
       return 'Unknown Doctor';
@@ -136,7 +165,7 @@ class _PmessagesState extends State<Pmessages> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error opening chat: $e'),
-            backgroundColor: Colors.blueAccent,
+            backgroundColor: Colors.redAccent,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
@@ -154,17 +183,18 @@ class _PmessagesState extends State<Pmessages> {
 
   String _formatTimeDetailed(Timestamp? timestamp) {
     if (timestamp == null) return 'now';
-    
+
     final messageTime = timestamp.toDate();
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final messageDate = DateTime(messageTime.year, messageTime.month, messageTime.day);
-    
+    final messageDate =
+        DateTime(messageTime.year, messageTime.month, messageTime.day);
+
     final hour = messageTime.hour;
     final minute = messageTime.minute.toString().padLeft(2, '0');
     final period = hour < 12 ? 'AM' : 'PM';
     final displayHour = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
-    
+
     if (messageDate == today) {
       return '$displayHour:$minute $period';
     } else if (now.difference(messageTime).inDays == 1) {
@@ -197,9 +227,9 @@ class _PmessagesState extends State<Pmessages> {
       for (var chatDoc in chatsSnapshot.docs) {
         final chatData = chatDoc.data();
         final participants = List<String>.from(chatData['participants'] ?? []);
-        
+
         print('Chat ${chatDoc.id}: participants = $participants');
-        
+
         // Find the other participant (doctor)
         final doctorId = participants.firstWhere(
           (id) => id != _currentUserId,
@@ -210,7 +240,7 @@ class _PmessagesState extends State<Pmessages> {
           print('Found doctor ID: $doctorId');
           final doctorName = await _getDoctorName(doctorId);
           print('Doctor name: $doctorName');
-          
+
           messagedDoctors.add({
             'id': doctorId,
             'name': doctorName,
@@ -224,11 +254,11 @@ class _PmessagesState extends State<Pmessages> {
       messagedDoctors.sort((a, b) {
         final aTime = a['lastTimestamp'] as Timestamp?;
         final bTime = b['lastTimestamp'] as Timestamp?;
-        
+
         if (aTime == null && bTime == null) return 0;
         if (aTime == null) return 1;
         if (bTime == null) return -1;
-        
+
         return bTime.compareTo(aTime); // Descending order
       });
 
@@ -247,7 +277,7 @@ class _PmessagesState extends State<Pmessages> {
         backgroundColor: const Color(0xFFF8F9FD),
         body: Center(
           child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.blueAccent),
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.redAccent),
           ),
         ),
       );
@@ -272,14 +302,15 @@ class _PmessagesState extends State<Pmessages> {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Colors.blueAccent,
-                      Colors.blueAccent.withOpacity(0.8),
+                      Colors.redAccent,
+                      Colors.redAccent.withOpacity(0.8),
                     ],
                   ),
                 ),
                 child: SafeArea(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -316,17 +347,17 @@ class _PmessagesState extends State<Pmessages> {
                               width: 44,
                               height: 44,
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
+                                color: Colors.white.withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(22),
                                 border: Border.all(
-                                  color: Colors.white.withOpacity(0.3),
+                                  color: Colors.white.withOpacity(0.2),
                                   width: 1,
                                 ),
                               ),
                               child: const Icon(
-                                Icons.chat_bubble_outline_rounded,
+                                Icons.chat_bubble_rounded,
                                 color: Colors.white,
-                                size: 24,
+                                size: 22,
                               ),
                             ),
                           ],
@@ -387,18 +418,19 @@ class _PmessagesState extends State<Pmessages> {
               stream: _streamMessagedDoctors(),
               builder: (context, snapshot) {
                 // Debug prints
-                print('StreamBuilder state: ${snapshot.connectionState}');
-                print('Has data: ${snapshot.hasData}');
-                print('Data length: ${snapshot.data?.length ?? 0}');
-                print('Error: ${snapshot.error}');
-                
+                print('StreamBuilder state: \\${snapshot.connectionState}');
+                print('Has data: \\${snapshot.hasData}');
+                print('Data length: \\${snapshot.data?.length ?? 0}');
+                print('Error: \\${snapshot.error}');
+
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return SliverToBoxAdapter(
                     child: Container(
                       height: 200,
                       child: Center(
                         child: CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.blueAccent),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.redAccent),
                         ),
                       ),
                     ),
@@ -406,7 +438,7 @@ class _PmessagesState extends State<Pmessages> {
                 }
 
                 if (snapshot.hasError) {
-                  print('StreamBuilder error: ${snapshot.error}');
+                  print('StreamBuilder error: \\${snapshot.error}');
                   return SliverToBoxAdapter(
                     child: Container(
                       height: 200,
@@ -414,11 +446,12 @@ class _PmessagesState extends State<Pmessages> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.error, color: Colors.blueAccent, size: 48),
+                            Icon(Icons.error,
+                                color: Colors.redAccent, size: 48),
                             SizedBox(height: 16),
                             Text(
                               'Unable to load conversations',
-                              style: TextStyle(color: Colors.blueAccent),
+                              style: TextStyle(color: Colors.redAccent),
                             ),
                             Text(
                               'Please check your connection and try again',
@@ -443,12 +476,17 @@ class _PmessagesState extends State<Pmessages> {
                             width: 100,
                             height: 100,
                             decoration: BoxDecoration(
-                              color: Colors.blueAccent.withOpacity(0.1),
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.redAccent.withOpacity(0.1),
+                                  Colors.redAccent.withOpacity(0.05),
+                                ],
+                              ),
                               borderRadius: BorderRadius.circular(50),
                             ),
                             child: Icon(
                               Icons.chat_bubble_outline_rounded,
-                              color: Colors.blueAccent,
+                              color: Colors.redAccent,
                               size: 50,
                             ),
                           ),
@@ -456,7 +494,8 @@ class _PmessagesState extends State<Pmessages> {
                           const Text(
                             'No conversations yet',
                             style: TextStyle(
-                              fontSize: 18,
+                              color: Color(0xFF2C2C2C),
+                              fontSize: 22,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -475,7 +514,7 @@ class _PmessagesState extends State<Pmessages> {
                           ),
                           const SizedBox(height: 20),
                           Text(
-                            'Current User: ${_currentUserId ?? "Not logged in"}',
+                            'Current User: \\${_currentUserId ?? "Not logged in"}',
                             style: TextStyle(
                               color: Colors.grey.shade500,
                               fontSize: 12,
@@ -495,7 +534,7 @@ class _PmessagesState extends State<Pmessages> {
                       final doctor = doctors[index];
                       final doctorName = doctor['name'];
                       final doctorId = doctor['id'];
-                      
+
                       return Container(
                         margin: const EdgeInsets.symmetric(vertical: 6),
                         decoration: BoxDecoration(
@@ -503,8 +542,8 @@ class _PmessagesState extends State<Pmessages> {
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 10,
+                              color: Colors.black.withOpacity(0.04),
+                              blurRadius: 15,
                               offset: const Offset(0, 4),
                             ),
                           ],
@@ -514,47 +553,51 @@ class _PmessagesState extends State<Pmessages> {
                           borderRadius: BorderRadius.circular(16),
                           child: InkWell(
                             borderRadius: BorderRadius.circular(16),
-                            splashColor: Colors.blueAccent.withOpacity(0.1),
-                            highlightColor: Colors.blueAccent.withOpacity(0.05),
+                            splashColor: Colors.redAccent.withOpacity(0.1),
+                            highlightColor: Colors.redAccent.withOpacity(0.05),
                             onTap: () {
                               print('Tapping doctor: $doctorName ($doctorId)');
                               _openChat(doctorId, doctorName);
                             },
                             child: Padding(
-                              padding: const EdgeInsets.all(20),
+                              padding: const EdgeInsets.all(14),
                               child: Row(
                                 children: [
                                   // Avatar with online status
                                   Stack(
                                     children: [
                                       Container(
-                                        width: 56,
-                                        height: 56,
+                                        width: 44,
+                                        height: 44,
                                         decoration: BoxDecoration(
                                           gradient: LinearGradient(
                                             begin: Alignment.topLeft,
                                             end: Alignment.bottomRight,
                                             colors: [
-                                              Colors.blueAccent,
-                                              Colors.blue.shade400,
+                                              Colors.redAccent,
+                                              Colors.deepOrange.shade400,
                                             ],
                                           ),
-                                          borderRadius: BorderRadius.circular(28),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
                                           boxShadow: [
                                             BoxShadow(
-                                              color: Colors.blueAccent.withOpacity(0.3),
+                                              color: Colors.redAccent
+                                                  .withOpacity(0.3),
                                               blurRadius: 8,
-                                              offset: const Offset(0, 4),
+                                              offset: const Offset(0, 2),
                                             ),
                                           ],
                                         ),
                                         child: Center(
                                           child: Text(
-                                            doctorName.isNotEmpty ? doctorName[0].toUpperCase() : 'D',
+                                            doctorName.isNotEmpty
+                                                ? doctorName[0].toUpperCase()
+                                                : 'D',
                                             style: const TextStyle(
                                               color: Colors.white,
                                               fontSize: 22,
-                                              fontWeight: FontWeight.bold,
+                                              fontWeight: FontWeight.w600,
                                             ),
                                           ),
                                         ),
@@ -568,7 +611,8 @@ class _PmessagesState extends State<Pmessages> {
                                           height: 16,
                                           decoration: BoxDecoration(
                                             color: Colors.green,
-                                            borderRadius: BorderRadius.circular(8),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
                                             border: Border.all(
                                               color: Colors.white,
                                               width: 2,
@@ -579,14 +623,15 @@ class _PmessagesState extends State<Pmessages> {
                                     ],
                                   ),
                                   const SizedBox(width: 16),
-                                  
                                   // Name and message info
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
                                           children: [
                                             Expanded(
                                               child: Text(
@@ -594,16 +639,17 @@ class _PmessagesState extends State<Pmessages> {
                                                 style: const TextStyle(
                                                   fontSize: 17,
                                                   fontWeight: FontWeight.w600,
-                                                  color: Color(0xFF2C2C2C),
+                                                  color: Color(0xFF1A1A1A),
                                                 ),
                                                 overflow: TextOverflow.ellipsis,
                                               ),
                                             ),
                                             Text(
-                                              _formatTimeDetailed(doctor['lastTimestamp']),
+                                              _formatTimeDetailed(
+                                                  doctor['lastTimestamp']),
                                               style: TextStyle(
-                                                fontSize: 13,
-                                                color: Colors.blueAccent,
+                                                fontSize: 14,
+                                                color: Colors.grey.shade500,
                                                 fontWeight: FontWeight.w500,
                                               ),
                                             ),
@@ -614,29 +660,34 @@ class _PmessagesState extends State<Pmessages> {
                                           children: [
                                             Expanded(
                                               child: Text(
-                                                doctor['lastMessage'] ?? 'No messages yet',
+                                                doctor['lastMessage'] ??
+                                                    'No messages yet',
                                                 style: TextStyle(
                                                   fontSize: 15,
                                                   color: Colors.grey.shade600,
-                                                  height: 1.2,
+                                                  fontWeight: FontWeight.w400,
                                                 ),
-                                                maxLines: 2,
                                                 overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            // Unread badge (optional)
-                                            Container(
-                                              width: 8,
-                                              height: 8,
-                                              decoration: BoxDecoration(
-                                                color: Colors.blueAccent,
-                                                borderRadius: BorderRadius.circular(4),
                                               ),
                                             ),
                                           ],
                                         ),
                                       ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  // Arrow icon
+                                  Container(
+                                    width: 32,
+                                    height: 32,
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade50,
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    child: Icon(
+                                      Icons.arrow_forward_ios_rounded,
+                                      color: Colors.grey.shade400,
+                                      size: 16,
                                     ),
                                   ),
                                 ],

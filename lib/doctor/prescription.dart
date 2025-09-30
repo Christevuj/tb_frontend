@@ -566,19 +566,21 @@ class _PrescriptionState extends State<Prescription> {
               children: [
                 // Back Button
                 Container(
+                  width: 48,
+                  height: 48,
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    shape: BoxShape.circle,
+                    borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.grey.shade300,
-                        blurRadius: 6,
-                        offset: const Offset(0, 3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
                       ),
                     ],
                   ),
                   child: IconButton(
-                    icon: Icon(Icons.arrow_back, color: _themeRed),
+                    icon: Icon(Icons.arrow_back_ios, color: _themeRed),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ),
@@ -1167,7 +1169,7 @@ class SignaturePadDialog extends StatefulWidget {
 
 class _SignaturePadDialogState extends State<SignaturePadDialog> {
   final GlobalKey _signatureKey = GlobalKey();
-  List<List<Offset?>> _paths = [];
+  final List<List<Offset?>> _paths = [];
   List<Offset?> _currentPath = [];
   bool _isDrawing = false;
 

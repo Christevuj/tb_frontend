@@ -15,7 +15,14 @@ import 'package:tb_frontend/services/facility_repository.dart';
 import 'glistfacility.dart' as glist;
 
 class GtbfacilityPage extends StatefulWidget {
-  const GtbfacilityPage({super.key});
+  final String? selectedFacilityName;
+  final String? selectedFacilityAddress;
+
+  const GtbfacilityPage({
+    super.key,
+    this.selectedFacilityName,
+    this.selectedFacilityAddress,
+  });
 
   @override
   _GtbfacilityPageState createState() => _GtbfacilityPageState();
@@ -24,16 +31,31 @@ class GtbfacilityPage extends StatefulWidget {
 class _GtbfacilityPageState extends State<GtbfacilityPage> {
   final Completer<GoogleMapController> _mapController = Completer();
   final PageController _pageController = PageController(viewportFraction: 0.94);
+  final TextEditingController _searchController = TextEditingController();
   final String _apiKey =
       'AIzaSyB1qCMW00SQ5345y6l9SiVOaZn6rSyXpcs'; // Use your actual API key
 
   LatLng? _currentLocation;
   bool _loading = true;
   List<Facility> _facilities = [];
+  List<Facility> _filteredFacilities = [];
   Set<Marker> _markers = {};
   Set<Polyline> _polylines = {};
   int _selectedIndex = 0;
 
+  // Search functionality
+  bool _showSearchDropdown = false;
+  List<Map<String, dynamic>> _searchSuggestions = [];
+  FocusNode _searchFocusNode = FocusNode();
+  Timer? _searchTimer;
+
+  // Animation for facility container
+  bool _isSearching = false;
+  bool _isContainerHidden = false;
+
+  // Contacts popup search
+  TextEditingController _contactsSearchController = TextEditingController();
+  String _contactsSearchQuery = '';
   StreamSubscription<Position>? _positionStreamSubscription; // 👈 Added
 
   static const double _zoomLevel = 15.0;
@@ -47,6 +69,14 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
       return;
     }
     _initEverything();
+
+    // Setup search functionality
+    _searchController.addListener(_onSearchChanged);
+    _searchFocusNode.addListener(() {
+      if (!_searchFocusNode.hasFocus) {
+        setState(() => _showSearchDropdown = false);
+      }
+    });
   }
 
   Future<void> _initEverything() async {
@@ -242,7 +272,209 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
     final f = await FacilityRepository.getFacilitiesWithCoordinates();
     setState(() {
       _facilities = f;
+      _filteredFacilities = f; // Initialize filtered list
     });
+
+    // If a specific facility was requested, scroll to it
+    if (widget.selectedFacilityName != null) {
+      _scrollToSelectedFacility();
+    }
+  }
+
+  void _scrollToSelectedFacility() {
+    if (widget.selectedFacilityName == null) return;
+
+    // Find the index of the selected facility
+    int facilityIndex = -1;
+    for (int i = 0; i < _filteredFacilities.length; i++) {
+      if (_filteredFacilities[i].name == widget.selectedFacilityName ||
+          _filteredFacilities[i].address == widget.selectedFacilityAddress) {
+        facilityIndex = i;
+        break;
+      }
+    }
+
+    if (facilityIndex != -1) {
+      setState(() => _selectedIndex = facilityIndex);
+
+      // Scroll to the facility in the carousel after a brief delay
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (_pageController.hasClients) {
+          _pageController.animateToPage(
+            facilityIndex,
+            duration: const Duration(milliseconds: 500),
+            curve: Curves.easeInOut,
+          );
+        }
+
+        // Also center the map on the selected facility
+        if (_filteredFacilities[facilityIndex].coordinates != null) {
+          _animateCameraTo(_filteredFacilities[facilityIndex].coordinates!,
+              zoom: 15);
+        }
+
+        // Rebuild markers to highlight the selected facility
+        _buildMarkers();
+      });
+    }
+  }
+
+  void _filterFacilities(String query) {
+    setState(() {
+      if (query.isEmpty) {
+        _filteredFacilities = _facilities;
+      } else {
+        _filteredFacilities = _facilities.where((facility) {
+          return facility.name.toLowerCase().contains(query.toLowerCase()) ||
+              facility.address.toLowerCase().contains(query.toLowerCase());
+        }).toList();
+      }
+      _selectedIndex = 0; // Reset selection when filtering
+    });
+    _buildMarkers(); // Rebuild markers for filtered facilities
+  }
+
+  void _onSearchChanged() {
+    _searchTimer?.cancel();
+    _searchTimer = Timer(const Duration(milliseconds: 300), () {
+      final query = _searchController.text;
+      setState(() {
+        _isSearching = query.isNotEmpty;
+      });
+
+      if (query.isEmpty) {
+        setState(() {
+          _showSearchDropdown = false;
+          _searchSuggestions = [];
+        });
+        _filterFacilities('');
+        return;
+      }
+
+      _generateSearchSuggestions(query);
+    });
+  }
+
+  void _generateSearchSuggestions(String query) {
+    List<Map<String, dynamic>> suggestions = [];
+
+    // Add facility suggestions
+    for (final facility in _facilities) {
+      if (facility.name.toLowerCase().contains(query.toLowerCase()) ||
+          facility.address.toLowerCase().contains(query.toLowerCase())) {
+        suggestions.add({
+          'type': 'facility',
+          'title': facility.name,
+          'subtitle': facility.address,
+          'data': facility,
+          'icon': Icons.local_hospital,
+        });
+      }
+    }
+
+    // Add location search suggestion
+    if (query.length > 2) {
+      suggestions.insert(0, {
+        'type': 'location',
+        'title': 'Search "$query" on map',
+        'subtitle': 'Find this location and nearby facilities',
+        'data': query,
+        'icon': Icons.search,
+      });
+    }
+
+    setState(() {
+      _searchSuggestions =
+          suggestions.take(6).toList(); // Limit to 6 suggestions
+      _showSearchDropdown = suggestions.isNotEmpty;
+    });
+  }
+
+  Future<void> _searchLocation(String locationName) async {
+    try {
+      final encodedLocation = Uri.encodeComponent(locationName);
+      final url =
+          'https://maps.googleapis.com/maps/api/geocode/json?address=$encodedLocation&key=$_apiKey';
+
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['results'] != null && (data['results'] as List).isNotEmpty) {
+          final location = data['results'][0]['geometry']['location'];
+          final lat = location['lat'] as double;
+          final lng = location['lng'] as double;
+          final newLocation = LatLng(lat, lng);
+
+          // Move camera to searched location
+          await _animateCameraTo(newLocation, zoom: _zoomLevel);
+
+          // Show snackbar with result
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content:
+                    Text('Found: ${data['results'][0]['formatted_address']}'),
+                duration: const Duration(seconds: 3),
+                backgroundColor: const Color(0xE0F44336),
+              ),
+            );
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content:
+                    Text('Location not found. Please try a different search.'),
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error searching location: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error searching location. Please try again.'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  void _onSuggestionTapped(Map<String, dynamic> suggestion) {
+    setState(() {
+      _showSearchDropdown = false;
+      _isSearching = false;
+    });
+    _searchFocusNode.unfocus();
+
+    if (suggestion['type'] == 'facility') {
+      final facility = suggestion['data'] as Facility;
+      _searchController.text = facility.name;
+
+      // Find the index of this facility in filtered list
+      final index =
+          _filteredFacilities.indexWhere((f) => f.name == facility.name);
+      if (index >= 0) {
+        setState(() => _selectedIndex = index);
+        _pageController.animateToPage(
+          index,
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeInOut,
+        );
+        if (facility.coordinates != null) {
+          _animateCameraTo(facility.coordinates!, zoom: _zoomLevel + 1);
+        }
+      }
+      _filterFacilities(facility.name);
+    } else if (suggestion['type'] == 'location') {
+      final locationQuery = suggestion['data'] as String;
+      _searchController.text = locationQuery;
+      _searchLocation(locationQuery);
+    }
   }
 
   Future<int> _getTotalWorkersByAddress(String address) async {
@@ -288,17 +520,14 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
       ));
     }
 
-    for (int i = 0; i < _facilities.length; i++) {
-      final facility = _facilities[i];
+    for (int i = 0; i < _filteredFacilities.length; i++) {
+      final facility = _filteredFacilities[i];
       if (facility.coordinates == null) continue;
-      final bool isSelected = i == _selectedIndex;
       markers.add(Marker(
         markerId: MarkerId('${facility.name}_$i'),
         position: facility.coordinates!,
         infoWindow: InfoWindow(title: facility.name, snippet: facility.address),
-        icon: isSelected
-            ? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen)
-            : BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
         onTap: () => _onMarkerTapped(i),
       ));
     }
@@ -312,21 +541,19 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
     setState(() => _selectedIndex = index);
     _pageController.animateToPage(index,
         duration: const Duration(milliseconds: 350), curve: Curves.easeInOut);
-    final coords = _facilities[index].coordinates;
+    final coords = _filteredFacilities[index].coordinates;
     if (coords != null) {
       _animateCameraTo(coords, zoom: _zoomLevel + 1);
-      _createRouteToFacility(coords);
     }
     _buildMarkers();
   }
 
   void _onPageChanged(int index) {
-    if (index < 0 || index >= _facilities.length) return;
+    if (index < 0 || index >= _filteredFacilities.length) return;
     setState(() => _selectedIndex = index);
-    final coords = _facilities[index].coordinates;
+    final coords = _filteredFacilities[index].coordinates;
     if (coords != null) {
       _animateCameraTo(coords, zoom: _zoomLevel + 1);
-      _createRouteToFacility(coords);
     }
     _buildMarkers();
   }
@@ -418,42 +645,636 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
   }
 
   void _onSeeDirectionsPressed() {
-    final facility = _facilities[_selectedIndex];
+    final facility = _filteredFacilities[_selectedIndex];
     if (facility.coordinates == null) {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('No coordinates for this facility')));
       return;
     }
-    _createRouteToFacility(facility.coordinates!);
+
+    // Check if there's already a route displayed
+    if (_polylines.isNotEmpty) {
+      // Clear the route
+      setState(() {
+        _polylines = {};
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Route cleared'),
+          duration: Duration(seconds: 2),
+          backgroundColor: Color(0xE0F44336),
+        ),
+      );
+    } else {
+      // Navigate to facility and show route when directions button is pressed
+      _animateCameraTo(facility.coordinates!, zoom: _zoomLevel + 1);
+      _createRouteToFacility(facility.coordinates!);
+    }
+  }
+
+  void _findNearestFacility() {
+    if (_currentLocation == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Current location not available. Please enable location services.'),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
+    if (_filteredFacilities.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No facilities available.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    double shortestDistance = double.infinity;
+    int nearestIndex = 0;
+
+    for (int i = 0; i < _filteredFacilities.length; i++) {
+      final facility = _filteredFacilities[i];
+      if (facility.coordinates != null) {
+        final distance = Geolocator.distanceBetween(
+          _currentLocation!.latitude,
+          _currentLocation!.longitude,
+          facility.coordinates!.latitude,
+          facility.coordinates!.longitude,
+        );
+
+        if (distance < shortestDistance) {
+          shortestDistance = distance;
+          nearestIndex = i;
+        }
+      }
+    }
+
+    // Update selected index and navigate to nearest facility
+    setState(() => _selectedIndex = nearestIndex);
+    _pageController.animateToPage(
+      nearestIndex,
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeInOut,
+    );
+    _buildMarkers();
+
+    // Show distance in snackbar
+    final distanceKm = (shortestDistance / 1000).toStringAsFixed(1);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Nearest facility: ${_filteredFacilities[nearestIndex].name} (${distanceKm}km away)',
+        ),
+        duration: const Duration(seconds: 3),
+        backgroundColor: const Color(0xE0F44336),
+      ),
+    );
   }
 
   void _onViewContactsPressed() {
-    final facility = _facilities[_selectedIndex];
+    final facility = _filteredFacilities[_selectedIndex];
+    // Reset search state when opening popup
+    _contactsSearchController.clear();
+    setState(() {
+      _contactsSearchQuery = '';
+    });
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(facility.name),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(facility.address),
-            const SizedBox(height: 8),
-            if (facility.email != null && facility.email!.isNotEmpty)
-              Row(
-                children: [
-                  const Icon(Icons.email, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(facility.email!)),
-                ],
-              ),
-          ],
+      barrierDismissible: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setStateDialog) => Dialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.90,
+            height: MediaQuery.of(context).size.height *
+                0.7, // Increased height for search bar
+            decoration: BoxDecoration(
+              color: const Color(0xFFF2F3F5),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      topRight: Radius.circular(16),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Color(0xFF1F2937)),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Health Workers',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1F2937),
+                              ),
+                            ),
+                            Text(
+                              facility.name,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Color(0xFF6B7280),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Search Bar for contacts
+                Container(
+                  margin: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.shade200,
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: TextField(
+                    controller: _contactsSearchController,
+                    onChanged: (value) {
+                      setStateDialog(() {
+                        _contactsSearchQuery = value;
+                      });
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Search health workers...',
+                      hintStyle: TextStyle(color: Colors.grey.shade500),
+                      prefixIcon:
+                          Icon(Icons.search, color: Colors.grey.shade600),
+                      suffixIcon: _contactsSearchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: Icon(Icons.clear,
+                                  color: Colors.grey.shade600),
+                              onPressed: () {
+                                _contactsSearchController.clear();
+                                setStateDialog(() {
+                                  _contactsSearchQuery = '';
+                                });
+                              },
+                            )
+                          : null,
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                    ),
+                  ),
+                ),
+                // Content
+                Expanded(
+                  child: StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('healthcare')
+                        .where('facility.address', isEqualTo: facility.address)
+                        .snapshots(),
+                    builder: (context, healthcareSnapshot) {
+                      if (healthcareSnapshot.connectionState ==
+                          ConnectionState.waiting) {
+                        return const Center(
+                          child: CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                                Color(0xE0F44336)),
+                          ),
+                        );
+                      }
+
+                      return StreamBuilder<QuerySnapshot>(
+                        stream: FirebaseFirestore.instance
+                            .collection('doctors')
+                            .snapshots(),
+                        builder: (context, doctorsSnapshot) {
+                          if (doctorsSnapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Center(
+                              child: CircularProgressIndicator(
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                    Color(0xE0F44336)),
+                              ),
+                            );
+                          }
+
+                          if (healthcareSnapshot.hasError ||
+                              doctorsSnapshot.hasError) {
+                            return const Center(
+                              child: Text(
+                                'Error loading staff',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            );
+                          }
+
+                          if (!healthcareSnapshot.hasData ||
+                              !doctorsSnapshot.hasData) {
+                            return const Center(
+                              child: Text(
+                                'No data available',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            );
+                          }
+
+                          List<Map<String, dynamic>> allStaff = [];
+
+                          // Add health workers
+                          for (var doc in healthcareSnapshot.data!.docs) {
+                            final data = doc.data() as Map<String, dynamic>;
+                            allStaff.add({
+                              ...data,
+                              'id': doc.id,
+                              'type': 'Health Worker',
+                              'name':
+                                  data['fullName'] ?? data['name'] ?? 'No info',
+                              'email': data['email'] ?? 'No info',
+                              'position': data['role'] ?? 'No info',
+                              'profilePicture': data['profilePicture'] ?? '',
+                              'phone': data['phone'] ?? 'No info',
+                            });
+                          }
+
+                          // Add doctors who have this facility in their affiliations
+                          for (var doc in doctorsSnapshot.data!.docs) {
+                            final data = doc.data() as Map<String, dynamic>;
+                            final affiliations =
+                                data['affiliations'] as List? ?? [];
+                            for (var affiliation in affiliations) {
+                              if (affiliation is Map &&
+                                  affiliation['address'] == facility.address) {
+                                allStaff.add({
+                                  'name': data['fullName'] ??
+                                      data['name'] ??
+                                      'No info',
+                                  'fullName': data['fullName'] ?? 'No info',
+                                  'email': data['email'] ?? 'No info',
+                                  'role': data['role'] ?? 'No info',
+                                  'specialization':
+                                      data['specialization'] ?? 'No info',
+                                  'profilePicture':
+                                      data['profilePicture'] ?? '',
+                                  'phone': affiliation['phone'] ??
+                                      data['phone'] ??
+                                      'No info',
+                                  'position': data['role'] ?? 'Doctor',
+                                  'id': doc.id,
+                                  'type': 'Doctor',
+                                  'schedules': affiliation['schedules'] ?? [],
+                                });
+                              }
+                            }
+                          }
+
+                          if (allStaff.isEmpty) {
+                            return Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.people_outline,
+                                    size: 64,
+                                    color: Colors.grey.shade400,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'No health workers found',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'This facility has no registered health workers yet.',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey.shade500,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+
+                          // Filter staff based on search query
+                          final filteredStaff = _contactsSearchQuery.isEmpty
+                              ? allStaff
+                              : allStaff.where((worker) {
+                                  final name = (worker['name'] ??
+                                          worker['fullName'] ??
+                                          '')
+                                      .toLowerCase();
+                                  final position = (worker['position'] ??
+                                          worker['type'] ??
+                                          '')
+                                      .toLowerCase();
+                                  final email =
+                                      (worker['email'] ?? '').toLowerCase();
+                                  final query =
+                                      _contactsSearchQuery.toLowerCase();
+                                  return name.contains(query) ||
+                                      position.contains(query) ||
+                                      email.contains(query);
+                                }).toList();
+
+                          if (filteredStaff.isEmpty &&
+                              _contactsSearchQuery.isNotEmpty) {
+                            return Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.search_off,
+                                    size: 64,
+                                    color: Colors.grey.shade400,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'No results found',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Try searching with different keywords.',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey.shade500,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+
+                          return ListView.builder(
+                            padding: const EdgeInsets.all(16),
+                            itemCount: filteredStaff.length,
+                            itemBuilder: (context, index) {
+                              final worker = filteredStaff[index];
+                              return _buildHealthWorkerCard(context, worker);
+                            },
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
+      ),
+    );
+  }
+
+  Widget _buildHealthWorkerCard(
+      BuildContext context, Map<String, dynamic> worker) {
+    final name = worker['name'] ?? worker['fullName'] ?? 'No info';
+    final email = worker['email'] ?? 'No info';
+    final phone = worker['phone'] ?? 'No info';
+    final position = worker['position'] ?? worker['type'] ?? 'No info';
+    final profilePicture = worker['profilePicture'] as String?;
+    final type = worker['type'] ?? 'Health Worker';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.shade300,
+            blurRadius: 8,
+            offset: const Offset(0, 4),
           ),
         ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                // Profile Picture
+                CircleAvatar(
+                  radius: 25,
+                  backgroundColor: const Color(0xE0F44336),
+                  backgroundImage:
+                      profilePicture != null && profilePicture.isNotEmpty
+                          ? NetworkImage(profilePicture)
+                          : null,
+                  child: profilePicture == null || profilePicture.isEmpty
+                      ? Text(
+                          name.isNotEmpty ? name[0].toUpperCase() : '?',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        )
+                      : null,
+                ),
+                const SizedBox(width: 16),
+
+                // Worker Details
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF2C3E50),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: type == 'Doctor'
+                              ? const Color.fromARGB(255, 243, 33, 33)
+                                  .withOpacity(0.1)
+                              : const Color.fromRGBO(244, 67, 54, 0.878)
+                                  .withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          position,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: type == 'Doctor'
+                                ? Colors.blue
+                                : const Color(0xE0F44336),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.email_outlined,
+                            color: Color(0xFF7F8C8D),
+                            size: 16,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              email,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Color(0xFF7F8C8D),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.phone_outlined,
+                            color: Color(0xFF7F8C8D),
+                            size: 16,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              phone,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Color(0xFF7F8C8D),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      // Show specialization for doctors
+                      if (type == 'Doctor' &&
+                          worker['specialization'] != null) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.medical_services_outlined,
+                              color: Color(0xFF7F8C8D),
+                              size: 16,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                worker['specialization'],
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Color(0xFF7F8C8D),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            // Messenger-style Message Button
+            Padding(
+              padding: const EdgeInsets.only(top: 12.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        if (worker['type'] == 'Doctor') {
+                          showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text('Login Required'),
+                              content: const Text(
+                                  'You need to login to message a doctor.'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.of(context).pop(),
+                                  child: const Text('OK'),
+                                ),
+                              ],
+                            ),
+                          );
+                        } else {
+                          // TODO: Implement messaging for non-doctor
+                        }
+                      },
+                      child: Container(
+                        height: 35,
+                        decoration: BoxDecoration(
+                          color: Colors.redAccent,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.messenger_outline,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'Message',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -461,6 +1282,10 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
   @override
   void dispose() {
     _pageController.dispose();
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    _contactsSearchController.dispose();
+    _searchTimer?.cancel();
     _positionStreamSubscription?.cancel(); // 👈 Cancel stream
     super.dispose();
   }
@@ -498,9 +1323,177 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
                       _mapController.complete(controller);
                   },
                 ),
+                // Search Bar with Dropdown
+                Positioned(
+                  top: 40,
+                  left: 16,
+                  right: 16,
+                  child: Column(
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(25),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 10,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: TextField(
+                          controller: _searchController,
+                          focusNode: _searchFocusNode,
+                          onChanged: (value) {
+                            _filterFacilities(value);
+                            setState(() {
+                              _isSearching = value.isNotEmpty;
+                            });
+                          },
+                          onTap: () {
+                            if (_searchController.text.isNotEmpty) {
+                              _generateSearchSuggestions(
+                                  _searchController.text);
+                            }
+                          },
+                          decoration: InputDecoration(
+                            hintText: 'Search facilities or locations...',
+                            hintStyle: TextStyle(color: Colors.grey.shade500),
+                            prefixIcon:
+                                Icon(Icons.search, color: Colors.grey.shade600),
+                            suffixIcon: _searchController.text.isNotEmpty
+                                ? IconButton(
+                                    icon: Icon(Icons.clear,
+                                        color: Colors.grey.shade600),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      _filterFacilities('');
+                                      setState(() {
+                                        _showSearchDropdown = false;
+                                        _searchSuggestions = [];
+                                        _isSearching = false;
+                                      });
+                                      _searchFocusNode.unfocus();
+                                    },
+                                  )
+                                : null,
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 15,
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Search Suggestions Dropdown
+                      if (_showSearchDropdown && _searchSuggestions.isNotEmpty)
+                        Container(
+                          margin: const EdgeInsets.only(top: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 15,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: _searchSuggestions.length,
+                            separatorBuilder: (context, index) => Divider(
+                              height: 1,
+                              color: Colors.grey.shade200,
+                            ),
+                            itemBuilder: (context, index) {
+                              final suggestion = _searchSuggestions[index];
+                              return InkWell(
+                                onTap: () => _onSuggestionTapped(suggestion),
+                                borderRadius: BorderRadius.vertical(
+                                  top: index == 0
+                                      ? const Radius.circular(16)
+                                      : Radius.zero,
+                                  bottom: index == _searchSuggestions.length - 1
+                                      ? const Radius.circular(16)
+                                      : Radius.zero,
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: suggestion['type'] ==
+                                                  'facility'
+                                              ? const Color(0xE0F44336)
+                                                  .withOpacity(0.1)
+                                              : Colors.blue.withOpacity(0.1),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                        child: Icon(
+                                          suggestion['icon'] as IconData,
+                                          size: 20,
+                                          color:
+                                              suggestion['type'] == 'facility'
+                                                  ? const Color(0xE0F44336)
+                                                  : Colors.blue,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              suggestion['title'] as String,
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w600,
+                                                color: Color(0xFF1F2937),
+                                              ),
+                                            ),
+                                            if (suggestion['subtitle'] !=
+                                                null) ...[
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                suggestion['subtitle']
+                                                    as String,
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey.shade600,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                      Icon(
+                                        Icons.arrow_forward_ios,
+                                        size: 14,
+                                        color: Colors.grey.shade400,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
                 Positioned(
                   left: 12,
-                  top: 40,
+                  top: 100,
                   child: FloatingActionButton.small(
                     heroTag: 'btn-recenter',
                     onPressed: () {
@@ -510,10 +1503,30 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
                     child: const Icon(Icons.my_location),
                   ),
                 ),
-                // List View Floating Button
-                Positioned(
+                // Nearest facility button - compressed positioning
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
                   right: 16,
-                  bottom: 280, // Position above the container
+                  bottom: (_isSearching || _isContainerHidden)
+                      ? 120 // Compressed: closer to List View button
+                      : 370, // Normal position above the container
+                  child: FloatingActionButton(
+                    heroTag: 'btn-nearest',
+                    onPressed: _findNearestFacility,
+                    backgroundColor: const Color(0xE0F44336),
+                    foregroundColor: Colors.white,
+                    child: const Icon(Icons.near_me, size: 24),
+                  ),
+                ),
+                // List View Floating Button - compressed positioning
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  right: 16,
+                  bottom: (_isSearching || _isContainerHidden)
+                      ? 60 // Compressed: proper spacing from Nearest button
+                      : 300, // Normal position above the container
                   child: FloatingActionButton.extended(
                     heroTag: 'btn-list-view',
                     onPressed: () {
@@ -531,315 +1544,406 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
                         style: TextStyle(fontWeight: FontWeight.w600)),
                   ),
                 ),
-                Positioned(
+                // Facility container with sliding animation and swipe gesture
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
                   left: 0,
                   right: 0,
-                  bottom: 0,
-                  child: SafeArea(
-                    child: SizedBox(
-                      height: 260, // Reduced height to prevent overflow
-                      child: PageView.builder(
-                        controller: _pageController,
-                        itemCount: _facilities.length,
-                        onPageChanged: _onPageChanged,
-                        itemBuilder: (context, index) {
-                          final facility = _facilities[index];
-                          final bool isSelected = index == _selectedIndex;
+                  bottom: (_isSearching || _isContainerHidden)
+                      ? -250 // Hide almost completely, leaving small slit
+                      : 0, // Slide down when searching or hidden
+                  child: GestureDetector(
+                    onVerticalDragEnd: (details) {
+                      // Swipe down to hide, swipe up to show
+                      if (details.primaryVelocity != null) {
+                        if (details.primaryVelocity! > 500) {
+                          // Swipe down - hide container
+                          setState(() {
+                            _isContainerHidden = true;
+                          });
+                        } else if (details.primaryVelocity! < -500) {
+                          // Swipe up - show container
+                          setState(() {
+                            _isContainerHidden = false;
+                          });
+                        }
+                      }
+                    },
+                    onTap: () {
+                      // Tap to toggle container when hidden
+                      if (_isContainerHidden || _isSearching) {
+                        setState(() {
+                          _isContainerHidden = false;
+                          _isSearching = false;
+                        });
+                        // Clear search when showing container via tap
+                        if (_searchController.text.isNotEmpty) {
+                          _searchController.clear();
+                          _filterFacilities('');
+                          setState(() {
+                            _showSearchDropdown = false;
+                            _searchSuggestions = [];
+                          });
+                          _searchFocusNode.unfocus();
+                        }
+                      }
+                    },
+                    child: SafeArea(
+                      child: SizedBox(
+                        height:
+                            280, // Increased height to accommodate buttons properly
+                        child: PageView.builder(
+                          controller: _pageController,
+                          itemCount: _filteredFacilities.length,
+                          onPageChanged: _onPageChanged,
+                          itemBuilder: (context, index) {
+                            final facility = _filteredFacilities[index];
+                            final bool isSelected = index == _selectedIndex;
 
-                          return FutureBuilder<int>(
-                            future: _getTotalWorkersByAddress(facility.address),
-                            builder: (context, snapshot) {
-                              final count = snapshot.data ?? 0;
-                              final isActive = count > 0;
+                            return FutureBuilder<int>(
+                              future:
+                                  _getTotalWorkersByAddress(facility.address),
+                              builder: (context, snapshot) {
+                                final count = snapshot.data ?? 0;
+                                final isActive = count > 0;
 
-                              return Container(
-                                margin: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 12),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(16),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: isSelected
-                                          ? Colors.grey.shade300
-                                          : Colors.grey.shade100,
-                                      blurRadius: isSelected ? 12 : 8,
-                                      offset: isSelected
-                                          ? const Offset(0, 4)
-                                          : const Offset(0, 2),
-                                      spreadRadius: 0,
-                                    ),
-                                  ],
-                                  border: Border.all(
-                                    color: isSelected
-                                        ? const Color(0xE0F44336)
-                                            .withOpacity(0.2)
-                                        : Colors.grey.shade100,
-                                    width: isSelected ? 1.5 : 1,
-                                  ),
-                                ),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(
-                                      12), // Reduced padding
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          // Modern Facility Icon
-                                          Container(
-                                            padding: const EdgeInsets.all(10),
-                                            decoration: BoxDecoration(
-                                              gradient: LinearGradient(
-                                                colors: [
-                                                  const Color(0xE0F44336)
-                                                      .withOpacity(0.1),
-                                                  const Color(0xE0F44336)
-                                                      .withOpacity(0.05),
-                                                ],
-                                                begin: Alignment.topLeft,
-                                                end: Alignment.bottomRight,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                            ),
-                                            child: const Icon(
-                                              Icons.local_hospital_rounded,
-                                              color: Color(0xE0F44336),
-                                              size: 20,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          // Facility Name and Status
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  facility.name,
-                                                  style: const TextStyle(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.w700,
-                                                    color: Color(0xFF1A1A1A),
-                                                    letterSpacing: -0.2,
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 4),
-                                                Container(
-                                                  padding: const EdgeInsets
-                                                      .symmetric(
-                                                      horizontal: 8,
-                                                      vertical: 4),
-                                                  decoration: BoxDecoration(
-                                                    color: isActive
-                                                        ? const Color(
-                                                                0xFF10B981)
-                                                            .withOpacity(0.1)
-                                                        : Colors.grey.shade100,
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            12),
-                                                  ),
-                                                  child: Row(
-                                                    mainAxisSize:
-                                                        MainAxisSize.min,
-                                                    children: [
-                                                      Container(
-                                                        width: 4,
-                                                        height: 4,
-                                                        decoration:
-                                                            BoxDecoration(
-                                                          color: isActive
-                                                              ? const Color(
-                                                                  0xFF10B981)
-                                                              : Colors.grey
-                                                                  .shade400,
-                                                          shape:
-                                                              BoxShape.circle,
-                                                        ),
-                                                      ),
-                                                      const SizedBox(width: 6),
-                                                      Text(
-                                                        isActive
-                                                            ? 'Active'
-                                                            : 'No Workers',
-                                                        style: TextStyle(
-                                                          fontSize: 10,
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                          color: isActive
-                                                              ? const Color(
-                                                                  0xFF10B981)
-                                                              : Colors.grey
-                                                                  .shade600,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 12),
-                                      // Address with modern styling
-                                      Container(
-                                        padding: const EdgeInsets.all(12),
-                                        decoration: BoxDecoration(
-                                          color: Colors.grey.shade50,
-                                          borderRadius:
-                                              BorderRadius.circular(10),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            const Icon(
-                                              Icons.location_on_rounded,
-                                              color: Color(0xFF6B7280),
-                                              size: 14,
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: Text(
-                                                facility.address,
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                  color: Color(0xFF374151),
-                                                  height: 1.4,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                                maxLines: 2,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(height: 10),
-                                      // Health Workers Count
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 10, vertical: 8),
-                                        decoration: BoxDecoration(
-                                          gradient: LinearGradient(
-                                            colors: [
-                                              const Color(0xE0F44336)
-                                                  .withOpacity(0.08),
-                                              const Color(0xE0F44336)
-                                                  .withOpacity(0.04),
-                                            ],
-                                            begin: Alignment.centerLeft,
-                                            end: Alignment.centerRight,
-                                          ),
-                                          borderRadius:
-                                              BorderRadius.circular(10),
-                                          border: Border.all(
-                                            color: const Color(0xE0F44336)
-                                                .withOpacity(0.1),
-                                          ),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Container(
-                                              padding: const EdgeInsets.all(4),
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xE0F44336)
-                                                    .withOpacity(0.1),
-                                                borderRadius:
-                                                    BorderRadius.circular(6),
-                                              ),
-                                              child: const Icon(
-                                                Icons.people_rounded,
-                                                color: Color(0xE0F44336),
-                                                size: 12,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              '$count Health Worker${count != 1 ? 's' : ''} Available',
-                                              style: const TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w600,
-                                                color: Color(0xE0F44336),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      // Buttons section - made more compact
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: ElevatedButton(
-                                              onPressed: () =>
-                                                  _onViewContactsPressed(),
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor:
-                                                    const Color(0xE0F44336),
-                                                foregroundColor: Colors.white,
-                                                elevation: 0,
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                ),
-                                                padding: const EdgeInsets
-                                                    .symmetric(
-                                                    vertical:
-                                                        8), // Reduced padding
-                                                minimumSize: const Size(
-                                                    0, 36), // Set minimum size
-                                              ),
-                                              child: const Text('Contacts',
-                                                  style: TextStyle(
-                                                      fontSize:
-                                                          11, // Reduced font size
-                                                      fontWeight:
-                                                          FontWeight.w600)),
-                                            ),
-                                          ),
-                                          const SizedBox(
-                                              width: 8), // Reduced spacing
-                                          Expanded(
-                                            child: OutlinedButton(
-                                              onPressed: () =>
-                                                  _onSeeDirectionsPressed(),
-                                              style: OutlinedButton.styleFrom(
-                                                side: const BorderSide(
-                                                    color: Color(0xE0F44336),
-                                                    width: 1.5),
-                                                foregroundColor:
-                                                    const Color(0xE0F44336),
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                ),
-                                                padding: const EdgeInsets
-                                                    .symmetric(
-                                                    vertical:
-                                                        8), // Reduced padding
-                                                minimumSize: const Size(
-                                                    0, 36), // Set minimum size
-                                              ),
-                                              child: const Text('Directions',
-                                                  style: TextStyle(
-                                                      fontSize:
-                                                          11, // Reduced font size
-                                                      fontWeight:
-                                                          FontWeight.w600)),
-                                            ),
-                                          ),
-                                        ],
+                                return Container(
+                                  margin: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        Colors.white, // Solid white background
+                                    borderRadius: BorderRadius.circular(20),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: isSelected
+                                            ? const Color(0xE0F44336)
+                                                .withOpacity(0.15)
+                                            : Colors.black.withOpacity(0.08),
+                                        blurRadius: isSelected ? 20 : 12,
+                                        offset: isSelected
+                                            ? const Offset(0, 8)
+                                            : const Offset(0, 4),
+                                        spreadRadius: 0,
                                       ),
                                     ],
                                   ),
-                                ),
-                              );
-                            },
-                          );
-                        },
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(
+                                        16), // Increased padding for better spacing
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            // Modern Facility Icon
+                                            Container(
+                                              padding: const EdgeInsets.all(12),
+                                              decoration: BoxDecoration(
+                                                gradient: LinearGradient(
+                                                  colors: [
+                                                    const Color(0xE0F44336),
+                                                    const Color(0xE0F44336)
+                                                        .withOpacity(0.8),
+                                                  ],
+                                                  begin: Alignment.topLeft,
+                                                  end: Alignment.bottomRight,
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(16),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color:
+                                                        const Color(0xE0F44336)
+                                                            .withOpacity(0.3),
+                                                    blurRadius: 8,
+                                                    offset: const Offset(0, 4),
+                                                  ),
+                                                ],
+                                              ),
+                                              child: const Icon(
+                                                Icons.local_hospital_rounded,
+                                                color: Colors.white,
+                                                size: 22,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            // Facility Name and Status
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    facility.name,
+                                                    style: const TextStyle(
+                                                      fontSize: 16,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      color: Color(0xFF1A1A1A),
+                                                      letterSpacing: -0.2,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 4),
+                                                  Container(
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 4),
+                                                    decoration: BoxDecoration(
+                                                      color: isActive
+                                                          ? const Color(
+                                                                  0xFF10B981)
+                                                              .withOpacity(0.1)
+                                                          : Colors
+                                                              .grey.shade100,
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              12),
+                                                    ),
+                                                    child: Row(
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
+                                                      children: [
+                                                        Container(
+                                                          width: 4,
+                                                          height: 4,
+                                                          decoration:
+                                                              BoxDecoration(
+                                                            color: isActive
+                                                                ? const Color(
+                                                                    0xFF10B981)
+                                                                : Colors.grey
+                                                                    .shade400,
+                                                            shape:
+                                                                BoxShape.circle,
+                                                          ),
+                                                        ),
+                                                        const SizedBox(
+                                                            width: 6),
+                                                        Text(
+                                                          isActive
+                                                              ? 'Active'
+                                                              : 'No Workers',
+                                                          style: TextStyle(
+                                                            fontSize: 10,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                            color: isActive
+                                                                ? const Color(
+                                                                    0xFF10B981)
+                                                                : Colors.grey
+                                                                    .shade600,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 6),
+                                        // Address with modern styling
+                                        Container(
+                                          padding: const EdgeInsets.all(12),
+                                          decoration: BoxDecoration(
+                                            color:
+                                                Colors.white.withOpacity(0.7),
+                                            borderRadius:
+                                                BorderRadius.circular(14),
+                                            border: Border.all(
+                                              color: Colors.grey.shade200,
+                                              width: 1,
+                                            ),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black
+                                                    .withOpacity(0.04),
+                                                blurRadius: 6,
+                                                offset: const Offset(0, 2),
+                                              ),
+                                            ],
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              const Icon(
+                                                Icons.location_on_rounded,
+                                                color: Color(0xFF6B7280),
+                                                size: 14,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                child: Text(
+                                                  facility.address,
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                    color: Color(0xFF374151),
+                                                    height: 1.4,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                  maxLines: 2,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        // Health Workers Count
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 12, vertical: 10),
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              colors: [
+                                                const Color(0xE0F44336)
+                                                    .withOpacity(0.1),
+                                                const Color(0xE0F44336)
+                                                    .withOpacity(0.05),
+                                              ],
+                                              begin: Alignment.centerLeft,
+                                              end: Alignment.centerRight,
+                                            ),
+                                            borderRadius:
+                                                BorderRadius.circular(14),
+                                            border: Border.all(
+                                              color: const Color(0xE0F44336)
+                                                  .withOpacity(0.2),
+                                              width: 1,
+                                            ),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: const Color(0xE0F44336)
+                                                    .withOpacity(0.1),
+                                                blurRadius: 6,
+                                                offset: const Offset(0, 2),
+                                              ),
+                                            ],
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.all(6),
+                                                decoration: BoxDecoration(
+                                                  color:
+                                                      const Color(0xE0F44336),
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: const Color(
+                                                              0xE0F44336)
+                                                          .withOpacity(0.3),
+                                                      blurRadius: 4,
+                                                      offset:
+                                                          const Offset(0, 2),
+                                                    ),
+                                                  ],
+                                                ),
+                                                child: const Icon(
+                                                  Icons.people_rounded,
+                                                  color: Colors.white,
+                                                  size: 14,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                '$count Health Worker${count != 1 ? 's' : ''} Available',
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Color(0xE0F44336),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        // Buttons section - sleek design
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: ElevatedButton(
+                                                onPressed: () =>
+                                                    _onViewContactsPressed(),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor:
+                                                      const Color(0xE0F44336),
+                                                  foregroundColor: Colors.white,
+                                                  elevation: 4,
+                                                  shadowColor:
+                                                      const Color(0xE0F44336)
+                                                          .withOpacity(0.3),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            14),
+                                                  ),
+                                                  padding: const EdgeInsets
+                                                      .symmetric(vertical: 12),
+                                                ),
+                                                child: const Text(
+                                                  'Contacts',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: OutlinedButton(
+                                                onPressed: () =>
+                                                    _onSeeDirectionsPressed(),
+                                                style: OutlinedButton.styleFrom(
+                                                  side: BorderSide(
+                                                    color: _polylines.isNotEmpty
+                                                        ? Colors.orange
+                                                        : const Color(
+                                                            0xE0F44336),
+                                                    width: 2,
+                                                  ),
+                                                  foregroundColor: _polylines
+                                                          .isNotEmpty
+                                                      ? Colors.orange
+                                                      : const Color(0xE0F44336),
+                                                  backgroundColor: Colors.white,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            14),
+                                                  ),
+                                                  padding: const EdgeInsets
+                                                      .symmetric(vertical: 12),
+                                                ),
+                                                child: Text(
+                                                  _polylines.isNotEmpty
+                                                      ? 'Clear Route'
+                                                      : 'See Directions',
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ),

@@ -7,11 +7,12 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
-import 'package:url_launcher/url_launcher.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:tb_frontend/models/facility.dart';
 
 // Replace this import with the actual path in your project:
 import 'package:tb_frontend/services/facility_repository.dart';
+import 'glistfacility.dart' as glist;
 
 class GtbfacilityPage extends StatefulWidget {
   const GtbfacilityPage({super.key});
@@ -23,7 +24,8 @@ class GtbfacilityPage extends StatefulWidget {
 class _GtbfacilityPageState extends State<GtbfacilityPage> {
   final Completer<GoogleMapController> _mapController = Completer();
   final PageController _pageController = PageController(viewportFraction: 0.94);
-  final String _apiKey = 'YOUR_GOOGLE_MAPS_API_KEY_HERE'; // or load from secure storage
+  final String _apiKey =
+      'AIzaSyB1qCMW00SQ5345y6l9SiVOaZn6rSyXpcs'; // Use your actual API key
 
   LatLng? _currentLocation;
   bool _loading = true;
@@ -55,31 +57,55 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
       // 👇 Start listening for continuous location updates
       _positionStreamSubscription = Geolocator.getPositionStream(
         locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.best,
-          distanceFilter: 5, // update every 5 meters
+          accuracy: LocationAccuracy
+              .high, // Changed from 'best' to 'high' for better performance
+          distanceFilter: 10, // Update every 10 meters to reduce battery usage
+          timeLimit: Duration(seconds: 30), // Add timeout for position updates
         ),
-      ).listen((Position pos) {
-        final LatLng newPos = LatLng(pos.latitude, pos.longitude);
+      ).listen(
+        (Position pos) {
+          debugPrint(
+              'Position update: ${pos.latitude}, ${pos.longitude} (accuracy: ${pos.accuracy}m)');
 
-        setState(() {
-          _currentLocation = newPos;
-        });
+          // Validate the position
+          if (pos.latitude == 0.0 && pos.longitude == 0.0) {
+            debugPrint('Warning: Received (0,0) position, ignoring...');
+            return;
+          }
 
-        // Move map with you like Google Maps
-        _animateCameraTo(newPos, zoom: _zoomLevel);
+          final LatLng newPos = LatLng(pos.latitude, pos.longitude);
 
-        // Rebuild "You are here" marker
-        _buildMarkers();
-      });
+          setState(() {
+            _currentLocation = newPos;
+          });
+
+          // Move map with you like Google Maps (but only if significant movement)
+          if (_currentLocation != null) {
+            _animateCameraTo(newPos, zoom: _zoomLevel);
+          }
+
+          // Rebuild "You are here" marker
+          _buildMarkers();
+        },
+        onError: (error) {
+          debugPrint('Position stream error: $error');
+          // Don't show error to user for stream errors, just log them
+        },
+      );
 
       await _loadFacilities();
       _buildMarkers();
 
-      // center map on first facility or current location
-      if (_facilities.isNotEmpty && _facilities[0].coordinates != null) {
-        _animateCameraTo(_facilities[0].coordinates!, zoom: _zoomLevel);
-      } else if (_currentLocation != null) {
+      // Center map on current location first, then facilities
+      if (_currentLocation != null) {
+        debugPrint('Centering map on current location: $_currentLocation');
         _animateCameraTo(_currentLocation!, zoom: _zoomLevel);
+      } else if (_facilities.isNotEmpty && _facilities[0].coordinates != null) {
+        debugPrint('No current location, centering on first facility');
+        _animateCameraTo(_facilities[0].coordinates!, zoom: _zoomLevel);
+      } else {
+        debugPrint(
+            'No location or facilities available for initial camera position');
       }
     } catch (e) {
       debugPrint('Init error: $e');
@@ -89,30 +115,127 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
   }
 
   Future<void> _ensureLocationPermission() async {
+    // Check if location services are enabled
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    debugPrint('Location services enabled: $serviceEnabled');
+
     if (!serviceEnabled) {
-      throw 'Location services are disabled.';
+      // Show dialog to user about enabling location services
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content:
+                Text('Please enable location services in your device settings'),
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
+      throw 'Location services are disabled. Please enable location services in your device settings.';
     }
 
+    // Check permission status
     LocationPermission permission = await Geolocator.checkPermission();
+    debugPrint('Current location permission: $permission');
+
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
+      debugPrint('Permission after request: $permission');
+
       if (permission == LocationPermission.denied) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  'Location permission is required to show your position on the map'),
+              duration: Duration(seconds: 5),
+            ),
+          );
+        }
         throw 'Location permission denied';
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
-      throw 'Location permission denied forever';
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Location permission permanently denied. Please enable in app settings.'),
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
+      throw 'Location permission denied forever. Please enable location permission in app settings.';
     }
+
+    debugPrint('Location permission granted successfully');
   }
 
   Future<void> _getCurrentLocation() async {
-    Position pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.best);
-    setState(() {
-      _currentLocation = LatLng(pos.latitude, pos.longitude);
-    });
+    try {
+      debugPrint('Getting current location...');
+
+      Position pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 15), // Add timeout
+      );
+
+      debugPrint('Location obtained: ${pos.latitude}, ${pos.longitude}');
+      debugPrint('Location accuracy: ${pos.accuracy} meters');
+      debugPrint('Location timestamp: ${pos.timestamp}');
+
+      // Validate that we got a reasonable location (not 0,0 or obviously wrong)
+      if (pos.latitude == 0.0 && pos.longitude == 0.0) {
+        debugPrint('Warning: Got (0,0) location, this might be invalid');
+      }
+
+      setState(() {
+        _currentLocation = LatLng(pos.latitude, pos.longitude);
+      });
+
+      debugPrint('Current location set successfully');
+    } catch (e) {
+      debugPrint('Error getting current location: $e');
+
+      // Try to get last known position as fallback
+      try {
+        debugPrint('Trying to get last known position...');
+        Position? lastPos = await Geolocator.getLastKnownPosition();
+
+        if (lastPos != null) {
+          debugPrint(
+              'Last known location: ${lastPos.latitude}, ${lastPos.longitude}');
+          setState(() {
+            _currentLocation = LatLng(lastPos.latitude, lastPos.longitude);
+          });
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                    'Using last known location. Current location unavailable.'),
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
+        } else {
+          debugPrint('No last known location available');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                    'Unable to determine your location. Please check your location settings.'),
+                duration: Duration(seconds: 5),
+              ),
+            );
+          }
+        }
+      } catch (lastPosError) {
+        debugPrint('Error getting last known position: $lastPosError');
+      }
+
+      // Don't rethrow the error, let the app continue without current location
+    }
   }
 
   Future<void> _loadFacilities() async {
@@ -120,6 +243,36 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
     setState(() {
       _facilities = f;
     });
+  }
+
+  Future<int> _getTotalWorkersByAddress(String address) async {
+    try {
+      // Count healthcare workers with matching facility.address
+      final healthcareSnap = await FirebaseFirestore.instance
+          .collection('healthcare')
+          .where('facility.address', isEqualTo: address)
+          .get();
+      int healthcareCount = healthcareSnap.docs.length;
+
+      // Count doctors with matching address in any affiliation
+      final doctorsSnap =
+          await FirebaseFirestore.instance.collection('doctors').get();
+      int doctorCount = 0;
+      for (var doc in doctorsSnap.docs) {
+        final data = doc.data();
+        if (data['affiliations'] is List) {
+          for (var aff in data['affiliations']) {
+            if (aff is Map && aff['address'] == address) {
+              doctorCount++;
+            }
+          }
+        }
+      }
+      return healthcareCount + doctorCount;
+    } catch (e) {
+      debugPrint('Error getting worker count: $e');
+      return 0;
+    }
   }
 
   void _buildMarkers() {
@@ -140,7 +293,7 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
       if (facility.coordinates == null) continue;
       final bool isSelected = i == _selectedIndex;
       markers.add(Marker(
-        markerId: MarkerId(facility.name + '_$i'),
+        markerId: MarkerId('${facility.name}_$i'),
         position: facility.coordinates!,
         infoWindow: InfoWindow(title: facility.name, snippet: facility.address),
         icon: isSelected
@@ -182,7 +335,8 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
     if (!_mapController.isCompleted) return;
     final controller = await _mapController.future;
     controller.animateCamera(
-      CameraUpdate.newCameraPosition(CameraPosition(target: target, zoom: zoom)),
+      CameraUpdate.newCameraPosition(
+          CameraPosition(target: target, zoom: zoom)),
     );
   }
 
@@ -198,6 +352,7 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
         polylineId: const PolylineId('route'),
         points: points,
         width: 6,
+        color: const Color(0xE0F44336), // Red accent color
       );
       setState(() {
         _polylines = {polyline};
@@ -265,8 +420,8 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
   void _onSeeDirectionsPressed() {
     final facility = _facilities[_selectedIndex];
     if (facility.coordinates == null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('No coordinates for this facility')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No coordinates for this facility')));
       return;
     }
     _createRouteToFacility(facility.coordinates!);
@@ -310,86 +465,13 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
     super.dispose();
   }
 
-  Widget _buildBottomCard() {
-    if (_facilities.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    final facility = _facilities[_selectedIndex];
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 8)],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: Colors.red.shade100,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(Icons.local_hospital, color: Colors.red),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(facility.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  const SizedBox(height: 4),
-                  SizedBox(
-                    width: double.infinity,
-                    child: Text(
-                      facility.address,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ]),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: _onViewContactsPressed,
-                  style: ElevatedButton.styleFrom(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      padding: const EdgeInsets.symmetric(vertical: 12)),
-                  child: const Text('View Contacts'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: _onSeeDirectionsPressed,
-                  style: OutlinedButton.styleFrom(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      padding: const EdgeInsets.symmetric(vertical: 12)),
-                  child: const Text('See Directions'),
-                ),
-              ),
-            ],
-          )
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     if (!Platform.isAndroid) {
       return Scaffold(
         appBar: AppBar(title: const Text('Facilities (Android only)')),
-        body: const Center(child: Text('This map page is intended for Android devices only.')),
+        body: const Center(
+            child: Text('This map page is intended for Android devices only.')),
       );
     }
 
@@ -401,16 +483,19 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
                 GoogleMap(
                   initialCameraPosition: CameraPosition(
                       target: _currentLocation ??
-                          (_facilities.isNotEmpty && _facilities[0].coordinates != null
+                          (_facilities.isNotEmpty &&
+                                  _facilities[0].coordinates != null
                               ? _facilities[0].coordinates!
-                              : const LatLng(7.1907, 125.4553)),
+                              : const LatLng(7.0731,
+                                  125.6128)), // Davao City center as default
                       zoom: _zoomLevel),
                   myLocationEnabled: true,
                   myLocationButtonEnabled: false,
                   markers: _markers,
                   polylines: _polylines,
                   onMapCreated: (GoogleMapController controller) {
-                    if (!_mapController.isCompleted) _mapController.complete(controller);
+                    if (!_mapController.isCompleted)
+                      _mapController.complete(controller);
                   },
                 ),
                 Positioned(
@@ -419,9 +504,31 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
                   child: FloatingActionButton.small(
                     heroTag: 'btn-recenter',
                     onPressed: () {
-                      if (_currentLocation != null) _animateCameraTo(_currentLocation!, zoom: _zoomLevel);
+                      if (_currentLocation != null)
+                        _animateCameraTo(_currentLocation!, zoom: _zoomLevel);
                     },
                     child: const Icon(Icons.my_location),
+                  ),
+                ),
+                // List View Floating Button
+                Positioned(
+                  right: 16,
+                  bottom: 280, // Position above the container
+                  child: FloatingActionButton.extended(
+                    heroTag: 'btn-list-view',
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const glist.GListFacility(),
+                        ),
+                      );
+                    },
+                    backgroundColor: const Color(0xE0F44336),
+                    foregroundColor: Colors.white,
+                    icon: const Icon(Icons.list_rounded, size: 20),
+                    label: const Text('List View',
+                        style: TextStyle(fontWeight: FontWeight.w600)),
                   ),
                 ),
                 Positioned(
@@ -429,78 +536,311 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
                   right: 0,
                   bottom: 0,
                   child: SafeArea(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
-                          height: 160,
-                          child: PageView.builder(
-                            controller: _pageController,
-                            itemCount: _facilities.length,
-                            onPageChanged: _onPageChanged,
-                            itemBuilder: (context, index) {
-                              final f = _facilities[index];
-                              final bool selected = index == _selectedIndex;
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                child: Material(
-                                  elevation: selected ? 6 : 2,
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: InkWell(
-                                    onTap: () {
-                                      _onMarkerTapped(index);
-                                    },
-                                    child: Container(
-                                      padding: const EdgeInsets.all(12),
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(12),
-                                        color: Colors.white,
-                                      ),
-                                      child: Row(
+                    child: SizedBox(
+                      height: 260, // Reduced height to prevent overflow
+                      child: PageView.builder(
+                        controller: _pageController,
+                        itemCount: _facilities.length,
+                        onPageChanged: _onPageChanged,
+                        itemBuilder: (context, index) {
+                          final facility = _facilities[index];
+                          final bool isSelected = index == _selectedIndex;
+
+                          return FutureBuilder<int>(
+                            future: _getTotalWorkersByAddress(facility.address),
+                            builder: (context, snapshot) {
+                              final count = snapshot.data ?? 0;
+                              final isActive = count > 0;
+
+                              return Container(
+                                margin: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: isSelected
+                                          ? Colors.grey.shade300
+                                          : Colors.grey.shade100,
+                                      blurRadius: isSelected ? 12 : 8,
+                                      offset: isSelected
+                                          ? const Offset(0, 4)
+                                          : const Offset(0, 2),
+                                      spreadRadius: 0,
+                                    ),
+                                  ],
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? const Color(0xE0F44336)
+                                            .withOpacity(0.2)
+                                        : Colors.grey.shade100,
+                                    width: isSelected ? 1.5 : 1,
+                                  ),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(
+                                      12), // Reduced padding
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
                                         children: [
+                                          // Modern Facility Icon
                                           Container(
-                                            width: 54,
-                                            height: 54,
+                                            padding: const EdgeInsets.all(10),
                                             decoration: BoxDecoration(
-                                              color: Colors.red.shade50,
-                                              borderRadius: BorderRadius.circular(8),
+                                              gradient: LinearGradient(
+                                                colors: [
+                                                  const Color(0xE0F44336)
+                                                      .withOpacity(0.1),
+                                                  const Color(0xE0F44336)
+                                                      .withOpacity(0.05),
+                                                ],
+                                                begin: Alignment.topLeft,
+                                                end: Alignment.bottomRight,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
                                             ),
-                                            child: const Icon(Icons.local_hospital, color: Colors.red),
+                                            child: const Icon(
+                                              Icons.local_hospital_rounded,
+                                              color: Color(0xE0F44336),
+                                              size: 20,
+                                            ),
                                           ),
-                                          const SizedBox(width: 10),
+                                          const SizedBox(width: 12),
+                                          // Facility Name and Status
                                           Expanded(
                                             child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
                                               children: [
-                                                Text(f.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                                                const SizedBox(height: 6),
-                                                Text(f.address, style: const TextStyle(fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
+                                                Text(
+                                                  facility.name,
+                                                  style: const TextStyle(
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: Color(0xFF1A1A1A),
+                                                    letterSpacing: -0.2,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Container(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 4),
+                                                  decoration: BoxDecoration(
+                                                    color: isActive
+                                                        ? const Color(
+                                                                0xFF10B981)
+                                                            .withOpacity(0.1)
+                                                        : Colors.grey.shade100,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            12),
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                      Container(
+                                                        width: 4,
+                                                        height: 4,
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          color: isActive
+                                                              ? const Color(
+                                                                  0xFF10B981)
+                                                              : Colors.grey
+                                                                  .shade400,
+                                                          shape:
+                                                              BoxShape.circle,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 6),
+                                                      Text(
+                                                        isActive
+                                                            ? 'Active'
+                                                            : 'No Workers',
+                                                        style: TextStyle(
+                                                          fontSize: 10,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          color: isActive
+                                                              ? const Color(
+                                                                  0xFF10B981)
+                                                              : Colors.grey
+                                                                  .shade600,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
                                               ],
                                             ),
                                           ),
-                                          const SizedBox(width: 8),
-                                          IconButton(
-                                            icon: const Icon(Icons.directions),
-                                            onPressed: () {
-                                              _onMarkerTapped(index);
-                                              _onSeeDirectionsPressed();
-                                            },
-                                          )
                                         ],
                                       ),
-                                    ),
+                                      const SizedBox(height: 12),
+                                      // Address with modern styling
+                                      Container(
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey.shade50,
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            const Icon(
+                                              Icons.location_on_rounded,
+                                              color: Color(0xFF6B7280),
+                                              size: 14,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                facility.address,
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  color: Color(0xFF374151),
+                                                  height: 1.4,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(height: 10),
+                                      // Health Workers Count
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 10, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            colors: [
+                                              const Color(0xE0F44336)
+                                                  .withOpacity(0.08),
+                                              const Color(0xE0F44336)
+                                                  .withOpacity(0.04),
+                                            ],
+                                            begin: Alignment.centerLeft,
+                                            end: Alignment.centerRight,
+                                          ),
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                          border: Border.all(
+                                            color: const Color(0xE0F44336)
+                                                .withOpacity(0.1),
+                                          ),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.all(4),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xE0F44336)
+                                                    .withOpacity(0.1),
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
+                                              ),
+                                              child: const Icon(
+                                                Icons.people_rounded,
+                                                color: Color(0xE0F44336),
+                                                size: 12,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              '$count Health Worker${count != 1 ? 's' : ''} Available',
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600,
+                                                color: Color(0xE0F44336),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      // Buttons section - made more compact
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: ElevatedButton(
+                                              onPressed: () =>
+                                                  _onViewContactsPressed(),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor:
+                                                    const Color(0xE0F44336),
+                                                foregroundColor: Colors.white,
+                                                elevation: 0,
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                                padding: const EdgeInsets
+                                                    .symmetric(
+                                                    vertical:
+                                                        8), // Reduced padding
+                                                minimumSize: const Size(
+                                                    0, 36), // Set minimum size
+                                              ),
+                                              child: const Text('Contacts',
+                                                  style: TextStyle(
+                                                      fontSize:
+                                                          11, // Reduced font size
+                                                      fontWeight:
+                                                          FontWeight.w600)),
+                                            ),
+                                          ),
+                                          const SizedBox(
+                                              width: 8), // Reduced spacing
+                                          Expanded(
+                                            child: OutlinedButton(
+                                              onPressed: () =>
+                                                  _onSeeDirectionsPressed(),
+                                              style: OutlinedButton.styleFrom(
+                                                side: const BorderSide(
+                                                    color: Color(0xE0F44336),
+                                                    width: 1.5),
+                                                foregroundColor:
+                                                    const Color(0xE0F44336),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                                padding: const EdgeInsets
+                                                    .symmetric(
+                                                    vertical:
+                                                        8), // Reduced padding
+                                                minimumSize: const Size(
+                                                    0, 36), // Set minimum size
+                                              ),
+                                              child: const Text('Directions',
+                                                  style: TextStyle(
+                                                      fontSize:
+                                                          11, // Reduced font size
+                                                      fontWeight:
+                                                          FontWeight.w600)),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
                                 ),
                               );
                             },
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                          child: _buildBottomCard(),
-                        ),
-                      ],
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import './hlanding_page.dart';
-import './happointment.dart';
+import './hmessages.dart';
 import './haccount.dart' show HAccount;
 
 class HealthMainWrapper extends StatefulWidget {
@@ -16,19 +16,21 @@ class _HealthMainWrapperState extends State<HealthMainWrapper> {
 
   static final List<Widget> _pages = [
     const Hlandingpage(), // Home page
-    const Happointment(), // Appointments page
-    HAccount(), // Account settings page (removed const)
+    const Hmessages(), // My Care page
+    HAccount(), // Account settings page
   ];
 
   @override
   void initState() {
     super.initState();
-    _selectedIndex = widget.initialIndex;
+    _selectedIndex = widget.initialIndex
+        .clamp(0, _pages.length - 1)
+        .toInt();
   }
 
   void _onNavTap(int index) {
     setState(() {
-      _selectedIndex = index % _pages.length;
+      _selectedIndex = index.clamp(0, _pages.length - 1).toInt();
     });
   }
 
@@ -42,22 +44,65 @@ class _HealthMainWrapperState extends State<HealthMainWrapper> {
           currentIndex: _selectedIndex,
           onTap: _onNavTap,
           selectedItemColor: Colors.redAccent,
-          unselectedItemColor: Colors.grey,
+          unselectedItemColor: Colors.grey.shade400,
+          selectedFontSize: 12,
+          unselectedFontSize: 12,
           type: BottomNavigationBarType.fixed,
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home),
-              label: "Home",
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.notifications),
-              label: "Appointments",
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.account_circle),
-              label: "Account",
-            ),
-          ],
+          backgroundColor: Colors.white,
+          elevation: 8,
+          items: [
+                BottomNavigationBarItem(
+                  icon: Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: EdgeInsets.all(_selectedIndex == 0 ? 8.0 : 5.0),
+                      decoration: BoxDecoration(
+                        color: _selectedIndex == 0 
+                            ? Colors.redAccent.withOpacity(0.1)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.home_rounded),
+                    ),
+                  ),
+                  label: "Home",
+                ),
+                BottomNavigationBarItem(
+                  icon: Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: EdgeInsets.all(_selectedIndex == 1 ? 8.0 : 5.0),
+                      decoration: BoxDecoration(
+                        color: _selectedIndex == 1
+                            ? Colors.redAccent.withOpacity(0.1)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.medical_services_rounded),
+                    ),
+                  ),
+                  label: "My Care",
+                ),
+                BottomNavigationBarItem(
+                  icon: Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: EdgeInsets.all(_selectedIndex == 2 ? 8.0 : 5.0),
+                      decoration: BoxDecoration(
+                        color: _selectedIndex == 2
+                            ? Colors.redAccent.withOpacity(0.1)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.person_rounded),
+                    ),
+                  ),
+                  label: "Account",
+                ),
+              ],
         ),
       ),
     );

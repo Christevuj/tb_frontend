@@ -8,12 +8,15 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:tb_frontend/models/facility.dart';
+import 'package:tb_frontend/services/chat_service.dart';
+import 'package:tb_frontend/chat_screens/health_chat_screen.dart';
 
 // Replace this import with the actual path in your project:
 import 'package:tb_frontend/services/facility_repository.dart';
 import 'plistfacility.dart' as glist;
-import 'phealthworker.dart';
+
 
 class PtbfacilityPage extends StatefulWidget {
   final String? selectedFacilityName;
@@ -64,8 +67,14 @@ class _PtbfacilityPageState extends State<PtbfacilityPage> {
   static const double _zoomLevel = 15.0;
 
   @override
+  @override
   void initState() {
     super.initState();
+    
+    // Debug: Check authentication status when page loads
+    final user = FirebaseAuth.instance.currentUser;
+    debugPrint('🗺️ PtbfacilityPage loaded. Auth User: ${user?.uid ?? "NOT LOGGED IN"}, Email: ${user?.email ?? "N/A"}');
+    
     if (!Platform.isAndroid) {
       // This page is intended for Android only per your request.
       setState(() => _loading = false);
@@ -1071,49 +1080,92 @@ class _PtbfacilityPageState extends State<PtbfacilityPage> {
     final position = worker['position'] ?? worker['type'] ?? 'No info';
     final profilePicture = worker['profilePicture'] as String?;
     final type = worker['type'] ?? 'Health Worker';
+    final isDoctor = type == 'Doctor';
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.shade300,
-            blurRadius: 8,
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 12,
             offset: const Offset(0, 4),
+            spreadRadius: 0,
           ),
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                // Profile Picture
-                CircleAvatar(
-                  radius: 30,
-                  backgroundColor: const Color(0xE0F44336),
-                  backgroundImage:
-                      profilePicture != null && profilePicture.isNotEmpty
-                          ? NetworkImage(profilePicture)
-                          : null,
-                  child: profilePicture == null || profilePicture.isEmpty
-                      ? Text(
-                          name.isNotEmpty ? name[0].toUpperCase() : '?',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
+                // Modern Profile Icon/Image
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: isDoctor
+                          ? [
+                              Colors.blue,
+                              Colors.blue.withOpacity(0.8),
+                            ]
+                          : [
+                              const Color(0xE0F44336),
+                              const Color(0xE0F44336).withOpacity(0.8),
+                            ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: (isDoctor ? Colors.blue : const Color(0xE0F44336))
+                            .withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: profilePicture != null && profilePicture.isNotEmpty
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: Image.network(
+                            profilePicture,
+                            fit: BoxFit.cover,
+                            cacheWidth: 120,
+                            cacheHeight: 120,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Center(
+                                child: Text(
+                                  name.isNotEmpty ? name[0].toUpperCase() : '?',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              );
+                            },
                           ),
                         )
-                      : null,
+                      : Center(
+                          child: Text(
+                            name.isNotEmpty ? name[0].toUpperCase() : '?',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
                 ),
-                const SizedBox(width: 16),
-
-                // Worker Details
+                const SizedBox(width: 12),
+                // Name and Status
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1121,148 +1173,296 @@ class _PtbfacilityPageState extends State<PtbfacilityPage> {
                       Text(
                         name,
                         style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF2C3E50),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1A1A1A),
+                          letterSpacing: -0.2,
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: type == 'Doctor'
-                              ? const Color.fromARGB(255, 243, 33, 33)
-                                  .withOpacity(0.1)
-                              : const Color.fromRGBO(244, 67, 54, 0.878)
-                                  .withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          position,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: type == 'Doctor'
-                                ? Colors.blue
-                                : const Color(0xE0F44336),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.email_outlined,
-                            color: Color(0xFF7F8C8D),
-                            size: 16,
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              email,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: Color(0xFF7F8C8D),
-                              ),
-                            ),
-                          ),
-                        ],
                       ),
                       const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.phone_outlined,
-                            color: Color(0xFF7F8C8D),
-                            size: 16,
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              phone,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: Color(0xFF7F8C8D),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isDoctor
+                              ? Colors.blue.withOpacity(0.1)
+                              : const Color(0xFF10B981).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 4,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: isDoctor
+                                    ? Colors.blue
+                                    : const Color(0xFF10B981),
+                                shape: BoxShape.circle,
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      // Show specialization for doctors
-                      if (type == 'Doctor' &&
-                          worker['specialization'] != null) ...[
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.medical_services_outlined,
-                              color: Color(0xFF7F8C8D),
-                              size: 16,
-                            ),
                             const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                worker['specialization'],
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  color: Color(0xFF7F8C8D),
-                                ),
+                            Text(
+                              position,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: isDoctor
+                                    ? Colors.blue
+                                    : const Color(0xFF10B981),
                               ),
                             ),
                           ],
                         ),
-                      ],
+                      ),
                     ],
                   ),
                 ),
               ],
             ),
-            // Messenger-style Message Button
-            Padding(
-              padding: const EdgeInsets.only(top: 12.0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        // TODO: Implement messaging for all staff (doctor or non-doctor)
-                      },
-                      child: Container(
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: Colors.redAccent,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.messenger_outline,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Message',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 15,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+            const SizedBox(height: 12),
+            // Contact Information with modern styling
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.7),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: Colors.grey.shade200,
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
                   ),
                 ],
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.email_rounded,
+                        color: Color(0xFF6B7280),
+                        size: 14,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          email,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF374151),
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.phone_rounded,
+                        color: Color(0xFF6B7280),
+                        size: 14,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          phone,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF374151),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  // Show specialization for doctors
+                  if (isDoctor && worker['specialization'] != null) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.medical_services_rounded,
+                          color: Color(0xFF6B7280),
+                          size: 14,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            worker['specialization'],
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF374151),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            // Message Button - Modern Style matching facility cards
+            const SizedBox(height: 12),
+            Builder(
+              builder: (context) => ElevatedButton.icon(
+                onPressed: () => _handleMessageTap(
+                  context: context,
+                  workerId: worker['id'] ?? '',
+                  workerName: name,
+                  workerType: type,
+                  profilePicture: profilePicture,
+                ),
+                icon: const Icon(Icons.message_rounded, size: 16),
+                label: Text('Message ${type == 'Doctor' ? 'Doctor' : 'Health Worker'}'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xE0F44336),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 44),
+                  elevation: 4,
+                  shadowColor: const Color(0xE0F44336).withOpacity(0.3),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _handleMessageTap({
+    required BuildContext context,
+    required String workerId,
+    required String workerName,
+    required String workerType,
+    String? profilePicture,
+  }) async {
+    try {
+      // Show loading indicator
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                ),
+                SizedBox(width: 12),
+                Text('Opening chat...'),
+              ],
+            ),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+
+      // Wait a moment for auth state to stabilize
+      await Future.delayed(const Duration(milliseconds: 300));
+      
+      // Try to reload the user in case the auth state is stale
+      await FirebaseAuth.instance.currentUser?.reload();
+      final currentUser = FirebaseAuth.instance.currentUser;
+      
+      debugPrint('🔍 Checking auth state: User = ${currentUser?.uid ?? "null"}, Email = ${currentUser?.email ?? "null"}');
+      
+      if (currentUser == null) {
+        debugPrint('❌ No authenticated user found');
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Authentication error. Please log in again.'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+        return;
+      }
+
+      final authUid = currentUser.uid;
+      debugPrint('💬 Opening chat with $workerType: $workerName (ID: $workerId)');
+
+      // Initialize ChatService
+      final chatService = ChatService();
+
+      // Ensure both users exist in Firestore users collection
+      final patientName = await _resolvePatientName(authUid);
+      await chatService.createUserDoc(
+        userId: authUid,
+        name: patientName,
+        role: 'patient',
+      );
+      await chatService.createUserDoc(
+        userId: workerId,
+        name: workerName,
+        role: workerType == 'Doctor' ? 'doctor' : 'healthcare',
+      );
+
+      debugPrint('✅ Opening chat with $workerType: $workerName');
+
+      // Navigate to chat screen
+      if (context.mounted) {
+        // Close the contacts popup first
+        Navigator.of(context).pop();
+        
+        // Then navigate to chat screen
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PatientHealthWorkerChatScreen(
+              currentUserId: authUid,
+              healthWorkerId: workerId,
+              healthWorkerName: workerName,
+              healthWorkerProfilePicture: profilePicture,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Error in _handleMessageTap: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error opening chat: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<String> _resolvePatientName(String userId) async {
+    try {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .get();
+      if (userDoc.exists) {
+        return userDoc.data()?['name'] ?? 'Patient';
+      }
+      return 'Patient';
+    } catch (e) {
+      debugPrint('❌ Error resolving patient name: $e');
+      return 'Patient';
+    }
   }
 
   @override
@@ -1517,6 +1717,10 @@ class _PtbfacilityPageState extends State<PtbfacilityPage> {
                   child: FloatingActionButton.extended(
                     heroTag: 'btn-list-view',
                     onPressed: () {
+                      // Debug: Check auth before navigating
+                      final user = FirebaseAuth.instance.currentUser;
+                      debugPrint('📋 Navigating to List View. Auth User: ${user?.uid ?? "NOT LOGGED IN"}');
+                      
                       Navigator.push(
                         context,
                         MaterialPageRoute(

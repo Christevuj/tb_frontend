@@ -3,9 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:tb_frontend/patient/pdoclist.dart';
 import 'package:tb_frontend/guest/gconsultant.dart';
-import 'package:tb_frontend/patient/plistfacility.dart';
 import 'package:tb_frontend/patient/ptbfacility.dart';
-import 'package:tb_frontend/guest/gtbfacility.dart';
 
 // ✅ Import YouTube player
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
@@ -79,10 +77,8 @@ class _PlandingPageState extends State<PlandingPage> {
                       const GConsultant()),
                   _quickAction(context, Icons.calendar_today,
                       'Book\nAppointment', const Pdoclist()),
-                  _quickAction(context, Icons.medical_services,
-                      'Healthcare\nProviders', const Plistfacility()),
                   _quickAction(context, Icons.local_hospital,
-                      'Facility\nLocator', const PtbfacilityPage()),
+                      'Facility\nLocator', PtbfacilityPage()),
                 ],
               ),
               const SizedBox(height: 24),
@@ -277,22 +273,11 @@ class _PlandingPageState extends State<PlandingPage> {
             return;
           }
         }
-        // If destination is GtbfacilityPage, pass allowDoctorMessage: true
-        if (destination is GtbfacilityPage) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => GtbfacilityPage(
-                selectedFacilityName: destination.selectedFacilityName,
-                selectedFacilityAddress: destination.selectedFacilityAddress,
-                allowDoctorMessage: true,
-              ),
-            ),
-          );
-        } else {
-          Navigator.push(
-              context, MaterialPageRoute(builder: (context) => destination));
-        }
+        // Navigate to destination
+        Navigator.push(
+          context, 
+          MaterialPageRoute(builder: (context) => destination)
+        );
       },
       child: Column(
         children: [

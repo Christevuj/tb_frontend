@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:tb_frontend/patient/phealthworker.dart';
 import 'ptbfacility.dart';
 
@@ -54,6 +55,11 @@ class _PlistfacilityState extends State<Plistfacility> {
   @override
   void initState() {
     super.initState();
+    
+    // Debug: Check authentication status when page loads
+    final user = FirebaseAuth.instance.currentUser;
+    debugPrint('📋 Plistfacility loaded. Auth User: ${user?.uid ?? "NOT LOGGED IN"}, Email: ${user?.email ?? "N/A"}');
+    
     _searchController.addListener(() {
       final query = _searchController.text.toLowerCase();
       setState(() {
@@ -158,6 +164,10 @@ class _PlistfacilityState extends State<Plistfacility> {
   ];
 
   void _onViewContactsPressed(Facility facility) {
+    // Debug: Check auth before navigating
+    final user = FirebaseAuth.instance.currentUser;
+    debugPrint('👥 Navigating to Phealthworker. Auth User: ${user?.uid ?? "NOT LOGGED IN"}, Email: ${user?.email ?? "N/A"}');
+    
     // Navigate directly to GHealthWorkers page with the selected facility
     Navigator.push(
       context,

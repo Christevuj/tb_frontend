@@ -15,6 +15,7 @@ class Pmessages extends StatefulWidget {
 class _PmessagesState extends State<Pmessages> {
   final ChatService _chatService = ChatService();
   String? _currentUserId;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -76,6 +77,42 @@ class _PmessagesState extends State<Pmessages> {
             data['name'] != null &&
             (data['name'] as String).trim().isNotEmpty) {
           return data['name'];
+        }
+      }
+
+      // Check healthcare workers collection (patient-to-healthcare chats)
+      final healthcareDoc = await FirebaseFirestore.instance
+          .collection('healthcare')
+          .doc(doctorId)
+          .get();
+      if (healthcareDoc.exists) {
+        final data = healthcareDoc.data();
+        if (data != null) {
+          final fullName = data['fullName'];
+          if (fullName is String && fullName.trim().isNotEmpty) {
+            return fullName.trim();
+          }
+          final name = data['name'];
+          if (name is String && name.trim().isNotEmpty) {
+            return name.trim();
+          }
+        }
+      } else {
+        final altHealthcareQuery = await FirebaseFirestore.instance
+            .collection('healthcare')
+            .where('authUid', isEqualTo: doctorId)
+            .limit(1)
+            .get();
+        if (altHealthcareQuery.docs.isNotEmpty) {
+          final data = altHealthcareQuery.docs.first.data();
+          final fullName = data['fullName'];
+          if (fullName is String && fullName.trim().isNotEmpty) {
+            return fullName.trim();
+          }
+          final name = data['name'];
+          if (name is String && name.trim().isNotEmpty) {
+            return name.trim();
+          }
         }
       }
 
@@ -207,6 +244,44 @@ class _PmessagesState extends State<Pmessages> {
     }
   }
 
+  // Helper method to get role label and color
+  Map<String, dynamic> _getRoleInfo(String? roleValue) {
+    final role = roleValue?.toLowerCase();
+    
+    switch (role) {
+      case 'healthcare':
+        return {
+          'label': 'Health Worker',
+          'color': Colors.redAccent,
+          'gradientColors': [Colors.redAccent, Colors.red.shade400],
+        };
+      case 'doctor':
+        return {
+          'label': 'Doctor',
+          'color': Colors.blueAccent,
+          'gradientColors': [Colors.blueAccent, Colors.blue.shade400],
+        };
+      case 'patient':
+        return {
+          'label': 'Patient',
+          'color': Colors.teal,
+          'gradientColors': [Colors.teal, Colors.teal.shade400],
+        };
+      case 'guest':
+        return {
+          'label': 'Guest',
+          'color': Colors.orange,
+          'gradientColors': [Colors.orange, Colors.orangeAccent],
+        };
+      default:
+        return {
+          'label': null,
+          'color': Colors.redAccent,
+          'gradientColors': [Colors.redAccent, Colors.red.shade400],
+        };
+    }
+  }
+
   // Stream list of doctors that the patient has messaged (real-time updates)
   Stream<List<Map<String, dynamic>>> _streamMessagedDoctors() {
     if (_currentUserId == null) {
@@ -240,12 +315,51 @@ class _PmessagesState extends State<Pmessages> {
           print('Found doctor ID: $doctorId');
           final doctorName = await _getDoctorName(doctorId);
           print('Doctor name: $doctorName');
+          
+          // Determine role by checking healthcare collection first, then fall back to doctor
+          String contactRole = 'doctor';
+          try {
+            // Check if user exists in healthcare collection
+            final healthcareDoc = await FirebaseFirestore.instance
+                .collection('healthcare')
+                .doc(doctorId)
+                .get();
+            
+            if (healthcareDoc.exists) {
+              contactRole = 'healthcare';
+            } else {
+              // Also check by authUid field
+              final healthcareQuery = await FirebaseFirestore.instance
+                  .collection('healthcare')
+                  .where('authUid', isEqualTo: doctorId)
+                  .limit(1)
+                  .get();
+              
+              if (healthcareQuery.docs.isNotEmpty) {
+                contactRole = 'healthcare';
+              } else {
+                // Check users collection for role field
+                final userDoc = await FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(doctorId)
+                    .get();
+                if (userDoc.exists) {
+                  final userData = userDoc.data();
+                  contactRole = userData?['role'] ?? 'doctor';
+                }
+              }
+            }
+          } catch (e) {
+            print('Error determining role for $doctorId: $e');
+            contactRole = 'doctor';
+          }
 
           messagedDoctors.add({
             'id': doctorId,
             'name': doctorName,
             'lastMessage': chatData['lastMessage'] ?? 'No messages yet',
             'lastTimestamp': chatData['lastTimestamp'],
+            'role': contactRole,
           });
         }
       }
@@ -333,7 +447,7 @@ class _PmessagesState extends State<Pmessages> {
                                   ),
                                   SizedBox(height: 4),
                                   Text(
-                                    'Chat with your doctors',
+                                    'Chat with your care team',
                                     style: TextStyle(
                                       color: Colors.white70,
                                       fontSize: 16,
@@ -370,7 +484,7 @@ class _PmessagesState extends State<Pmessages> {
             ),
           ),
 
-          // Search bar
+          // Search bar (optimized)
           SliverPadding(
             padding: const EdgeInsets.all(20),
             sliver: SliverToBoxAdapter(
@@ -379,15 +493,17 @@ class _PmessagesState extends State<Pmessages> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+                  border: Border.all(
+                    color: Colors.grey.shade300,
+                    width: 1,
+                  ),
                 ),
                 child: TextField(
+                  onChanged: (value) {
+                    setState(() {
+                      _searchQuery = value.toLowerCase();
+                    });
+                  },
                   decoration: InputDecoration(
                     hintText: 'Search conversations...',
                     hintStyle: TextStyle(
@@ -503,7 +619,7 @@ class _PmessagesState extends State<Pmessages> {
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 40),
                             child: Text(
-                              'Start a conversation with your doctors after booking appointments. They will appear here once you have exchanged messages.',
+                                  'Start a conversation with your care team after booking appointments. They will appear here once you have exchanged messages.',
                               style: TextStyle(
                                 color: Colors.grey.shade600,
                                 fontSize: 16,
@@ -528,25 +644,39 @@ class _PmessagesState extends State<Pmessages> {
 
                 final doctors = snapshot.data!;
 
+                // Filter doctors based on search query
+                final filteredDoctors = _searchQuery.isEmpty
+                    ? doctors
+                    : doctors.where((doctor) {
+                        final name = (doctor['name'] as String? ?? '').toLowerCase();
+                        final lastMessage = (doctor['lastMessage'] as String? ?? '').toLowerCase();
+                        return name.contains(_searchQuery) || lastMessage.contains(_searchQuery);
+                      }).toList();
+
                 return SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
-                      final doctor = doctors[index];
+                      final doctor = filteredDoctors[index];
                       final doctorName = doctor['name'];
                       final doctorId = doctor['id'];
+                      final String? roleValue = (doctor['role'] as String?)?.toLowerCase();
+                      
+                      // Get role information using helper method
+                      final roleInfo = _getRoleInfo(roleValue);
+                      final String? roleLabel = roleInfo['label'] as String?;
+                      final Color roleColor = roleInfo['color'] as Color;
+                      final List<Color> avatarGradient = roleInfo['gradientColors'] as List<Color>;
 
-                      return Container(
+                      return RepaintBoundary(
+                        child: Container(
                         margin: const EdgeInsets.symmetric(vertical: 6),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.04),
-                              blurRadius: 15,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
+                          border: Border.all(
+                            color: Colors.grey.shade200,
+                            width: 1,
+                          ),
                         ),
                         child: Material(
                           color: Colors.transparent,
@@ -563,7 +693,7 @@ class _PmessagesState extends State<Pmessages> {
                               padding: const EdgeInsets.all(14),
                               child: Row(
                                 children: [
-                                  // Avatar with online status
+                                  // Avatar with online status (optimized)
                                   Stack(
                                     children: [
                                       Container(
@@ -573,17 +703,13 @@ class _PmessagesState extends State<Pmessages> {
                                           gradient: LinearGradient(
                                             begin: Alignment.topLeft,
                                             end: Alignment.bottomRight,
-                                            colors: [
-                                              Colors.redAccent,
-                                              Colors.deepOrange.shade400,
-                                            ],
+                                            colors: avatarGradient,
                                           ),
                                           borderRadius:
                                               BorderRadius.circular(12),
                                           boxShadow: [
                                             BoxShadow(
-                                              color: Colors.redAccent
-                                                  .withOpacity(0.3),
+                                              color: roleColor.withOpacity(0.3),
                                               blurRadius: 8,
                                               offset: const Offset(0, 2),
                                             ),
@@ -607,12 +733,11 @@ class _PmessagesState extends State<Pmessages> {
                                         bottom: 2,
                                         right: 2,
                                         child: Container(
-                                          width: 16,
-                                          height: 16,
+                                          width: 12,
+                                          height: 12,
                                           decoration: BoxDecoration(
                                             color: Colors.green,
-                                            borderRadius:
-                                                BorderRadius.circular(8),
+                                            shape: BoxShape.circle,
                                             border: Border.all(
                                               color: Colors.white,
                                               width: 2,
@@ -634,14 +759,41 @@ class _PmessagesState extends State<Pmessages> {
                                               MainAxisAlignment.spaceBetween,
                                           children: [
                                             Expanded(
-                                              child: Text(
-                                                doctorName,
-                                                style: const TextStyle(
-                                                  fontSize: 17,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: Color(0xFF1A1A1A),
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
+                                              child: Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: Text(
+                                                      doctorName,
+                                                      style: const TextStyle(
+                                                        fontSize: 17,
+                                                        fontWeight: FontWeight.w600,
+                                                        color: Color(0xFF1A1A1A),
+                                                      ),
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                  if (roleLabel != null) ...[
+                                                    const SizedBox(width: 8),
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(
+                                                        horizontal: 10,
+                                                        vertical: 4,
+                                                      ),
+                                                      decoration: BoxDecoration(
+                                                        color: roleColor.withOpacity(0.12),
+                                                        borderRadius: BorderRadius.circular(12),
+                                                      ),
+                                                      child: Text(
+                                                        roleLabel,
+                                                        style: TextStyle(
+                                                          color: roleColor,
+                                                          fontSize: 11,
+                                                          fontWeight: FontWeight.w600,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ],
                                               ),
                                             ),
                                             Text(
@@ -675,29 +827,15 @@ class _PmessagesState extends State<Pmessages> {
                                       ],
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
-                                  // Arrow icon
-                                  Container(
-                                    width: 32,
-                                    height: 32,
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey.shade50,
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    child: Icon(
-                                      Icons.arrow_forward_ios_rounded,
-                                      color: Colors.grey.shade400,
-                                      size: 16,
-                                    ),
-                                  ),
                                 ],
                               ),
                             ),
                           ),
                         ),
+                        ),
                       );
                     },
-                    childCount: doctors.length,
+                    childCount: filteredDoctors.length,
                   ),
                 );
               },

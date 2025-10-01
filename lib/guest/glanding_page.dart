@@ -3,7 +3,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:tb_frontend/guest/gappointment.dart';
 import 'package:tb_frontend/guest/gconsultant.dart';
 import 'package:tb_frontend/guest/gtbfacility.dart';
-import 'package:tb_frontend/guest/glistfacility.dart';
 
 // ✅ Import YouTube player
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
@@ -77,8 +76,6 @@ class _GlandingPageState extends State<GlandingPage> {
                       const GConsultant()),
                   _quickAction(context, Icons.calendar_today,
                       'Book\nAppointment', const Gappointment()),
-                  _quickAction(context, Icons.medical_services,
-                      'Healthcare\nProviders', const GListFacility()),
                   _quickAction(context, Icons.local_hospital,
                       'Facility\nLocator', const GtbfacilityPage()),
                 ],

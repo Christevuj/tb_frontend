@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../chat_screens/guest_healthworker_chat_screen.dart';
+import '../services/chat_service.dart';
 
 class GHealthWorkers extends StatelessWidget {
   final String facilityId;
@@ -422,51 +425,26 @@ class GHealthWorkers extends StatelessWidget {
               child: Row(
                 children: [
                   Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        if (worker['type'] == 'Doctor') {
-                          showDialog(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('Login Required'),
-                              content: const Text(
-                                  'You need to login to message a doctor.'),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.of(context).pop(),
-                                  child: const Text('OK'),
-                                ),
-                              ],
-                            ),
-                          );
-                        } else {
-                          // TODO: Implement messaging for non-doctor
-                        }
-                      },
-                      child: Container(
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: Colors.redAccent,
-                          borderRadius: BorderRadius.circular(12),
+                    child: Builder(
+                      builder: (context) => ElevatedButton.icon(
+                        onPressed: () => _handleMessageTap(
+                          context: context,
+                          workerId: worker['id'] ?? '',
+                          workerName: name,
+                          workerType: type,
+                          profilePicture: profilePicture,
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.messenger_outline,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Message',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 15,
-                              ),
-                            ),
-                          ],
+                        icon: const Icon(Icons.message_rounded, size: 16),
+                        label: Text('Message ${type == 'Doctor' ? 'Doctor' : 'Health Worker'}'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xE0F44336),
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(double.infinity, 44),
+                          elevation: 4,
+                          shadowColor: const Color(0xE0F44336).withOpacity(0.3),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
                         ),
                       ),
                     ),
@@ -478,5 +456,158 @@ class GHealthWorkers extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _handleMessageTap({
+    required BuildContext context,
+    required String workerId,
+    required String workerName,
+    required String workerType,
+    String? profilePicture,
+  }) async {
+    // If it's a doctor, show the restriction dialog
+    if (workerType == 'Doctor') {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(
+                Icons.info_outline_rounded,
+                color: Colors.redAccent,
+                size: 24,
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Login Required',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF2C2C2C),
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            'You need to create an account and login to message doctors.',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey.shade600,
+              height: 1.4,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'OK',
+                style: TextStyle(
+                  color: Colors.redAccent,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    // For health workers, allow messaging
+    try {
+      // Try to get current user, or create a temporary guest ID
+      User? currentUser = FirebaseAuth.instance.currentUser;
+      String guestUid;
+      
+      if (currentUser == null) {
+        // Try anonymous sign-in first
+        try {
+          debugPrint('Guest not authenticated, attempting anonymous sign-in...');
+          final userCredential = await FirebaseAuth.instance.signInAnonymously();
+          currentUser = userCredential.user;
+          if (currentUser != null) {
+            guestUid = currentUser.uid;
+            debugPrint('Guest signed in anonymously with UID: $guestUid');
+          } else {
+            throw Exception('Anonymous sign-in returned null user');
+          }
+        } catch (authError) {
+          // If anonymous auth is disabled, use a device-based temporary ID
+          debugPrint('Anonymous auth not available: $authError');
+          debugPrint('Using temporary guest ID...');
+          
+          // Generate a unique temporary guest ID
+          final timestamp = DateTime.now().millisecondsSinceEpoch;
+          guestUid = 'guest_$timestamp';
+          
+          // Show info to user that they're using temporary guest mode
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Opening chat as temporary guest'),
+                backgroundColor: Colors.orange,
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 2),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            );
+          }
+        }
+      } else {
+        guestUid = currentUser.uid;
+      }
+
+      // Create/update user documents with proper roles
+      final ChatService chatService = ChatService();
+      
+      // Register guest user with 'guest' role
+      await chatService.createUserDoc(
+        userId: guestUid,
+        name: 'Anonymous',
+        role: 'guest',
+      );
+      
+      // Register health worker
+      await chatService.createUserDoc(
+        userId: workerId,
+        name: workerName,
+        role: 'healthcare',
+      );
+
+      // Navigate to guest-healthworker chat screen
+      if (context.mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => GuestHealthWorkerChatScreen(
+              guestId: guestUid,
+              healthWorkerId: workerId,
+              healthWorkerName: workerName,
+              healthWorkerProfilePicture: profilePicture,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error opening chat: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error opening chat: $e'),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+    }
   }
 }

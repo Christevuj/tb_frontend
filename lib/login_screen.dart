@@ -79,6 +79,8 @@ class TBisitaLoginScreen extends StatelessWidget {
               homePage = const PatientMainWrapper(initialIndex: 0);
             } else if (role == 'doctor') {
               homePage = const DoctorMainWrapper(initialIndex: 0);
+            } else if (role == 'healthcare' || role == 'Health Worker') {
+              homePage = const HealthMainWrapper(initialIndex: 0);
             } else if (role == 'admin') {
               homePage = const AdminLogin();
             } else {
@@ -290,14 +292,25 @@ class TBisitaLoginScreen extends StatelessWidget {
               const SizedBox(height: 15),
               Center(
                 child: TextButton(
-                  onPressed: () {
-                    // Directly navigate to guest mode without logout
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const GuestMainWrapper()),
-                      (route) => false,
-                    );
+                  onPressed: () async {
+                    // Try to sign in anonymously for guest mode, or just navigate
+                    try {
+                      await FirebaseAuth.instance.signInAnonymously();
+                      debugPrint('Guest signed in anonymously');
+                    } catch (e) {
+                      // If anonymous auth is disabled, just proceed without auth
+                      debugPrint('Anonymous auth not available, proceeding as guest: $e');
+                    }
+                    
+                    // Navigate to guest mode regardless
+                    if (context.mounted) {
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const GuestMainWrapper()),
+                        (route) => false,
+                      );
+                    }
                   },
                   child: const Text(
                     'Guest Mode',

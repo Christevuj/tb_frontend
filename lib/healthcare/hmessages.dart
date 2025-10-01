@@ -2,141 +2,193 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../services/chat_service.dart';
 import '../chat_screens/chat_screen.dart';
-import '../services/presence_service.dart';
 
-class Dmessages extends StatefulWidget {
-  const Dmessages({super.key});
+class Hmessages extends StatefulWidget {
+  const Hmessages({super.key});
 
   @override
-  State<Dmessages> createState() => _DmessagesState();
+  State<Hmessages> createState() => _HmessagesState();
 }
 
-class _DmessagesState extends State<Dmessages> {
+class _HmessagesState extends State<Hmessages> {
   final ChatService _chatService = ChatService();
-  final PresenceService _presenceService = PresenceService();
   String? _currentUserId;
+  String? _currentUserName;
   String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
-    _getCurrentUserId();
+    _getCurrentUserDetails();
     _testFirestoreConnection();
   }
 
   Future<void> _testFirestoreConnection() async {
     try {
-      print('Testing Firestore connection...');
-      final testQuery = await FirebaseFirestore.instance
-          .collection('chats')
-          .limit(1)
-          .get();
-      print('Firestore connection successful. Found ${testQuery.docs.length} chats in total');
-      
-      // Check if there are any chats at all
-      final allChats = await FirebaseFirestore.instance
-          .collection('chats')
-          .get();
-      print('Total chats in database: ${allChats.docs.length}');
-      
-      for (var doc in allChats.docs) {
-        print('Chat ${doc.id}: ${doc.data()}');
-      }
+      debugPrint('Testing Firestore connection for healthcare worker...');
+      final testQuery = await FirebaseFirestore.instance.collection('chats').limit(1).get();
+      debugPrint('Firestore connection successful. Found ${testQuery.docs.length} chats in total');
+
+      final allChats = await FirebaseFirestore.instance.collection('chats').get();
+      debugPrint('Total chats in database: ${allChats.docs.length}');
     } catch (e) {
-      print('Firestore connection error: $e');
+      debugPrint('Firestore connection error: $e');
     }
   }
 
-  Future<void> _getCurrentUserId() async {
+  Future<void> _getCurrentUserDetails() async {
     final user = FirebaseAuth.instance.currentUser;
-    print('Current Firebase user: ${user?.uid}');
-    if (user != null) {
-      setState(() {
-        _currentUserId = user.uid;
-      });
-      print('Set current user ID: $_currentUserId');
-    } else {
-      print('No authenticated user found');
+    if (user == null) {
+      debugPrint('No authenticated healthcare user found');
+      return;
     }
+
+    final resolvedName = await _resolveCurrentUserName(user);
+
+    if (!mounted) return;
+    setState(() {
+      _currentUserId = user.uid;
+      _currentUserName = resolvedName;
+    });
+
+    try {
+      await _chatService.createUserDoc(
+        userId: user.uid,
+        name: resolvedName,
+        role: 'healthcare',
+      );
+    } catch (e) {
+      debugPrint('Error ensuring healthcare user doc: $e');
+    }
+  }
+
+  Future<String> _resolveCurrentUserName(User user) async {
+    try {
+      final existingUserDoc =
+          await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      if (existingUserDoc.exists) {
+        final data = existingUserDoc.data();
+        if (data != null) {
+          final firstName = data['firstName'];
+          final lastName = data['lastName'];
+          final combined =
+              [firstName, lastName].whereType<String>().where((part) => part.trim().isNotEmpty).join(' ');
+          if (combined.trim().isNotEmpty) {
+            return combined.trim();
+          }
+          final displayName = data['name'];
+          if (displayName is String && displayName.trim().isNotEmpty) {
+            return displayName.trim();
+          }
+        }
+      }
+
+      final healthcareDoc =
+          await FirebaseFirestore.instance.collection('healthcare').doc(user.uid).get();
+      if (healthcareDoc.exists) {
+        final data = healthcareDoc.data();
+        if (data != null) {
+          final fullName = data['fullName'] ?? data['name'];
+          if (fullName is String && fullName.trim().isNotEmpty) {
+            return fullName.trim();
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error resolving healthcare name: $e');
+    }
+
+    if (user.displayName != null && user.displayName!.trim().isNotEmpty) {
+      return user.displayName!.trim();
+    }
+
+    if (user.email != null && user.email!.contains('@')) {
+      return user.email!.split('@').first;
+    }
+
+    return 'Healthcare Worker';
   }
 
   Future<String> _getPatientName(String patientId) async {
     try {
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(patientId)
-          .get();
-      
+      final userDoc =
+          await FirebaseFirestore.instance.collection('users').doc(patientId).get();
+
       if (userDoc.exists) {
         final userData = userDoc.data()!;
-        
-        // Try to get the full name from firstName + lastName (for patients)
+
         final firstName = userData['firstName'];
         final lastName = userData['lastName'];
         if (firstName != null && lastName != null) {
-          return '$firstName $lastName'.trim();
+          final fullName = '$firstName $lastName'.trim();
+          if (fullName.isNotEmpty) return fullName;
         }
-        
-        // Fallback to 'name' field (for other user types)
-        if (userData['name'] != null) {
-          return userData['name'];
+
+        if (userData['name'] != null && (userData['name'] as String).trim().isNotEmpty) {
+          return (userData['name'] as String).trim();
         }
-        
-        // Try username field if it exists
-        if (userData['username'] != null) {
-          return userData['username'];
+
+        if (userData['username'] != null && (userData['username'] as String).trim().isNotEmpty) {
+          return (userData['username'] as String).trim();
         }
-        
-        // Try email as last resort for identification
-        if (userData['email'] != null) {
-          return userData['email'].split('@')[0]; // Use part before @ as username
+
+        if (userData['email'] != null && (userData['email'] as String).contains('@')) {
+          return (userData['email'] as String).split('@').first;
         }
       }
-      
-      // If no user document, try to get name from appointments
+
       final appointmentQuery = await FirebaseFirestore.instance
           .collection('pending_patient_data')
           .where('patientUid', isEqualTo: patientId)
           .limit(1)
           .get();
-      
+
       if (appointmentQuery.docs.isNotEmpty) {
-        return appointmentQuery.docs.first.data()['patientName'] ?? 'Unknown Patient';
+        final candidate = appointmentQuery.docs.first.data()['patientName'];
+        if (candidate is String && candidate.trim().isNotEmpty) {
+          return candidate.trim();
+        }
       }
-      
-      // Try to get from approved appointments as well
+
       final approvedQuery = await FirebaseFirestore.instance
           .collection('approved_appointments')
           .where('patientUid', isEqualTo: patientId)
           .limit(1)
           .get();
-      
+
       if (approvedQuery.docs.isNotEmpty) {
-        return approvedQuery.docs.first.data()['patientName'] ?? 'Unknown Patient';
+        final candidate = approvedQuery.docs.first.data()['patientName'];
+        if (candidate is String && candidate.trim().isNotEmpty) {
+          return candidate.trim();
+        }
       }
-      
+
       return 'Unknown Patient';
     } catch (e) {
-      print('Error getting patient name for $patientId: $e');
+      debugPrint('Error getting patient name for $patientId: $e');
       return 'Unknown Patient';
     }
   }
 
   Future<void> _openChat(String patientId, String patientName) async {
     try {
-      // Get current doctor's ID
       final currentUser = FirebaseAuth.instance.currentUser;
       if (currentUser == null) {
         throw Exception('No authenticated user found');
       }
 
-      // Create or update user docs for chat - ensure both users exist in users collection
+      final healthcareName = _currentUserName ??
+          currentUser.displayName ??
+          currentUser.email ??
+          'Healthcare Worker';
+
       await _chatService.createUserDoc(
         userId: currentUser.uid,
-        name: 'Dr. ${currentUser.displayName ?? 'Doctor'}',
-        role: 'doctor',
+        name: healthcareName,
+        role: 'healthcare',
       );
 
       await _chatService.createUserDoc(
@@ -145,7 +197,6 @@ class _DmessagesState extends State<Dmessages> {
         role: 'patient',
       );
 
-      // Navigate to chat screen
       if (mounted) {
         Navigator.push(
           context,
@@ -180,17 +231,17 @@ class _DmessagesState extends State<Dmessages> {
 
   String _formatTimeDetailed(Timestamp? timestamp) {
     if (timestamp == null) return 'now';
-    
+
     final messageTime = timestamp.toDate();
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final messageDate = DateTime(messageTime.year, messageTime.month, messageTime.day);
-    
+
     final hour = messageTime.hour;
     final minute = messageTime.minute.toString().padLeft(2, '0');
     final period = hour < 12 ? 'AM' : 'PM';
     final displayHour = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
-    
+
     if (messageDate == today) {
       return '$displayHour:$minute $period';
     } else if (now.difference(messageTime).inDays == 1) {
@@ -203,66 +254,58 @@ class _DmessagesState extends State<Dmessages> {
     }
   }
 
-  // Stream list of patients that the doctor has messaged (real-time updates)
   Stream<List<Map<String, dynamic>>> _streamMessagedPatients() {
     if (_currentUserId == null) {
-      print('Current user ID is null');
+      debugPrint('Current healthcare user ID is null');
       return Stream.value([]);
     }
 
-    print('Streaming chats for user: $_currentUserId');
+    debugPrint('Streaming chats for healthcare user: $_currentUserId');
 
     return FirebaseFirestore.instance
         .collection('chats')
         .where('participants', arrayContains: _currentUserId)
-        // Remove orderBy temporarily to avoid index issues
         .snapshots()
         .asyncMap((chatsSnapshot) async {
-      print('Found ${chatsSnapshot.docs.length} chats');
+      debugPrint('Found ${chatsSnapshot.docs.length} chats for healthcare user');
       final messagedPatients = <Map<String, dynamic>>[];
 
       for (var chatDoc in chatsSnapshot.docs) {
         final chatData = chatDoc.data();
         final participants = List<String>.from(chatData['participants'] ?? []);
-        
-        print('Chat ${chatDoc.id}: participants = $participants');
-        
-        // Find the other participant (patient)
+
         final patientId = participants.firstWhere(
           (id) => id != _currentUserId,
           orElse: () => '',
         );
 
         if (patientId.isNotEmpty) {
-          print('Found patient ID: $patientId');
           final patientName = await _getPatientName(patientId);
-          print('Patient name: $patientName');
-          
+          final contactRole = await _chatService.getUserRole(patientId) ?? 'patient';
           messagedPatients.add({
             'id': patientId,
             'name': patientName,
             'lastMessage': chatData['lastMessage'] ?? 'No messages yet',
             'lastTimestamp': chatData['lastTimestamp'],
+            'role': contactRole,
           });
         }
       }
 
-      // Sort by timestamp manually
       messagedPatients.sort((a, b) {
         final aTime = a['lastTimestamp'] as Timestamp?;
         final bTime = b['lastTimestamp'] as Timestamp?;
-        
+
         if (aTime == null && bTime == null) return 0;
         if (aTime == null) return 1;
         if (bTime == null) return -1;
-        
-        return bTime.compareTo(aTime); // Descending order
+
+        return bTime.compareTo(aTime);
       });
 
-      print('Returning ${messagedPatients.length} patients');
       return messagedPatients;
     }).handleError((error) {
-      print('Stream error: $error');
+      debugPrint('Stream error for healthcare chats: $error');
       return <Map<String, dynamic>>[];
     });
   }
@@ -270,9 +313,9 @@ class _DmessagesState extends State<Dmessages> {
   @override
   Widget build(BuildContext context) {
     if (_currentUserId == null) {
-      return Scaffold(
-        backgroundColor: const Color(0xFFF8F9FD),
-        body: Center(
+      return Container(
+        color: const Color(0xFFF8F9FD),
+        child: Center(
           child: CircularProgressIndicator(
             valueColor: AlwaysStoppedAnimation<Color>(Colors.redAccent),
           ),
@@ -280,17 +323,17 @@ class _DmessagesState extends State<Dmessages> {
       );
     }
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FD),
-      body: CustomScrollView(
+    return Container(
+      color: const Color(0xFFF8F9FD),
+      child: CustomScrollView(
         slivers: [
-          // Modern Header with sliver app bar
           SliverAppBar(
             expandedHeight: 120,
             floating: false,
             pinned: true,
             elevation: 0,
             backgroundColor: Colors.transparent,
+            automaticallyImplyLeading: false,
             systemOverlayStyle: SystemUiOverlayStyle.dark,
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
@@ -319,17 +362,17 @@ class _DmessagesState extends State<Dmessages> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Chats',
+                                    'Messages',
                                     style: TextStyle(
                                       color: Colors.white,
-                                      fontSize: 32,
-                                      fontWeight: FontWeight.w700,
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.bold,
                                       letterSpacing: -0.5,
                                     ),
                                   ),
                                   SizedBox(height: 4),
                                   Text(
-                                    'Recent conversations',
+                                    'Chat with your patients',
                                     style: TextStyle(
                                       color: Colors.white70,
                                       fontSize: 16,
@@ -419,18 +462,19 @@ class _DmessagesState extends State<Dmessages> {
               stream: _streamMessagedPatients(),
               builder: (context, snapshot) {
                 // Debug prints
-                print('StreamBuilder state: ${snapshot.connectionState}');
-                print('Has data: ${snapshot.hasData}');
-                print('Data length: ${snapshot.data?.length ?? 0}');
-                print('Error: ${snapshot.error}');
-                
+                debugPrint('StreamBuilder state: ${snapshot.connectionState}');
+                debugPrint('Has data: ${snapshot.hasData}');
+                debugPrint('Data length: ${snapshot.data?.length ?? 0}');
+                debugPrint('Error: ${snapshot.error}');
+
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return SliverToBoxAdapter(
                     child: Container(
                       height: 200,
                       child: Center(
                         child: CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.redAccent),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.redAccent),
                         ),
                       ),
                     ),
@@ -438,7 +482,7 @@ class _DmessagesState extends State<Dmessages> {
                 }
 
                 if (snapshot.hasError) {
-                  print('StreamBuilder error: ${snapshot.error}');
+                  debugPrint('StreamBuilder error: ${snapshot.error}');
                   return SliverToBoxAdapter(
                     child: Container(
                       height: 200,
@@ -446,15 +490,16 @@ class _DmessagesState extends State<Dmessages> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.error, color: Colors.redAccent, size: 48),
+                            Icon(Icons.error,
+                                color: Colors.redAccent, size: 48),
                             SizedBox(height: 16),
                             Text(
-                              'Error loading conversations',
+                              'Unable to load conversations',
                               style: TextStyle(color: Colors.redAccent),
                             ),
                             Text(
-                              '${snapshot.error}',
-                              style: TextStyle(color: Colors.grey, fontSize: 12),
+                              'Please check your connection and try again',
+                              style: TextStyle(color: Colors.grey.shade600),
                               textAlign: TextAlign.center,
                             ),
                           ],
@@ -483,7 +528,7 @@ class _DmessagesState extends State<Dmessages> {
                               ),
                               borderRadius: BorderRadius.circular(50),
                             ),
-                            child: Icon(
+                            child: const Icon(
                               Icons.chat_bubble_outline_rounded,
                               color: Colors.redAccent,
                               size: 50,
@@ -502,13 +547,13 @@ class _DmessagesState extends State<Dmessages> {
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 40),
                             child: Text(
-                              'Start messaging with patients by visiting them in the "View Pending" appointments section and begin a conversation.',
-                              textAlign: TextAlign.center,
+                              'Patient conversations will appear here once you start exchanging messages.',
                               style: TextStyle(
                                 color: Colors.grey.shade600,
                                 fontSize: 16,
-                                height: 1.5,
+                                height: 1.4,
                               ),
+                              textAlign: TextAlign.center,
                             ),
                           ),
                           const SizedBox(height: 20),
@@ -540,9 +585,25 @@ class _DmessagesState extends State<Dmessages> {
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
                       final patient = filteredPatients[index];
-                      final patientName = patient['name'];
-                      final patientId = patient['id'];
-                      
+                      final patientName = patient['name'] as String? ?? 'Unknown Patient';
+                      final patientId = patient['id'] as String? ?? '';
+                      final String? roleValue = (patient['role'] as String?)?.toLowerCase();
+                      String? roleLabel;
+                      Color roleColor = Colors.teal;
+                      if (roleValue == 'healthcare') {
+                        roleLabel = 'Health Worker';
+                        roleColor = Colors.redAccent;
+                      } else if (roleValue == 'doctor') {
+                        roleLabel = 'Doctor';
+                        roleColor = Colors.blueAccent;
+                      } else if (roleValue == 'patient') {
+                        roleLabel = 'Patient';
+                        roleColor = Colors.teal;
+                      } else if (roleValue == 'guest') {
+                        roleLabel = 'Guest';
+                        roleColor = Colors.orange;
+                      }
+
                       return Container(
                         margin: const EdgeInsets.symmetric(vertical: 6),
                         decoration: BoxDecoration(
@@ -564,14 +625,14 @@ class _DmessagesState extends State<Dmessages> {
                             splashColor: Colors.redAccent.withOpacity(0.1),
                             highlightColor: Colors.redAccent.withOpacity(0.05),
                             onTap: () {
-                              HapticFeedback.lightImpact();
+                              HapticFeedback.selectionClick();
                               _openChat(patientId, patientName);
                             },
                             child: Padding(
                               padding: const EdgeInsets.all(14),
                               child: Row(
                                 children: [
-                                  // Avatar with online indicator
+                                  // Avatar with online status
                                   Stack(
                                     children: [
                                       Container(
@@ -597,8 +658,8 @@ class _DmessagesState extends State<Dmessages> {
                                         ),
                                         child: Center(
                                           child: Text(
-                                            patientName.isNotEmpty 
-                                                ? patientName[0].toUpperCase() 
+                                            patientName.isNotEmpty
+                                                ? patientName[0].toUpperCase()
                                                 : 'P',
                                             style: const TextStyle(
                                               color: Colors.white,
@@ -608,37 +669,27 @@ class _DmessagesState extends State<Dmessages> {
                                           ),
                                         ),
                                       ),
-                                      // Online indicator - green if patient is active, gray if offline (like Messenger)
+                                      // Online status indicator
                                       Positioned(
                                         bottom: 2,
                                         right: 2,
-                                        child: StreamBuilder<bool>(
-                                          stream: _presenceService.getUserPresenceStream(patientId),
-                                          builder: (context, snapshot) {
-                                            final isOnline = snapshot.data ?? false;
-                                            return Container(
-                                              width: 16,
-                                              height: 16,
-                                              decoration: BoxDecoration(
-                                                color: isOnline 
-                                                    ? Colors.lightGreen.shade400 // Green if patient is currently active
-                                                    : Colors.grey, // Gray if patient is offline/inactive
-                                                borderRadius: BorderRadius.circular(8),
-                                                border: Border.all(
-                                                  color: Colors.white,
-                                                  width: 2,
-                                                ),
-                                              ),
-                                            );
-                                          },
+                                        child: Container(
+                                          width: 16,
+                                          height: 16,
+                                          decoration: BoxDecoration(
+                                            color: Colors.green,
+                                            borderRadius: BorderRadius.circular(8),
+                                            border: Border.all(
+                                              color: Colors.white,
+                                              width: 2,
+                                            ),
+                                          ),
                                         ),
                                       ),
                                     ],
                                   ),
-                                  
                                   const SizedBox(width: 16),
-                                  
-                                  // Chat info
+                                  // Name and message info
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -647,18 +698,45 @@ class _DmessagesState extends State<Dmessages> {
                                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                           children: [
                                             Expanded(
-                                              child: Text(
-                                                patientName,
-                                                style: const TextStyle(
-                                                  fontSize: 17,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: Color(0xFF1A1A1A),
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
+                                              child: Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: Text(
+                                                      patientName,
+                                                      style: const TextStyle(
+                                                        fontSize: 17,
+                                                        fontWeight: FontWeight.w600,
+                                                        color: Color(0xFF1A1A1A),
+                                                      ),
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                  if (roleLabel != null) ...[
+                                                    const SizedBox(width: 8),
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(
+                                                        horizontal: 10,
+                                                        vertical: 4,
+                                                      ),
+                                                      decoration: BoxDecoration(
+                                                        color: roleColor.withOpacity(0.12),
+                                                        borderRadius: BorderRadius.circular(12),
+                                                      ),
+                                                      child: Text(
+                                                        roleLabel,
+                                                        style: TextStyle(
+                                                          color: roleColor,
+                                                          fontSize: 11,
+                                                          fontWeight: FontWeight.w600,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ],
                                               ),
                                             ),
                                             Text(
-                                              _formatTimeDetailed(patient['lastTimestamp']),
+                                              _formatTimeDetailed(patient['lastTimestamp'] as Timestamp?),
                                               style: TextStyle(
                                                 fontSize: 14,
                                                 color: Colors.grey.shade500,
@@ -670,10 +748,9 @@ class _DmessagesState extends State<Dmessages> {
                                         const SizedBox(height: 6),
                                         Row(
                                           children: [
-                              
                                             Expanded(
                                               child: Text(
-                                                patient['lastMessage'] ?? 'No messages yet',
+                                                patient['lastMessage'] as String? ?? 'No messages yet',
                                                 style: TextStyle(
                                                   fontSize: 15,
                                                   color: Colors.grey.shade600,
@@ -703,27 +780,5 @@ class _DmessagesState extends State<Dmessages> {
         ],
       ),
     );
-  }
-
-  void _testStreamManually() {
-    print('🧪 Testing stream manually...');
-    _streamMessagedPatients().listen(
-      (conversations) {
-        print('🧪 Manual stream test - Got ${conversations.length} conversations');
-        for (var conv in conversations) {
-          print('🧪 Manual stream test - Conversation: $conv');
-        }
-      },
-      onError: (error) {
-        print('🧪 Manual stream test - Error: $error');
-      },
-    );
-  }
-
-  void _debugShowCurrentState() {
-    print('📊 Current widget state:');
-    print('📊 _currentUserId: $_currentUserId');
-    print('📊 Widget mounted: ${mounted}');
-    print('📊 Context: ${context.mounted}');
   }
 }

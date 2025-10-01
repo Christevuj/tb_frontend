@@ -8,10 +8,13 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:tb_frontend/models/facility.dart';
 
 // Replace this import with the actual path in your project:
 import 'package:tb_frontend/services/facility_repository.dart';
+import '../services/chat_service.dart';
+import '../chat_screens/guest_healthworker_chat_screen.dart';
 import 'glistfacility.dart' as glist;
 
 class GtbfacilityPage extends StatefulWidget {
@@ -1071,7 +1074,6 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
     final profilePicture = worker['profilePicture'] as String?;
     final type = worker['type'] ?? 'Health Worker';
 
-    final allowDoctorMessage = widget.allowDoctorMessage;
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -1225,26 +1227,13 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
                 children: [
                   Expanded(
                     child: GestureDetector(
-                      onTap: () {
-                        if (worker['type'] == 'Doctor' && !allowDoctorMessage) {
-                          showDialog(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('Login Required'),
-                              content: const Text(
-                                  'You need to login to message a doctor.'),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.of(context).pop(),
-                                  child: const Text('OK'),
-                                ),
-                              ],
-                            ),
-                          );
-                        } else {
-                          // TODO: Implement messaging for doctor or non-doctor
-                        }
-                      },
+                      onTap: () => _handleMessageTap(
+                        context: context,
+                        workerId: worker['id'] ?? '',
+                        workerName: name,
+                        workerType: worker['type'] ?? 'Health Worker',
+                        profilePicture: profilePicture,
+                      ),
                       child: Container(
                         height: 35,
                         decoration: BoxDecoration(
@@ -1280,6 +1269,159 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _handleMessageTap({
+    required BuildContext context,
+    required String workerId,
+    required String workerName,
+    required String workerType,
+    String? profilePicture,
+  }) async {
+    // If it's a doctor, show the restriction dialog
+    if (workerType == 'Doctor') {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(
+                Icons.info_outline_rounded,
+                color: Colors.redAccent,
+                size: 24,
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Login Required',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF2C2C2C),
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            'You need to create an account and login to message doctors.',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey.shade600,
+              height: 1.4,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'OK',
+                style: TextStyle(
+                  color: Colors.redAccent,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    // For health workers, allow messaging
+    try {
+      // Try to get current user, or create a temporary guest ID
+      User? currentUser = FirebaseAuth.instance.currentUser;
+      String guestUid;
+      
+      if (currentUser == null) {
+        // Try anonymous sign-in first
+        try {
+          debugPrint('Guest not authenticated, attempting anonymous sign-in...');
+          final userCredential = await FirebaseAuth.instance.signInAnonymously();
+          currentUser = userCredential.user;
+          if (currentUser != null) {
+            guestUid = currentUser.uid;
+            debugPrint('Guest signed in anonymously with UID: $guestUid');
+          } else {
+            throw Exception('Anonymous sign-in returned null user');
+          }
+        } catch (authError) {
+          // If anonymous auth is disabled, use a device-based temporary ID
+          debugPrint('Anonymous auth not available: $authError');
+          debugPrint('Using temporary guest ID...');
+          
+          // Generate a unique temporary guest ID
+          final timestamp = DateTime.now().millisecondsSinceEpoch;
+          guestUid = 'guest_$timestamp';
+          
+          // Show info to user that they're using temporary guest mode
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Opening chat as temporary guest'),
+                backgroundColor: Colors.orange,
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 2),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            );
+          }
+        }
+      } else {
+        guestUid = currentUser.uid;
+      }
+
+      // Create/update user documents with proper roles
+      final ChatService chatService = ChatService();
+      
+      // Register guest user with 'guest' role
+      await chatService.createUserDoc(
+        userId: guestUid,
+        name: 'Anonymous',
+        role: 'guest',
+      );
+      
+      // Register health worker
+      await chatService.createUserDoc(
+        userId: workerId,
+        name: workerName,
+        role: 'healthcare',
+      );
+
+      // Navigate to guest-healthworker chat screen
+      if (context.mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => GuestHealthWorkerChatScreen(
+              guestId: guestUid,
+              healthWorkerId: workerId,
+              healthWorkerName: workerName,
+              healthWorkerProfilePicture: profilePicture,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error opening chat: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error opening chat: $e'),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+    }
   }
 
   @override

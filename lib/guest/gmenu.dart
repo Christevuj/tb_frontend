@@ -20,17 +20,29 @@ class _GuestMainWrapperState extends State<GuestMainWrapper> {
   final List<GlobalKey<NavigatorState>> _navigatorKeys =
       List.generate(4, (_) => GlobalKey<NavigatorState>());
 
-  final List<Widget> _pages = const [
-    GlandingPage(),
-    Gappointment(),
-    Gmessages(),
-    Gaccount(),
-  ];
+  late final List<Widget> _pages;
 
   @override
   void initState() {
     super.initState();
     _selectedIndex = widget.initialIndex;
+    
+    // Initialize pages with callback
+    _pages = [
+      GlandingPage(onSwitchTab: switchToTab),
+      const Gappointment(),
+      const Gmessages(),
+      const Gaccount(),
+    ];
+  }
+
+  // Public method to switch tabs
+  void switchToTab(int index) {
+    if (index >= 0 && index < _pages.length) {
+      setState(() {
+        _selectedIndex = index;
+      });
+    }
   }
 
   void _onNavTap(int index) {
@@ -44,9 +56,11 @@ class _GuestMainWrapperState extends State<GuestMainWrapper> {
     }
   }
 
-  bool _isRootPage() {
+  bool _shouldShowBottomNavBar() {
     final navigator = _navigatorKeys[_selectedIndex].currentState;
     if (navigator == null) return true;
+    
+    // Only show bottom navbar when on the root pages of the 4 main tabs
     return !navigator.canPop();
   }
 
@@ -85,7 +99,7 @@ class _GuestMainWrapperState extends State<GuestMainWrapper> {
             );
           }),
         ),
-        bottomNavigationBar: _isRootPage() ? Container(
+        bottomNavigationBar: _shouldShowBottomNavBar() ? Container(
           decoration: BoxDecoration(
             color: Colors.white,
             boxShadow: [

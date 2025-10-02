@@ -1515,25 +1515,51 @@ class _PtbfacilityPageState extends State<PtbfacilityPage> {
                     }
                   },
                 ),
-                // Search Bar with Dropdown
+                // Back Button and Search Bar with Dropdown
                 Positioned(
                   top: 40,
                   left: 16,
                   right: 16,
                   child: Column(
                     children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(25),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 10,
-                              offset: const Offset(0, 2),
+                      Row(
+                        children: [
+                          // Modern Back Button
+                          Container(
+                            height: 48,
+                            width: 48,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.04),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
+                            child: IconButton(
+                              icon: const Icon(Icons.arrow_back_ios_new,
+                                  color: Color(0xFF1F2937), size: 20),
+                              onPressed: () => Navigator.of(context).pop(),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // Search Bar
+                          Expanded(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(25),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
                         child: TextField(
                           controller: _searchController,
                           focusNode: _searchFocusNode,
@@ -1578,6 +1604,9 @@ class _PtbfacilityPageState extends State<PtbfacilityPage> {
                             ),
                           ),
                         ),
+                            ),
+                          ),
+                        ],
                       ),
                       // Search Suggestions Dropdown
                       if (_showSearchDropdown && _searchSuggestions.isNotEmpty)
@@ -1689,6 +1718,8 @@ class _PtbfacilityPageState extends State<PtbfacilityPage> {
                   top: 100,
                   child: FloatingActionButton.small(
                     heroTag: 'btn-recenter',
+                    backgroundColor: const Color(0xFFFBBC0C),
+                    foregroundColor: Colors.white,
                     onPressed: () {
                       if (_currentLocation != null) {
                         _animateCameraTo(_currentLocation!, zoom: _zoomLevel);
@@ -1704,11 +1735,11 @@ class _PtbfacilityPageState extends State<PtbfacilityPage> {
                   right: 16,
                   bottom: (_isSearching || _isContainerHidden)
                       ? 120 // Compressed: closer to List View button
-                      : 370, // Normal position above the container
+                      : 343, // Normal position above the container
                   child: FloatingActionButton(
                     heroTag: 'btn-nearest',
                     onPressed: _findNearestFacility,
-                    backgroundColor: const Color(0xE0F44336),
+                    backgroundColor: const Color.fromARGB(223, 68, 198, 77),
                     foregroundColor: Colors.white,
                     child: const Icon(Icons.near_me, size: 24),
                   ),
@@ -1720,7 +1751,7 @@ class _PtbfacilityPageState extends State<PtbfacilityPage> {
                   right: 16,
                   bottom: (_isSearching || _isContainerHidden)
                       ? 60 // Compressed: proper spacing from Nearest button
-                      : 300, // Normal position above the container
+                      : 280, // Normal position above the container
                   child: FloatingActionButton.extended(
                     heroTag: 'btn-list-view',
                     onPressed: () {

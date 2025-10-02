@@ -254,8 +254,16 @@ class _GmessagesState extends State<Gmessages> {
   }
 
   // Helper method to get role label and color
-  Map<String, dynamic> _getRoleInfo(String? roleValue) {
+  Map<String, dynamic> _getRoleInfo(String? roleValue, {String? name}) {
     final role = roleValue?.toLowerCase();
+    
+    // Special handling for guests or anonymous users
+    if (name == 'Anonymous' || name == 'Guest' || role == 'guest') {
+      return {
+        'label': 'Guest',
+        'color': Colors.orange,
+      };
+    }
     
     switch (role) {
       case 'healthcare':
@@ -264,7 +272,7 @@ class _GmessagesState extends State<Gmessages> {
           'color': Colors.redAccent,
         };
       case 'doctor':
-        return {
+        return {  
           'label': 'Doctor',
           'color': Colors.blueAccent,
         };
@@ -272,11 +280,6 @@ class _GmessagesState extends State<Gmessages> {
         return {
           'label': 'Patient',
           'color': Colors.teal,
-        };
-      case 'guest':
-        return {
-          'label': 'Guest',
-          'color': Colors.orange,
         };
       default:
         return {
@@ -539,7 +542,7 @@ class _GmessagesState extends State<Gmessages> {
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 40),
                               child: Text(
-                                'Patient conversations will appear here once you start exchanging messages.',
+                                'Conversations will appear here once you start exchanging messages.',
                                 style: TextStyle(
                                   color: Colors.grey.shade600,
                                   fontSize: 16,
@@ -574,7 +577,7 @@ class _GmessagesState extends State<Gmessages> {
                         final String? roleValue = (patient['role'] as String?)?.toLowerCase();
                         
                         // Get role information using helper method
-                        final roleInfo = _getRoleInfo(roleValue);
+                        final roleInfo = _getRoleInfo(roleValue, name: patientName);
                         final String? roleLabel = roleInfo['label'] as String?;
                         final Color roleColor = roleInfo['color'] as Color;
 

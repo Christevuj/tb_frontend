@@ -138,33 +138,46 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
           // --- PDF Viewer ---
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.shade300,
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    )
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
-                  child: PdfView(
-                    controller: _pdfController,
-                    onPageChanged: (page) {
-                      setState(() {
-                        _currentPage = page;
-                      });
-                    },
-                    onDocumentLoaded: (document) {
-                      setState(() {
-                        _totalPages = document.pagesCount;
-                      });
-                    },
+              padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+              child: Scrollbar(
+                thumbVisibility: true,
+                thickness: 12.0,
+                radius: const Radius.circular(6.0),
+                trackVisibility: true,
+                interactive: true,
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.shade300,
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        )
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: PdfView(
+                        controller: _pdfController,
+                        scrollDirection: Axis.vertical,
+                        physics: const BouncingScrollPhysics(),
+                        pageSnapping: false,
+                        onPageChanged: (page) {
+                          setState(() {
+                            _currentPage = page;
+                          });
+                        },
+                        onDocumentLoaded: (document) {
+                          setState(() {
+                            _totalPages = document.pagesCount;
+                          });
+                        },
+                      ),
+                    ),
                   ),
                 ),
               ),

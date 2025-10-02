@@ -59,7 +59,8 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
   bool _isContainerHidden = false;
 
   // Contacts popup search
-  final TextEditingController _contactsSearchController = TextEditingController();
+  final TextEditingController _contactsSearchController =
+      TextEditingController();
   String _contactsSearchQuery = '';
   StreamSubscription<Position>? _positionStreamSubscription; // 👈 Added
 
@@ -584,7 +585,7 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
         polylineId: const PolylineId('route'),
         points: points,
         width: 6,
-        color: const Color(0xE0F44336), // Red accent color
+        color: const Color.fromARGB(223, 195, 73, 64), // Red accent color
       );
       setState(() {
         _polylines = {polyline};
@@ -1335,12 +1336,14 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
       // Try to get current user, or create a temporary guest ID
       User? currentUser = FirebaseAuth.instance.currentUser;
       String guestUid;
-      
+
       if (currentUser == null) {
         // Try anonymous sign-in first
         try {
-          debugPrint('Guest not authenticated, attempting anonymous sign-in...');
-          final userCredential = await FirebaseAuth.instance.signInAnonymously();
+          debugPrint(
+              'Guest not authenticated, attempting anonymous sign-in...');
+          final userCredential =
+              await FirebaseAuth.instance.signInAnonymously();
           currentUser = userCredential.user;
           if (currentUser != null) {
             guestUid = currentUser.uid;
@@ -1352,11 +1355,11 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
           // If anonymous auth is disabled, use a device-based temporary ID
           debugPrint('Anonymous auth not available: $authError');
           debugPrint('Using temporary guest ID...');
-          
+
           // Generate a unique temporary guest ID
           final timestamp = DateTime.now().millisecondsSinceEpoch;
           guestUid = 'guest_$timestamp';
-          
+
           // Show info to user that they're using temporary guest mode
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -1378,14 +1381,14 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
 
       // Create/update user documents with proper roles
       final ChatService chatService = ChatService();
-      
+
       // Register guest user with 'guest' role
       await chatService.createUserDoc(
         userId: guestUid,
         name: 'Anonymous',
         role: 'guest',
       );
-      
+
       // Register health worker
       await chatService.createUserDoc(
         userId: workerId,
@@ -1469,25 +1472,51 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
                     }
                   },
                 ),
-                // Search Bar with Dropdown
+                // Back Button and Search Bar with Dropdown
                 Positioned(
                   top: 40,
                   left: 16,
                   right: 16,
                   child: Column(
                     children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(25),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 10,
-                              offset: const Offset(0, 2),
+                      Row(
+                        children: [
+                          // Modern Back Button
+                          Container(
+                            height: 48,
+                            width: 48,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.04),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
+                            child: IconButton(
+                              icon: const Icon(Icons.arrow_back_ios_new,
+                                  color: Color(0xFF1F2937), size: 20),
+                              onPressed: () => Navigator.of(context).pop(),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // Search Bar
+                          Expanded(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(25),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
                         child: TextField(
                           controller: _searchController,
                           focusNode: _searchFocusNode,
@@ -1531,6 +1560,9 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
                             ),
                           ),
                         ),
+                            ),
+                          ),
+                        ],
                       ),
                       // Search Suggestions Dropdown
                       if (_showSearchDropdown && _searchSuggestions.isNotEmpty)
@@ -1642,6 +1674,8 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
                   top: 100,
                   child: FloatingActionButton.small(
                     heroTag: 'btn-recenter',
+                    backgroundColor: const Color(0xFFFBBC0C),
+                    foregroundColor: Colors.white,
                     onPressed: () {
                       if (_currentLocation != null) {
                         _animateCameraTo(_currentLocation!, zoom: _zoomLevel);
@@ -1657,11 +1691,11 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
                   right: 16,
                   bottom: (_isSearching || _isContainerHidden)
                       ? 120 // Compressed: closer to List View button
-                      : 370, // Normal position above the container
+                      : 343, // Reduced gap - closer to facility container
                   child: FloatingActionButton(
                     heroTag: 'btn-nearest',
                     onPressed: _findNearestFacility,
-                    backgroundColor: const Color(0xE0F44336),
+                    backgroundColor: const Color.fromARGB(223, 68, 198, 77),
                     foregroundColor: Colors.white,
                     child: const Icon(Icons.near_me, size: 24),
                   ),
@@ -1673,7 +1707,7 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
                   right: 16,
                   bottom: (_isSearching || _isContainerHidden)
                       ? 60 // Compressed: proper spacing from Nearest button
-                      : 300, // Normal position above the container
+                      : 280, // Reduced gap - closer to facility container
                   child: FloatingActionButton.extended(
                     heroTag: 'btn-list-view',
                     onPressed: () {

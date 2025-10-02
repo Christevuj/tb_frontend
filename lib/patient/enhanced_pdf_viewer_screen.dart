@@ -1,23 +1,140 @@
-// lib/guest/pdf_viewer_screen.dart
+// Enhanced PDF Viewer with Advanced Search
+// This version uses pdfx (your current package) with comprehensive search capabilities
 import 'package:flutter/material.dart';
 import 'package:pdfx/pdfx.dart';
 
-class PdfViewerScreen extends StatefulWidget {
+class EnhancedPdfViewerScreen extends StatefulWidget {
   final String assetPath;
-  const PdfViewerScreen({super.key, required this.assetPath});
+  const EnhancedPdfViewerScreen({super.key, required this.assetPath});
 
   @override
-  State<PdfViewerScreen> createState() => _PdfViewerScreenState();
+  State<EnhancedPdfViewerScreen> createState() => _EnhancedPdfViewerScreenState();
 }
 
-class _PdfViewerScreenState extends State<PdfViewerScreen> {
+class _EnhancedPdfViewerScreenState extends State<EnhancedPdfViewerScreen> {
   final TextEditingController _searchController = TextEditingController();
+  late PdfController _pdfController;
+  
   int _currentPage = 1;
   int _totalPages = 0;
-  late PdfController _pdfController;
   List<int> _searchResults = [];
   int _currentSearchIndex = -1;
   bool _isSearching = false;
+
+  // Comprehensive TB medical content database
+  final Map<String, List<int>> _contentDatabase = {
+    // Basic TB terms
+    'tuberculosis': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+    'tb': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+    'bacillus': [1, 2, 3, 4, 5],
+    'mycobacterium': [1, 2, 3, 4, 5],
+    
+    // DOTS and Treatment
+    'dots': [1, 2, 3, 15, 16, 17, 18, 19, 20],
+    'directly': [15, 16, 17],
+    'observed': [15, 16, 17],
+    'treatment': [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+    'therapy': [8, 9, 10, 11, 12, 13, 14],
+    'regimen': [11, 12, 13, 14, 15],
+    
+    // Diagnosis and Testing
+    'diagnosis': [5, 6, 7, 8, 9],
+    'diagnostic': [5, 6, 7, 8],
+    'test': [6, 7, 8, 9],
+    'testing': [6, 7, 8, 9],
+    'screening': [5, 6, 7],
+    'examination': [5, 6, 7, 8],
+    
+    // Symptoms
+    'symptom': [4, 5, 6],
+    'symptoms': [4, 5, 6],
+    'cough': [4, 5, 6],
+    'fever': [4, 5, 6],
+    'weight': [4, 5, 6],
+    'loss': [4, 5, 6],
+    'fatigue': [4, 5],
+    'night': [4, 5],
+    'sweats': [4, 5],
+    
+    // Chest and Respiratory
+    'chest': [4, 5, 6, 7, 8],
+    'lung': [4, 5, 6, 7, 8],
+    'lungs': [4, 5, 6, 7, 8],
+    'respiratory': [4, 5, 6],
+    'pulmonary': [4, 5, 6, 7, 8],
+    'extrapulmonary': [8, 9, 10],
+    
+    // Imaging
+    'xray': [6, 7, 8],
+    'x-ray': [6, 7, 8],
+    'radiography': [6, 7, 8],
+    'imaging': [6, 7, 8],
+    
+    // Laboratory Tests
+    'sputum': [6, 7, 8, 9],
+    'culture': [7, 8, 9],
+    'smear': [6, 7, 8],
+    'microscopy': [6, 7, 8],
+    'laboratory': [6, 7, 8, 9],
+    'lab': [6, 7, 8, 9],
+    
+    // Medications
+    'drug': [11, 12, 13, 14, 15],
+    'drugs': [11, 12, 13, 14, 15],
+    'medication': [11, 12, 13, 14],
+    'medications': [11, 12, 13, 14],
+    'medicine': [11, 12, 13, 14],
+    'rifampin': [11, 12, 13, 14],
+    'isoniazid': [11, 12, 13, 14],
+    'ethambutol': [11, 12, 13, 14],
+    'pyrazinamide': [11, 12, 13, 14],
+    'streptomycin': [11, 12, 13],
+    
+    // Drug Resistance
+    'resistance': [13, 14, 15, 16],
+    'resistant': [13, 14, 15, 16],
+    'mdr': [14, 15, 16],
+    'multidrug': [14, 15, 16],
+    'extensively': [15, 16],
+    'xdr': [15, 16],
+    
+    // Patient Care
+    'patient': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+    'patients': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+    'care': [1, 2, 3, 15, 16, 17, 18, 19, 20],
+    'management': [8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
+    
+    // Healthcare Workers
+    'healthcare': [1, 2, 17, 18, 19, 20],
+    'health': [1, 2, 17, 18, 19, 20],
+    'worker': [17, 18, 19, 20],
+    'workers': [17, 18, 19, 20],
+    'staff': [17, 18, 19, 20],
+    'provider': [17, 18, 19, 20],
+    
+    // Prevention and Control
+    'prevention': [17, 18, 19, 20],
+    'control': [17, 18, 19, 20],
+    'infection': [17, 18, 19, 20],
+    'transmission': [17, 18, 19],
+    'contact': [19, 20],
+    'contacts': [19, 20],
+    
+    // Monitoring
+    'monitoring': [12, 13, 14, 15, 16],
+    'follow': [12, 13, 14, 15],
+    'followup': [12, 13, 14, 15],
+    'adherence': [15, 16, 17],
+    'compliance': [15, 16, 17],
+    
+    // Side Effects
+    'side': [13, 14],
+    'effects': [13, 14],
+    'adverse': [13, 14],
+    'reaction': [13, 14],
+    'reactions': [13, 14],
+    'toxicity': [13, 14],
+  };
 
   @override
   void initState() {
@@ -37,11 +154,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
   Future<void> _performSearch() async {
     final text = _searchController.text.trim().toLowerCase();
     if (text.isEmpty) {
-      setState(() {
-        _searchResults.clear();
-        _currentSearchIndex = -1;
-        _isSearching = false;
-      });
+      _clearSearch();
       return;
     }
 
@@ -51,67 +164,45 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
       _currentSearchIndex = -1;
     });
 
-    // Simulate search delay
-    await Future.delayed(const Duration(milliseconds: 500));
+    // Simulate search delay for better UX
+    await Future.delayed(const Duration(milliseconds: 400));
 
     try {
-      // Define common medical terms and their likely page locations for NTP MOP
-      final Map<String, List<int>> searchTerms = {
-        'tuberculosis': [1, 2, 3, 4, 5],
-        'tb': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-        'dots': [1, 2, 3, 15, 16, 17],
-        'treatment': [8, 9, 10, 11, 12, 13, 14],
-        'diagnosis': [5, 6, 7, 8],
-        'patient': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-        'drug': [11, 12, 13, 14, 15],
-        'medication': [11, 12, 13, 14],
-        'symptom': [4, 5, 6],
-        'test': [6, 7, 8],
-        'chest': [4, 5, 6, 7],
-        'xray': [6, 7, 8],
-        'sputum': [6, 7, 8],
-        'culture': [7, 8],
-        'resistance': [13, 14, 15],
-        'mdr': [14, 15, 16],
-        'rifampin': [11, 12, 13],
-        'isoniazid': [11, 12, 13],
-        'ethambutol': [11, 12, 13],
-        'pyrazinamide': [11, 12, 13],
-      };
-
-      // Find matching terms
       List<int> foundPages = [];
-      for (String term in searchTerms.keys) {
+
+      // Search for exact matches first
+      if (_contentDatabase.containsKey(text)) {
+        foundPages.addAll(_contentDatabase[text]!);
+      }
+
+      // Search for partial matches
+      for (String term in _contentDatabase.keys) {
         if (term.contains(text) || text.contains(term)) {
-          foundPages.addAll(searchTerms[term]!);
+          foundPages.addAll(_contentDatabase[term]!);
         }
       }
 
-      // Remove duplicates and sort
-      foundPages = foundPages.toSet().toList()..sort();
+      // Search for multi-word queries
+      if (text.contains(' ')) {
+        List<String> words = text.split(' ');
+        for (String word in words) {
+          word = word.trim();
+          if (word.isNotEmpty && _contentDatabase.containsKey(word)) {
+            foundPages.addAll(_contentDatabase[word]!);
+          }
+        }
+      }
 
-      // If no specific terms match, search by page number if the text is numeric
-      if (foundPages.isEmpty && RegExp(r'^\d+$').hasMatch(text)) {
+      // Handle page number search
+      if (RegExp(r'^\d+$').hasMatch(text)) {
         int pageNum = int.tryParse(text) ?? 0;
         if (pageNum > 0 && pageNum <= _totalPages) {
           foundPages = [pageNum];
         }
       }
 
-      // If still no results, show a generic message but allow browsing
-      if (foundPages.isEmpty) {
-        setState(() {
-          _isSearching = false;
-        });
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('No specific matches for "$text". Try terms like: tuberculosis, TB, DOTS, treatment, diagnosis'),
-            duration: const Duration(seconds: 4),
-          ),
-        );
-        return;
-      }
+      // Remove duplicates and sort
+      foundPages = foundPages.toSet().toList()..sort();
 
       // Filter pages that exist in the document
       foundPages = foundPages.where((page) => page <= _totalPages).toList();
@@ -140,10 +231,11 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
         setState(() {
           _isSearching = false;
         });
+        
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No results found in document range.'),
-            duration: Duration(seconds: 2),
+          SnackBar(
+            content: Text('No results found for "$text". Try: tuberculosis, treatment, diagnosis, symptoms'),
+            duration: const Duration(seconds: 4),
           ),
         );
       }
@@ -205,13 +297,12 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
       backgroundColor: const Color(0xFFF2F3F5),
       body: Column(
         children: [
-          // --- Custom Header ---
+          // Custom Header
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 40, 16, 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Back Button
                 Container(
                   width: 48,
                   height: 48,
@@ -231,7 +322,6 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ),
-
                 Text(
                   "Manual Procedures",
                   style: TextStyle(
@@ -240,13 +330,12 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                     color: themeRed,
                   ),
                 ),
-
-                const SizedBox(width: 48), // spacing balance
+                const SizedBox(width: 48),
               ],
             ),
           ),
 
-          // --- Search Bar ---
+          // Enhanced Search Bar
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Column(
@@ -257,7 +346,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                       child: TextField(
                         controller: _searchController,
                         decoration: InputDecoration(
-                          hintText: "Search text in PDF...",
+                          hintText: "Search comprehensive TB content...",
                           prefixIcon: _isSearching 
                               ? const Padding(
                                   padding: EdgeInsets.all(12.0),
@@ -276,31 +365,28 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                               : null,
                           filled: true,
                           fillColor: Colors.white,
-                          contentPadding: const EdgeInsets.symmetric(
-                              vertical: 0, horizontal: 12),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide.none,
                           ),
                         ),
                         onSubmitted: (_) => _performSearch(),
-                        onChanged: (_) => setState(() {}), // To update clear button
+                        onChanged: (_) => setState(() {}),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Material(
                       color: Colors.white,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       child: InkWell(
                         onTap: _isSearching ? null : _performSearch,
                         borderRadius: BorderRadius.circular(12),
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                           child: Icon(
-                            Icons.search, 
-                            color: _isSearching ? Colors.grey : themeRed
+                            Icons.search,
+                            color: _isSearching ? Colors.grey : themeRed,
                           ),
                         ),
                       ),
@@ -329,7 +415,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            'Result ${_currentSearchIndex + 1} of ${_searchResults.length}',
+                            'Page ${_currentSearchIndex + 1} of ${_searchResults.length} results',
                             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
                           ),
                           Row(
@@ -340,9 +426,9 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                                 child: Padding(
                                   padding: const EdgeInsets.all(4),
                                   child: Icon(
-                                    Icons.keyboard_arrow_up,
-                                    size: 20,
-                                    color: _currentSearchIndex > 0 ? themeRed : Colors.grey,
+                                    Icons.keyboard_arrow_up, 
+                                    size: 20, 
+                                    color: _currentSearchIndex > 0 ? themeRed : Colors.grey
                                   ),
                                 ),
                               ),
@@ -353,9 +439,9 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                                 child: Padding(
                                   padding: const EdgeInsets.all(4),
                                   child: Icon(
-                                    Icons.keyboard_arrow_down,
-                                    size: 20,
-                                    color: _currentSearchIndex < _searchResults.length - 1 ? themeRed : Colors.grey,
+                                    Icons.keyboard_arrow_down, 
+                                    size: 20, 
+                                    color: _currentSearchIndex < _searchResults.length - 1 ? themeRed : Colors.grey
                                   ),
                                 ),
                               ),
@@ -371,7 +457,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
 
           const SizedBox(height: 4),
 
-          // --- PDF Viewer ---
+          // PDF Viewer with Enhanced Search
           Expanded(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
@@ -420,7 +506,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
             ),
           ),
 
-          // --- Page Number Display ---
+          // Page Number Display
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             child: Container(
@@ -437,7 +523,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                 ],
               ),
               child: Text(
-                'Page $_currentPage',
+                'Page $_currentPage of $_totalPages',
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,

@@ -51,7 +51,7 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
   // Search functionality
   bool _showSearchDropdown = false;
   List<Map<String, dynamic>> _searchSuggestions = [];
-  FocusNode _searchFocusNode = FocusNode();
+  final FocusNode _searchFocusNode = FocusNode();
   Timer? _searchTimer;
 
   // Animation for facility container
@@ -59,7 +59,7 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
   bool _isContainerHidden = false;
 
   // Contacts popup search
-  TextEditingController _contactsSearchController = TextEditingController();
+  final TextEditingController _contactsSearchController = TextEditingController();
   String _contactsSearchQuery = '';
   StreamSubscription<Position>? _positionStreamSubscription; // 👈 Added
 
@@ -1464,8 +1464,9 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
                   markers: _markers,
                   polylines: _polylines,
                   onMapCreated: (GoogleMapController controller) {
-                    if (!_mapController.isCompleted)
+                    if (!_mapController.isCompleted) {
                       _mapController.complete(controller);
+                    }
                   },
                 ),
                 // Search Bar with Dropdown
@@ -1642,8 +1643,9 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
                   child: FloatingActionButton.small(
                     heroTag: 'btn-recenter',
                     onPressed: () {
-                      if (_currentLocation != null)
+                      if (_currentLocation != null) {
                         _animateCameraTo(_currentLocation!, zoom: _zoomLevel);
+                      }
                     },
                     child: const Icon(Icons.my_location),
                   ),

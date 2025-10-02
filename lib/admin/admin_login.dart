@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:tb_frontend/services/auth_service.dart'; // Import your AuthService
+import 'package:tb_frontend/login_screen.dart'; // Import login screen
 import 'admin_dashboard.dart'; // Import your admin dashboard page
 
 class AdminLogin extends StatefulWidget {
@@ -76,7 +78,7 @@ class _AdminLoginState extends State<AdminLogin>
     super.dispose();
   }
 
-  // 🔹 Admin login method
+  // 🔹 Admin login method - checks admins collection
   Future<void> _loginAdmin() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
@@ -90,32 +92,53 @@ class _AdminLoginState extends State<AdminLogin>
 
     setState(() => _isLoading = true);
 
-    final error = await _authService.signIn(email: email, password: password);
+    try {
+      // First, try to sign in with Firebase Auth
+      final authError =
+          await _authService.signIn(email: email, password: password);
 
-    if (error != null) {
+      if (authError != null) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(authError)),
+        );
+        return;
+      }
+
+      // Check if the user exists in the admins collection
+      final adminQuery = await FirebaseFirestore.instance
+          .collection('admins')
+          .where('email', isEqualTo: email)
+          .where('role', isEqualTo: 'admin')
+          .get();
+
+      setState(() => _isLoading = false);
+
+      if (adminQuery.docs.isNotEmpty) {
+        // User is a valid admin, navigate to dashboard
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const AdminDashboard()),
+        );
+      } else {
+        // User is not in admins collection, deny access
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Access denied: You are not authorized as an admin'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        // Sign out the user since they're not an admin
+        await _authService.signOut();
+      }
+    } catch (e) {
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error)),
+        SnackBar(
+          content: Text('Login error: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
-      return;
-    }
-
-    // Check if the user is admin
-    final role = await _authService.getCurrentUserRole();
-    setState(() => _isLoading = false);
-
-    if (role == 'admin') {
-      // Navigate to admin dashboard
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const AdminDashboard()),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Access denied: Not an admin account')),
-      );
-      // Optional: sign out the user if not admin
-      await _authService.signOut();
     }
   }
 
@@ -143,6 +166,23 @@ class _AdminLoginState extends State<AdminLogin>
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                // Back button
+                Align(
+                  alignment: Alignment.topLeft,
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back_rounded),
+                    onPressed: () {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const TBisitaLoginScreen(),
+                        ),
+                      );
+                    },
+                    tooltip: 'Back to Login',
+                    color: const Color.fromRGBO(255, 82, 82, 1),
+                  ),
+                ),
                 Image.asset(
                   "assets/images/tbisita_logo2.png",
                   height: 80,

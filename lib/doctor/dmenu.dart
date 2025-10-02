@@ -6,7 +6,6 @@ import 'package:tb_frontend/doctor/daccount.dart';
 import 'package:tb_frontend/doctor/dmessages.dart';
 
 // ✅ import the shared UserListScreen
-import 'package:tb_frontend/chat_screens/user_list_screen.dart';
 
 class DoctorMainWrapper extends StatefulWidget {
   final int initialIndex;

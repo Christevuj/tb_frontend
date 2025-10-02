@@ -28,7 +28,7 @@ class _ChatScreenState extends State<ChatScreen> {
   String _otherUserName = '';
   bool _isOtherUserOnline = false;
   String _otherUserStatus = 'Offline';
-  Map<String, bool> _expandedTimestamps = {}; // Track which messages have expanded timestamps
+  final Map<String, bool> _expandedTimestamps = {}; // Track which messages have expanded timestamps
 
   @override
   void initState() {

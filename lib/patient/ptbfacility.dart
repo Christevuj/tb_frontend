@@ -17,7 +17,6 @@ import 'package:tb_frontend/chat_screens/health_chat_screen.dart';
 import 'package:tb_frontend/services/facility_repository.dart';
 import 'plistfacility.dart' as glist;
 
-
 class PtbfacilityPage extends StatefulWidget {
   final String? selectedFacilityName;
   final String? selectedFacilityAddress;
@@ -52,7 +51,7 @@ class _PtbfacilityPageState extends State<PtbfacilityPage> {
   // Search functionality
   bool _showSearchDropdown = false;
   List<Map<String, dynamic>> _searchSuggestions = [];
-  FocusNode _searchFocusNode = FocusNode();
+  final FocusNode _searchFocusNode = FocusNode();
   Timer? _searchTimer;
 
   // Animation for facility container
@@ -60,7 +59,8 @@ class _PtbfacilityPageState extends State<PtbfacilityPage> {
   bool _isContainerHidden = false;
 
   // Contacts popup search
-  TextEditingController _contactsSearchController = TextEditingController();
+  final TextEditingController _contactsSearchController =
+      TextEditingController();
   String _contactsSearchQuery = '';
   StreamSubscription<Position>? _positionStreamSubscription; // 👈 Added
 
@@ -70,11 +70,12 @@ class _PtbfacilityPageState extends State<PtbfacilityPage> {
   @override
   void initState() {
     super.initState();
-    
+
     // Debug: Check authentication status when page loads
     final user = FirebaseAuth.instance.currentUser;
-    debugPrint('🗺️ PtbfacilityPage loaded. Auth User: ${user?.uid ?? "NOT LOGGED IN"}, Email: ${user?.email ?? "N/A"}');
-    
+    debugPrint(
+        '🗺️ PtbfacilityPage loaded. Auth User: ${user?.uid ?? "NOT LOGGED IN"}, Email: ${user?.email ?? "N/A"}');
+
     if (!Platform.isAndroid) {
       // This page is intended for Android only per your request.
       setState(() => _loading = false);
@@ -1124,8 +1125,9 @@ class _PtbfacilityPageState extends State<PtbfacilityPage> {
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: (isDoctor ? Colors.blue : const Color(0xE0F44336))
-                            .withOpacity(0.3),
+                        color:
+                            (isDoctor ? Colors.blue : const Color(0xE0F44336))
+                                .withOpacity(0.3),
                         blurRadius: 8,
                         offset: const Offset(0, 4),
                       ),
@@ -1324,7 +1326,8 @@ class _PtbfacilityPageState extends State<PtbfacilityPage> {
                   profilePicture: profilePicture,
                 ),
                 icon: const Icon(Icons.message_rounded, size: 16),
-                label: Text('Message ${type == 'Doctor' ? 'Doctor' : 'Health Worker'}'),
+                label: Text(
+                    'Message ${type == 'Doctor' ? 'Doctor' : 'Health Worker'}'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xE0F44336),
                   foregroundColor: Colors.white,
@@ -1376,13 +1379,14 @@ class _PtbfacilityPageState extends State<PtbfacilityPage> {
 
       // Wait a moment for auth state to stabilize
       await Future.delayed(const Duration(milliseconds: 300));
-      
+
       // Try to reload the user in case the auth state is stale
       await FirebaseAuth.instance.currentUser?.reload();
       final currentUser = FirebaseAuth.instance.currentUser;
-      
-      debugPrint('🔍 Checking auth state: User = ${currentUser?.uid ?? "null"}, Email = ${currentUser?.email ?? "null"}');
-      
+
+      debugPrint(
+          '🔍 Checking auth state: User = ${currentUser?.uid ?? "null"}, Email = ${currentUser?.email ?? "null"}');
+
       if (currentUser == null) {
         debugPrint('❌ No authenticated user found');
         if (context.mounted) {
@@ -1398,7 +1402,8 @@ class _PtbfacilityPageState extends State<PtbfacilityPage> {
       }
 
       final authUid = currentUser.uid;
-      debugPrint('💬 Opening chat with $workerType: $workerName (ID: $workerId)');
+      debugPrint(
+          '💬 Opening chat with $workerType: $workerName (ID: $workerId)');
 
       // Initialize ChatService
       final chatService = ChatService();
@@ -1422,7 +1427,7 @@ class _PtbfacilityPageState extends State<PtbfacilityPage> {
       if (context.mounted) {
         // Close the contacts popup first
         Navigator.of(context).pop();
-        
+
         // Then navigate to chat screen
         await Navigator.push(
           context,
@@ -1505,8 +1510,9 @@ class _PtbfacilityPageState extends State<PtbfacilityPage> {
                   markers: _markers,
                   polylines: _polylines,
                   onMapCreated: (GoogleMapController controller) {
-                    if (!_mapController.isCompleted)
+                    if (!_mapController.isCompleted) {
                       _mapController.complete(controller);
+                    }
                   },
                 ),
                 // Search Bar with Dropdown
@@ -1684,8 +1690,9 @@ class _PtbfacilityPageState extends State<PtbfacilityPage> {
                   child: FloatingActionButton.small(
                     heroTag: 'btn-recenter',
                     onPressed: () {
-                      if (_currentLocation != null)
+                      if (_currentLocation != null) {
                         _animateCameraTo(_currentLocation!, zoom: _zoomLevel);
+                      }
                     },
                     child: const Icon(Icons.my_location),
                   ),
@@ -1719,8 +1726,9 @@ class _PtbfacilityPageState extends State<PtbfacilityPage> {
                     onPressed: () {
                       // Debug: Check auth before navigating
                       final user = FirebaseAuth.instance.currentUser;
-                      debugPrint('📋 Navigating to List View. Auth User: ${user?.uid ?? "NOT LOGGED IN"}');
-                      
+                      debugPrint(
+                          '📋 Navigating to List View. Auth User: ${user?.uid ?? "NOT LOGGED IN"}');
+
                       Navigator.push(
                         context,
                         MaterialPageRoute(

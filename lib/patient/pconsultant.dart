@@ -19,11 +19,12 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   final TextEditingController _controller = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
   final List<Map<String, String>> _messages = [
     {
       "role": "system",
       "content":
-          "You are a helpful and knowledgeable TB (Tuberculosis) consultant. Greet the user as a TB consultant and only answer medical questions, especially those related to TB. If a question is not medical, politely redirect the user to ask about TB or medical topics."
+          "You are a helpful and knowledgeable TB (Tuberculosis) consultant. Keep your responses SHORT (2-4 sentences maximum), simple, and easy to understand. Use everyday language that anyone can understand. Only answer medical questions, especially those related to TB. If a question is not medical, politely redirect the user to ask about TB or medical topics."
     },
   ];
   bool _serviceAvailable = true;
@@ -32,6 +33,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   bool _loading = false;
   bool _greetingDone = false;
+  bool _isKeyboardVisible = false;
 
   late final AnimationController _quickFadeController;
   late final Animation<Offset> _quickSlideAnimation;
@@ -82,6 +84,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   void dispose() {
     _quickFadeController.dispose();
     _controller.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
@@ -89,7 +92,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     // Always greet as a TB consultant
     const greeting =
         "👋 Hello! I am your TB consultant. How can I assist you with your medical or TB-related questions today?";
-    _addMessage({"role": "assistant", "content": ""});
+    _addMessage(
+        {"role": "greeting", "content": ""}); // Mark as greeting, not assistant
     final int botIndex = _messages.length - 1;
     for (int i = 0; i < greeting.length; i++) {
       await Future.delayed(animatedGreetingSpeed, () {
@@ -135,8 +139,12 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
     try {
       // Compose the conversation for Gemini, including system prompt and all previous messages
+      // Exclude greeting messages to prevent repetition
       final content = _messages
-          .where((m) => m['role'] != null && m['content'] != null)
+          .where((m) =>
+              m['role'] != null &&
+              m['content'] != null &&
+              m['role'] != 'greeting')
           .map((m) {
             if (m['role'] == 'user') return Content.text(m['content']!);
             if (m['role'] == 'assistant') return Content.text(m['content']!);
@@ -172,8 +180,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   Widget _buildMessage(
       Map<String, String> message, Animation<double> animation) {
-    if (message['role'] == 'system')
+    if (message['role'] == 'system') {
       return const SizedBox.shrink(); // Hide system prompt
+    }
+    // Treat greeting as assistant message for display purposes
     final isUser = message['role'] == 'user';
     final isTyping = message['content'] == '' && !isUser;
 
@@ -248,7 +258,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildQuickQuestions() {
-    if (!_greetingDone) return const SizedBox.shrink();
+    if (!_greetingDone || _isKeyboardVisible) return const SizedBox.shrink();
 
     return SlideTransition(
       position: _quickSlideAnimation,
@@ -262,7 +272,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             alignment: WrapAlignment.start,
             children: _quickQuestions.map((question) {
               return ElevatedButton(
-                onPressed: () => _sendMessage(question),
+                onPressed: () {
+                  _focusNode
+                      .unfocus(); // Close keyboard when quick question is tapped
+                  _sendMessage(question);
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xE0F44336),
                   foregroundColor: Colors.white,
@@ -301,6 +315,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               ),
               child: TextField(
                 controller: _controller,
+                focusNode: _focusNode,
                 onSubmitted: (_) => _sendMessage(),
                 decoration: const InputDecoration(
                   hintText: 'Type your message...',
@@ -334,6 +349,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    // Detect keyboard visibility
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    _isKeyboardVisible = keyboardHeight > 0;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF2F3F5),
       body: Column(

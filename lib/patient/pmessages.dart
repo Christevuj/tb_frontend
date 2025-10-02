@@ -541,7 +541,7 @@ class _PmessagesState extends State<Pmessages> {
 
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return SliverToBoxAdapter(
-                    child: Container(
+                    child: SizedBox(
                       height: 200,
                       child: Center(
                         child: CircularProgressIndicator(
@@ -556,7 +556,7 @@ class _PmessagesState extends State<Pmessages> {
                 if (snapshot.hasError) {
                   print('StreamBuilder error: \\${snapshot.error}');
                   return SliverToBoxAdapter(
-                    child: Container(
+                    child: SizedBox(
                       height: 200,
                       child: Center(
                         child: Column(
@@ -583,7 +583,7 @@ class _PmessagesState extends State<Pmessages> {
 
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
                   return SliverToBoxAdapter(
-                    child: Container(
+                    child: SizedBox(
                       height: 400,
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,

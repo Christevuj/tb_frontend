@@ -1869,8 +1869,7 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                                     onPrimary: Colors.white,
                                     surface: Colors.white,
                                     onSurface: Colors.grey.shade800,
-                                  ),
-                                  dialogBackgroundColor: Colors.white,
+                                  ), dialogTheme: DialogThemeData(backgroundColor: Colors.white),
                                 ),
                                 child: child!,
                               );

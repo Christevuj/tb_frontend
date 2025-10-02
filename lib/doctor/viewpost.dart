@@ -148,7 +148,7 @@ class Viewpostappointment extends StatelessWidget {
               InfoField(
                   icon: Icons.calendar_today,
                   text: date != null
-                      ? "${date.toLocal().toString().split(" ")[0]}"
+                      ? date.toLocal().toString().split(" ")[0]
                       : "-"),
               InfoField(
                   icon: Icons.access_time,

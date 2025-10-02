@@ -144,8 +144,7 @@ class _Pbooking1State extends State<Pbooking1> {
               onPrimary: Colors.white,
               surface: Colors.white,
               onSurface: Colors.grey.shade800,
-            ),
-            dialogBackgroundColor: Colors.white,
+            ), dialogTheme: DialogThemeData(backgroundColor: Colors.white),
           ),
           child: child!,
         );

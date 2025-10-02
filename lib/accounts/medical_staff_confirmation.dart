@@ -163,7 +163,7 @@ class _MedicalStaffConfirmationPageState
               .where('name', isEqualTo: facilityName)
               .limit(1)
               .get();
-          
+
           if (querySnapshot.docs.isNotEmpty) {
             return querySnapshot.docs.first.id;
           }
@@ -180,13 +180,14 @@ class _MedicalStaffConfirmationPageState
         "role": widget.role,
         "specialization": widget.specialization,
         "createdAt": FieldValue.serverTimestamp(),
+        "tempPassword": widget.password, // Store temporary password for email
       };
 
       // Add role-specific data
       if (widget.role == 'Doctor') {
         // Process affiliations to get the correct affiliationId
         List<Map<String, dynamic>> processedAffiliations = [];
-        
+
         if (widget.affiliations != null) {
           for (var affiliation in widget.affiliations!) {
             final facilityId = await getFacilityId(affiliation['name']);
@@ -211,7 +212,8 @@ class _MedicalStaffConfirmationPageState
         final Map<String, dynamic> facilityData = {
           ...baseData,
           'facility': widget.facility,
-          'affiliationId': affiliationId, // This is what ghealthworkers.dart looks for
+          'affiliationId':
+              affiliationId, // This is what ghealthworkers.dart looks for
         };
         await FirebaseFirestore.instance
             .collection("healthcare")

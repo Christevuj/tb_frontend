@@ -83,6 +83,9 @@ class TBisitaLoginScreen extends StatelessWidget {
               homePage = const HealthMainWrapper(initialIndex: 0);
             } else if (role == 'admin') {
               homePage = const AdminLogin();
+            } else if (role == 'healthcare' || role == 'Health Worker') {
+              // Handle healthcare workers from users collection
+              homePage = const HealthMainWrapper(initialIndex: 0);
             } else {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text("Unknown role")),
@@ -122,14 +125,19 @@ class TBisitaLoginScreen extends StatelessWidget {
               .get();
 
           if (healthcareDoc.exists) {
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(
-                  builder: (context) =>
-                      const HealthMainWrapper(initialIndex: 0)),
-              (route) => false,
-            );
-            return;
+            final data = healthcareDoc.data();
+            // Check if role is 'Health Worker' or 'healthcare'
+            final role = data?['role'];
+            if (role == 'Health Worker' || role == 'healthcare') {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(
+                    builder: (context) =>
+                        const HealthMainWrapper(initialIndex: 0)),
+                (route) => false,
+              );
+              return;
+            }
           }
         } catch (e) {
           if (kDebugMode) {

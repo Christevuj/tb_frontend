@@ -13,7 +13,7 @@ class TBDotsFacilitiesMap extends StatefulWidget {
 class _TBDotsFacilitiesMapState extends State<TBDotsFacilitiesMap> {
   GoogleMapController? _mapController;
   Position? _currentPosition;
-  Set<Marker> _markers = {};
+  final Set<Marker> _markers = {};
   bool _isLoading = true;
 
   // Davao City center coordinates

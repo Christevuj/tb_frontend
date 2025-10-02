@@ -172,8 +172,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   Widget _buildMessage(
       Map<String, String> message, Animation<double> animation) {
-    if (message['role'] == 'system')
+    if (message['role'] == 'system') {
       return const SizedBox.shrink(); // Hide system prompt
+    }
     final isUser = message['role'] == 'user';
     final isTyping = message['content'] == '' && !isUser;
 

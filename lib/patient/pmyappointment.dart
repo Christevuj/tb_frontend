@@ -8,6 +8,8 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'dart:typed_data';
+import 'package:pdfx/pdfx.dart' as pdfx;
+import 'package:http/http.dart' as http;
 
 class PMyAppointmentScreen extends StatefulWidget {
   const PMyAppointmentScreen({super.key});
@@ -563,7 +565,7 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                       icon: Icons.calendar_today,
                       iconBg: Colors.orange,
                       cardBg: Colors.orange.shade50,
-                      value: appointment['patientAge'].toString() + ' years',
+                      value: '${appointment['patientAge']} years',
                       label: "Age",
                     ),
                   if (appointment['patientGender'] != null)
@@ -1191,7 +1193,7 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
               ],
             ),
           );
-        }).toList(),
+        }),
       ],
     );
   }
@@ -1738,17 +1740,24 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
       // Check for Cloudinary URL first
       if (prescriptionData['pdfUrl'] != null &&
           prescriptionData['pdfUrl'].toString().isNotEmpty) {
-        // For now, show a message about cloud PDF - you can implement web viewing later
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Cloud PDF viewing - will be implemented soon'),
-            backgroundColor: Colors.orange,
+        String pdfUrl = prescriptionData['pdfUrl'].toString();
+        debugPrint('Opening PDF from URL: $pdfUrl');
+
+        // Navigate to URL-based PDF viewer
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => _PdfViewerFromUrlScreen(
+              pdfUrl: pdfUrl,
+              title: 'Prescription PDF',
+              filename: filename,
+              backgroundColor: Colors.blue,
+            ),
           ),
         );
         return;
       }
 
-      // Check for local PDF path
+      // Check for local PDF path (fallback)
       if (prescriptionData['pdfPath'] != null) {
         final file = File(prescriptionData['pdfPath']);
         if (await file.exists()) {
@@ -1776,8 +1785,8 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('PDF version not available.'),
-            backgroundColor: Colors.blue,
+            content: Text('PDF not available. Please contact your doctor.'),
+            backgroundColor: Colors.orange,
           ),
         );
       }
@@ -1804,7 +1813,27 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
       if (certificateSnapshot.docs.isNotEmpty) {
         final certificateData = certificateSnapshot.docs.first.data();
 
-        // Check for local PDF path first
+        // Check for Cloudinary URL first
+        if (certificateData['pdfUrl'] != null &&
+            certificateData['pdfUrl'].toString().isNotEmpty) {
+          String pdfUrl = certificateData['pdfUrl'].toString();
+          debugPrint('Opening certificate PDF from URL: $pdfUrl');
+
+          // Navigate to URL-based PDF viewer
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => _PdfViewerFromUrlScreen(
+                pdfUrl: pdfUrl,
+                title: 'TB Treatment Certificate',
+                filename: 'TB_Certificate.pdf',
+                backgroundColor: Colors.purple,
+              ),
+            ),
+          );
+          return;
+        }
+
+        // Check for local PDF path (fallback)
         if (certificateData['pdfPath'] != null) {
           final file = File(certificateData['pdfPath']);
           if (await file.exists()) {
@@ -1823,26 +1852,13 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
             return;
           }
         }
-
-        // Check for Cloudinary URL
-        if (certificateData['pdfUrl'] != null &&
-            certificateData['pdfUrl'].toString().isNotEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content:
-                  Text('Cloud certificate viewing - will be implemented soon'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-          return;
-        }
       }
 
       // No certificate found or no PDF available
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-              'Certificate PDF not found. It may have been moved or deleted.'),
+              'Certificate PDF not available. Please contact your healthcare provider.'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -1854,6 +1870,249 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
         ),
       );
     }
+  }
+}
+
+// In-app PDF Viewer Screen for URLs
+class _PdfViewerFromUrlScreen extends StatefulWidget {
+  final String pdfUrl;
+  final String title;
+  final String filename;
+  final Color? backgroundColor;
+
+  const _PdfViewerFromUrlScreen({
+    required this.pdfUrl,
+    required this.title,
+    required this.filename,
+    this.backgroundColor,
+  });
+
+  @override
+  State<_PdfViewerFromUrlScreen> createState() =>
+      _PdfViewerFromUrlScreenState();
+}
+
+class _PdfViewerFromUrlScreenState extends State<_PdfViewerFromUrlScreen> {
+  pdfx.PdfController? _pdfController;
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializePdf();
+  }
+
+  Future<void> _initializePdf() async {
+    try {
+      debugPrint('Initializing PDF from URL: ${widget.pdfUrl}');
+
+      // Download PDF from URL
+      final response = await http.get(Uri.parse(widget.pdfUrl));
+      if (response.statusCode == 200) {
+        final pdfBytes = response.bodyBytes;
+        _pdfController = pdfx.PdfController(
+          document: pdfx.PdfDocument.openData(pdfBytes),
+        );
+        setState(() {
+          _isLoading = false;
+        });
+      } else {
+        throw Exception('Failed to download PDF: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Error loading PDF: $e');
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Failed to load PDF: ${e.toString()}';
+      });
+    }
+  }
+
+  Future<void> _downloadAndSharePdf() async {
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      // Download PDF bytes from URL
+      final response = await http.get(Uri.parse(widget.pdfUrl));
+
+      // Close loading dialog
+      Navigator.of(context).pop();
+
+      if (response.statusCode == 200) {
+        final pdfBytes = response.bodyBytes;
+
+        // Share the PDF
+        await Printing.sharePdf(
+          bytes: pdfBytes,
+          filename: widget.filename,
+        );
+      } else {
+        throw Exception('Failed to download PDF: ${response.statusCode}');
+      }
+    } catch (e) {
+      // Close loading dialog if still open
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error downloading PDF: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _printPdf() async {
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      // Download PDF bytes from URL
+      final response = await http.get(Uri.parse(widget.pdfUrl));
+
+      // Close loading dialog
+      Navigator.of(context).pop();
+
+      if (response.statusCode == 200) {
+        final pdfBytes = response.bodyBytes;
+
+        // Print the PDF
+        await Printing.layoutPdf(
+          onLayout: (format) => pdfBytes,
+        );
+      } else {
+        throw Exception('Failed to download PDF: ${response.statusCode}');
+      }
+    } catch (e) {
+      // Close loading dialog if still open
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error printing PDF: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _pdfController?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.title),
+        backgroundColor: widget.backgroundColor ?? Colors.red,
+        foregroundColor: Colors.white,
+        actions: [
+          // Share/Download button
+          IconButton(
+            icon: const Icon(Icons.share),
+            onPressed: _downloadAndSharePdf,
+            tooltip: 'Share PDF',
+          ),
+          // Print button
+          IconButton(
+            icon: const Icon(Icons.print),
+            onPressed: _printPdf,
+            tooltip: 'Print PDF',
+          ),
+        ],
+      ),
+      body: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_isLoading) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Loading PDF...'),
+          ],
+        ),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 64,
+              color: Colors.red[300],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Failed to load PDF',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Text(
+                _errorMessage!,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  _isLoading = true;
+                  _errorMessage = null;
+                });
+                _initializePdf();
+              },
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_pdfController == null) {
+      return const Center(
+        child: Text('PDF controller not initialized'),
+      );
+    }
+
+    return pdfx.PdfView(
+      controller: _pdfController!,
+      scrollDirection: Axis.vertical,
+      backgroundDecoration: const BoxDecoration(
+        color: Colors.grey,
+      ),
+    );
   }
 }
 
@@ -1918,7 +2177,7 @@ class _PdfViewerScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: Container(
+      body: SizedBox(
         width: double.infinity,
         height: double.infinity,
         child: PdfPreview(

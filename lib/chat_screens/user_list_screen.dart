@@ -64,8 +64,9 @@ class _UserListScreenState extends State<UserListScreen> {
                   showRoles.contains(u['role']))
               .toList();
 
-          if (users.isEmpty)
+          if (users.isEmpty) {
             return const Center(child: Text('No contacts found.'));
+          }
 
           return ListView.builder(
             itemCount: users.length,

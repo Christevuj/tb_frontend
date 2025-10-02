@@ -426,7 +426,7 @@ class _DmessagesState extends State<Dmessages> {
                 
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return SliverToBoxAdapter(
-                    child: Container(
+                    child: SizedBox(
                       height: 200,
                       child: Center(
                         child: CircularProgressIndicator(
@@ -440,7 +440,7 @@ class _DmessagesState extends State<Dmessages> {
                 if (snapshot.hasError) {
                   print('StreamBuilder error: ${snapshot.error}');
                   return SliverToBoxAdapter(
-                    child: Container(
+                    child: SizedBox(
                       height: 200,
                       child: Center(
                         child: Column(
@@ -466,7 +466,7 @@ class _DmessagesState extends State<Dmessages> {
 
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
                   return SliverToBoxAdapter(
-                    child: Container(
+                    child: SizedBox(
                       height: 400,
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -723,7 +723,7 @@ class _DmessagesState extends State<Dmessages> {
   void _debugShowCurrentState() {
     print('📊 Current widget state:');
     print('📊 _currentUserId: $_currentUserId');
-    print('📊 Widget mounted: ${mounted}');
+    print('📊 Widget mounted: $mounted');
     print('📊 Context: ${context.mounted}');
   }
 }

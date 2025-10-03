@@ -72,6 +72,249 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Set<String> selectedPatientIds = {};
   Set<String> selectedHealthWorkerIds = {};
 
+  @override
+  void initState() {
+    super.initState();
+    // Check SMTP credentials when dashboard loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkSmtpCredentials();
+    });
+  }
+
+  // Check if SMTP credentials are configured
+  Future<void> _checkSmtpCredentials() async {
+    try {
+      final emailConfig = await EmailConfig.getCurrentAdminEmailConfig();
+
+      if (emailConfig == null ||
+          emailConfig['email']?.isEmpty == true ||
+          emailConfig['password']?.isEmpty == true) {
+        if (mounted) {
+          _showSmtpCredentialsDialog();
+        }
+      }
+    } catch (e) {
+      print('Error checking SMTP credentials: $e');
+      // If there's an error, assume credentials are not set and show dialog
+      if (mounted) {
+        _showSmtpCredentialsDialog();
+      }
+    }
+  }
+
+  // Show dialog prompting admin to set SMTP credentials
+  void _showSmtpCredentialsDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isMobile = constraints.maxWidth < 600;
+
+              return Container(
+                constraints: BoxConstraints(
+                  maxWidth: isMobile ? constraints.maxWidth * 0.9 : 500,
+                ),
+                margin: EdgeInsets.symmetric(
+                  horizontal: isMobile ? 16 : 24,
+                  vertical: isMobile ? 32 : 24,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 30,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header
+                    Container(
+                      padding: EdgeInsets.all(isMobile ? 20 : 24),
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(24),
+                          topRight: Radius.circular(24),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: const Icon(
+                              Icons.email_outlined,
+                              color: Colors.white,
+                              size: 28,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Email Setup Required',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: isMobile ? 18 : 20,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                Text(
+                                  'Configure SMTP credentials',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    color: Colors.white.withOpacity(0.9),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Content
+                    Padding(
+                      padding: EdgeInsets.all(isMobile ? 20 : 24),
+                      child: Column(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.shade50,
+                              border: Border.all(color: Colors.orange.shade200),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.info_outline_rounded,
+                                  color: Colors.orange.shade600,
+                                  size: 24,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'To send accounts through email to doctors and healthworkers, you need to configure your SMTP email credentials in Email Settings first.',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: isMobile ? 13 : 14,
+                                      color: Colors.orange.shade700,
+                                      fontWeight: FontWeight.w500,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Buttons
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextButton(
+                                  onPressed: () {
+                                    Navigator.of(context).pop();
+                                  },
+                                  style: TextButton.styleFrom(
+                                    padding: EdgeInsets.symmetric(
+                                      vertical: isMobile ? 14 : 16,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      side: BorderSide(
+                                        color: Colors.grey.shade300,
+                                        width: 1,
+                                      ),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'Later',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: isMobile ? 14 : 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                flex: 2,
+                                child: ElevatedButton.icon(
+                                  onPressed: () {
+                                    Navigator.of(context).pop();
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            const EmailCredentialsPage(),
+                                      ),
+                                    );
+                                  },
+                                  icon: const Icon(
+                                    Icons.settings_rounded,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                  label: Text(
+                                    'Email Settings',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: isMobile ? 14 : 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFFEF4444),
+                                    foregroundColor: Colors.white,
+                                    padding: EdgeInsets.symmetric(
+                                      vertical: isMobile ? 14 : 16,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    elevation: 0,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
   // Helper function to send credentials email
   Future<void> _sendCredentialsEmailHelper(
       BuildContext context, Map<String, dynamic> data, String type) async {

@@ -34,15 +34,13 @@ dependencies:
   pdfx: ^2.6.0
   pdf: ^3.10.4
   printing: ^5.12.0
-  # Full-text search PDF packages
-  syncfusion_flutter_pdfviewer: ^26.2.14
-  syncfusion_flutter_pdf: ^26.2.14
   path_provider: ^2.1.1
   video_player: ^2.9.2
   jitsi_meet_flutter_sdk: ^10.2.0
   google_generative_ai: ^0.2.2
   mailer: ^6.5.0
   encrypt: ^5.0.1
+  shared_preferences: ^2.2.2
 
 dev_dependencies:
   flutter_test:

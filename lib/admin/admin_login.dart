@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tb_frontend/services/auth_service.dart'; // Import your AuthService
 import 'package:tb_frontend/login_screen.dart'; // Import login screen
 import 'admin_dashboard.dart'; // Import your admin dashboard page
@@ -16,7 +17,6 @@ class _AdminLoginState extends State<AdminLogin>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<Offset> _slideAnimation;
-  late Animation<double> _fadeAnimation;
 
   final String welcomeText = "Welcome Back, Master 🙇🏻";
   late List<bool> _visibleLetters;
@@ -51,10 +51,6 @@ class _AdminLoginState extends State<AdminLogin>
       CurvedAnimation(parent: _controller, curve: Curves.easeOut),
     );
 
-    _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
-    );
-
     _controller.forward();
 
     _timer = Timer.periodic(const Duration(milliseconds: 60), (timer) {
@@ -67,6 +63,40 @@ class _AdminLoginState extends State<AdminLogin>
         _timer?.cancel();
       }
     });
+
+    // Load saved credentials
+    _loadSavedCredentials();
+  }
+
+  // Load saved credentials from SharedPreferences
+  Future<void> _loadSavedCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedEmail = prefs.getString('admin_email');
+    final savedPassword = prefs.getString('admin_password');
+    final rememberMe = prefs.getBool('admin_remember_me') ?? false;
+
+    if (rememberMe && savedEmail != null && savedPassword != null) {
+      setState(() {
+        _emailController.text = savedEmail;
+        _passwordController.text = savedPassword;
+        _rememberMe = true;
+      });
+    }
+  }
+
+  // Save credentials to SharedPreferences
+  Future<void> _saveCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    if (_rememberMe) {
+      await prefs.setString('admin_email', _emailController.text.trim());
+      await prefs.setString('admin_password', _passwordController.text.trim());
+      await prefs.setBool('admin_remember_me', true);
+    } else {
+      await prefs.remove('admin_email');
+      await prefs.remove('admin_password');
+      await prefs.setBool('admin_remember_me', false);
+    }
   }
 
   @override
@@ -115,6 +145,9 @@ class _AdminLoginState extends State<AdminLogin>
       setState(() => _isLoading = false);
 
       if (adminQuery.docs.isNotEmpty) {
+        // Save credentials if remember me is checked
+        await _saveCredentials();
+
         // User is a valid admin, navigate to dashboard
         Navigator.pushReplacement(
           context,

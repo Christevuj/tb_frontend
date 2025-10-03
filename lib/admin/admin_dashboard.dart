@@ -67,11 +67,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
   bool _isHovered = false;
   DashboardTab _selectedTab = DashboardTab.dashboard;
 
-  // Selection state for tables
-  Set<String> selectedDoctorIds = {};
-  Set<String> selectedPatientIds = {};
-  Set<String> selectedHealthWorkerIds = {};
-
   @override
   void initState() {
     super.initState();
@@ -1362,7 +1357,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       case DashboardTab.doctors:
         return DoctorsView(onSendEmail: _sendCredentialsEmailHelper);
       case DashboardTab.patients:
-        return const PatientsView();
+        return PatientsView(onSendEmail: _sendCredentialsEmailHelper);
       case DashboardTab.healthWorkers:
         return HealthWorkersView(
           onSendEmail: _sendCredentialsEmailHelper,
@@ -2044,6 +2039,10 @@ class _DoctorsViewState extends State<DoctorsView> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
+  // Multi-select functionality
+  Set<String> selectedDoctorIds = {};
+  bool _isSelectionMode = false;
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -2220,89 +2219,300 @@ class _DoctorsViewState extends State<DoctorsView> {
         ],
         border: Border.all(color: const Color(0xFFF3F4F6), width: 1.5),
       ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          headingRowColor: WidgetStateProperty.all(const Color(0xFFF9FAFB)),
-          columns: [
-            DataColumn(
-              label: Text('Name',
-                  style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
-            ),
-            DataColumn(
-              label: Text('Specialization',
-                  style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
-            ),
-            DataColumn(
-              label: Text('Facility',
-                  style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
-            ),
-            DataColumn(
-              label: Text('Email',
-                  style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
-            ),
-            DataColumn(
-              label: Text('Actions',
-                  style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
-            ),
-          ],
-          rows: docs.map((doc) {
-            final data = doc.data() as Map<String, dynamic>;
-
-            // Get facility name
-            String facilityName = 'N/A';
-            if (data['affiliations'] != null && data['affiliations'] is List) {
-              final affiliations = data['affiliations'] as List;
-              if (affiliations.isNotEmpty && affiliations[0] is Map) {
-                facilityName = affiliations[0]['name'] ?? 'N/A';
-              }
-            }
-
-            return DataRow(
-              cells: [
-                DataCell(Text(
-                  data['fullName'] ?? data['name'] ?? 'N/A',
-                  style: GoogleFonts.poppins(),
-                )),
-                DataCell(Text(
-                  data['specialization'] ?? 'N/A',
-                  style: GoogleFonts.poppins(),
-                )),
-                DataCell(Text(
-                  facilityName,
-                  style: GoogleFonts.poppins(),
-                )),
-                DataCell(Text(
-                  data['email'] ?? 'N/A',
-                  style: GoogleFonts.poppins(),
-                )),
-                DataCell(
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.visibility_rounded,
-                            color: Color(0xFFEF4444)),
-                        onPressed: () =>
-                            _showDetailsDialog(context, data, 'doctor'),
-                        tooltip: 'View Details',
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.email_rounded,
-                            color: Color(0xFF059669)),
-                        onPressed: () =>
-                            widget.onSendEmail(context, data, 'doctor'),
-                        tooltip: 'Send Credentials Email',
-                      ),
-                    ],
+      child: Column(
+        children: [
+          // Selection toolbar when items are selected
+          if (_isSelectionMode && selectedDoctorIds.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEF4444).withOpacity(0.1),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Text(
+                    '${selectedDoctorIds.length} selected',
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFFEF4444),
+                    ),
                   ),
+                  const Spacer(),
+                  TextButton.icon(
+                    onPressed: _clearSelection,
+                    icon: const Icon(Icons.clear, size: 18),
+                    label: const Text('Clear'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.grey.shade600,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: () => _sendBulkEmail(docs),
+                    icon: const Icon(Icons.email, size: 18),
+                    label: const Text('Send Email'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFEF4444),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          // DataTable
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              headingRowColor: WidgetStateProperty.all(const Color(0xFFF9FAFB)),
+              columns: [
+                DataColumn(
+                  label: Text('Name',
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+                ),
+                DataColumn(
+                  label: Text('Specialization',
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+                ),
+                DataColumn(
+                  label: Text('Facility',
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+                ),
+                DataColumn(
+                  label: Text('Email',
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+                ),
+                DataColumn(
+                  label: Text('Actions',
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
                 ),
               ],
-            );
-          }).toList(),
-        ),
+              rows: docs.map((doc) {
+                final data = doc.data() as Map<String, dynamic>;
+                final isSelected = selectedDoctorIds.contains(doc.id);
+
+                // Get facility name
+                String facilityName = 'N/A';
+                if (data['affiliations'] != null &&
+                    data['affiliations'] is List) {
+                  final affiliations = data['affiliations'] as List;
+                  if (affiliations.isNotEmpty && affiliations[0] is Map) {
+                    facilityName = affiliations[0]['name'] ?? 'N/A';
+                  }
+                }
+
+                return DataRow(
+                  color: isSelected
+                      ? WidgetStateProperty.all(Colors.grey.withOpacity(0.3))
+                      : null,
+                  onLongPress: () {
+                    setState(() {
+                      if (!_isSelectionMode) {
+                        _isSelectionMode = true;
+                        selectedDoctorIds.add(doc.id);
+                      } else {
+                        if (selectedDoctorIds.contains(doc.id)) {
+                          selectedDoctorIds.remove(doc.id);
+                          if (selectedDoctorIds.isEmpty) {
+                            _isSelectionMode = false;
+                          }
+                        } else {
+                          selectedDoctorIds.add(doc.id);
+                        }
+                      }
+                    });
+                  },
+                  cells: [
+                    DataCell(
+                      Text(
+                        data['fullName'] ?? data['name'] ?? 'N/A',
+                        style: GoogleFonts.poppins(
+                          color: isSelected ? Colors.grey.shade600 : null,
+                        ),
+                      ),
+                      onTap: _isSelectionMode
+                          ? () {
+                              setState(() {
+                                if (selectedDoctorIds.contains(doc.id)) {
+                                  selectedDoctorIds.remove(doc.id);
+                                  if (selectedDoctorIds.isEmpty) {
+                                    _isSelectionMode = false;
+                                  }
+                                } else {
+                                  selectedDoctorIds.add(doc.id);
+                                }
+                              });
+                            }
+                          : null,
+                    ),
+                    DataCell(
+                      Text(
+                        data['specialization'] ?? 'N/A',
+                        style: GoogleFonts.poppins(
+                          color: isSelected ? Colors.grey.shade600 : null,
+                        ),
+                      ),
+                      onTap: _isSelectionMode
+                          ? () {
+                              setState(() {
+                                if (selectedDoctorIds.contains(doc.id)) {
+                                  selectedDoctorIds.remove(doc.id);
+                                  if (selectedDoctorIds.isEmpty) {
+                                    _isSelectionMode = false;
+                                  }
+                                } else {
+                                  selectedDoctorIds.add(doc.id);
+                                }
+                              });
+                            }
+                          : null,
+                    ),
+                    DataCell(
+                      Text(
+                        facilityName,
+                        style: GoogleFonts.poppins(
+                          color: isSelected ? Colors.grey.shade600 : null,
+                        ),
+                      ),
+                      onTap: _isSelectionMode
+                          ? () {
+                              setState(() {
+                                if (selectedDoctorIds.contains(doc.id)) {
+                                  selectedDoctorIds.remove(doc.id);
+                                  if (selectedDoctorIds.isEmpty) {
+                                    _isSelectionMode = false;
+                                  }
+                                } else {
+                                  selectedDoctorIds.add(doc.id);
+                                }
+                              });
+                            }
+                          : null,
+                    ),
+                    DataCell(
+                      Text(
+                        data['email'] ?? 'N/A',
+                        style: GoogleFonts.poppins(
+                          color: isSelected ? Colors.grey.shade600 : null,
+                        ),
+                      ),
+                      onTap: _isSelectionMode
+                          ? () {
+                              setState(() {
+                                if (selectedDoctorIds.contains(doc.id)) {
+                                  selectedDoctorIds.remove(doc.id);
+                                  if (selectedDoctorIds.isEmpty) {
+                                    _isSelectionMode = false;
+                                  }
+                                } else {
+                                  selectedDoctorIds.add(doc.id);
+                                }
+                              });
+                            }
+                          : null,
+                    ),
+                    DataCell(
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: Icon(Icons.visibility_rounded,
+                                color: isSelected
+                                    ? Colors.grey.shade400
+                                    : const Color(0xFFEF4444)),
+                            onPressed: () =>
+                                _showDetailsDialog(context, data, 'doctor'),
+                            tooltip: 'View Details',
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.email_rounded,
+                                color: isSelected
+                                    ? Colors.grey.shade400
+                                    : const Color(0xFF059669)),
+                            onPressed: () =>
+                                widget.onSendEmail(context, data, 'doctor'),
+                            tooltip: 'Send Credentials Email',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              }).toList(),
+            ),
+          ),
+        ],
       ),
     );
+  }
+
+  // Multi-select helper methods for doctors
+  void _clearSelection() {
+    setState(() {
+      selectedDoctorIds.clear();
+      _isSelectionMode = false;
+    });
+  }
+
+  Future<void> _sendBulkEmail(List<DocumentSnapshot> docs) async {
+    final selectedDocs =
+        docs.where((doc) => selectedDoctorIds.contains(doc.id)).toList();
+
+    if (selectedDocs.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No doctors selected')),
+      );
+      return;
+    }
+
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Send Email to Selected Doctors'),
+        content: Text(
+          'Are you sure you want to send credentials email to ${selectedDocs.length} selected doctor(s)?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+            ),
+            child: const Text('Send', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      // Send emails to all selected doctors
+      for (final doc in selectedDocs) {
+        final data = doc.data() as Map<String, dynamic>;
+        await widget.onSendEmail(context, data, 'doctor');
+      }
+
+      // Clear selection after sending
+      _clearSelection();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Emails sent to ${selectedDocs.length} doctor(s)'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    }
   }
 
   void _showDetailsDialog(
@@ -2535,7 +2745,9 @@ class _DoctorsViewState extends State<DoctorsView> {
 
 // Patients View
 class PatientsView extends StatefulWidget {
-  const PatientsView({super.key});
+  final Function(BuildContext, Map<String, dynamic>, String) onSendEmail;
+
+  const PatientsView({super.key, required this.onSendEmail});
 
   @override
   State<PatientsView> createState() => _PatientsViewState();
@@ -2544,6 +2756,10 @@ class PatientsView extends StatefulWidget {
 class _PatientsViewState extends State<PatientsView> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+
+  // Multi-select state for patients
+  bool _isSelectionMode = false;
+  Set<String> selectedPatientIds = <String>{};
 
   @override
   void dispose() {
@@ -2780,79 +2996,254 @@ class _PatientsViewState extends State<PatientsView> {
         ],
         border: Border.all(color: const Color(0xFFF3F4F6), width: 1.5),
       ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          headingRowColor: WidgetStateProperty.all(const Color(0xFFF9FAFB)),
-          columns: [
-            DataColumn(
-                label: Text('Name',
-                    style: GoogleFonts.poppins(fontWeight: FontWeight.w700))),
-            DataColumn(
-                label: Text('Email',
-                    style: GoogleFonts.poppins(fontWeight: FontWeight.w700))),
-            DataColumn(
-                label: Text('Status',
-                    style: GoogleFonts.poppins(fontWeight: FontWeight.w700))),
-            DataColumn(
-                label: Text('Actions',
-                    style: GoogleFonts.poppins(fontWeight: FontWeight.w700))),
-          ],
-          rows: docs.map((doc) {
-            final data = doc.data() as Map<String, dynamic>;
-            String name = '';
-            if (data['firstName'] != null && data['lastName'] != null) {
-              name = '${data['firstName']} ${data['lastName']}';
-            } else if (data['name'] != null) {
-              name = data['name'];
-            } else {
-              name = 'N/A';
-            }
-
-            // Get enhanced status using the helper method
-            final displayStatus = _getPatientStatus(data);
-            final statusColor = _getStatusColor(displayStatus);
-            final backgroundColor = _getStatusBackgroundColor(displayStatus);
-
-            return DataRow(
-              cells: [
-                DataCell(Text(name, style: GoogleFonts.poppins())),
-                DataCell(
-                    Text(data['email'] ?? 'N/A', style: GoogleFonts.poppins())),
-                DataCell(
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: backgroundColor,
-                      borderRadius: BorderRadius.circular(8),
+      child: Column(
+        children: [
+          // Selection toolbar
+          if (_isSelectionMode)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: Color(0xFFF3F4F6),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: Row(
+                children: [
+                  Text(
+                    '${selectedPatientIds.length} patient(s) selected',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                  ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: _clearSelection,
+                    child: const Text('Clear'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: () => _sendBulkEmail(docs),
+                    icon: const Icon(Icons.email, size: 18),
+                    label: const Text('Send Email'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFEF4444),
+                      foregroundColor: Colors.white,
                     ),
-                    child: Text(
-                      displayStatus,
-                      style: GoogleFonts.poppins(
-                        color: statusColor,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
+                  ),
+                ],
+              ),
+            ),
+          // DataTable
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                headingRowColor:
+                    WidgetStateProperty.all(const Color(0xFFF9FAFB)),
+                columns: [
+                  DataColumn(
+                      label: Text('Name',
+                          style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w700))),
+                  DataColumn(
+                      label: Text('Email',
+                          style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w700))),
+                  DataColumn(
+                      label: Text('Status',
+                          style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w700))),
+                  DataColumn(
+                      label: Text('Actions',
+                          style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w700))),
+                ],
+                rows: docs.map((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  String name = '';
+                  if (data['firstName'] != null && data['lastName'] != null) {
+                    name = '${data['firstName']} ${data['lastName']}';
+                  } else if (data['name'] != null) {
+                    name = data['name'];
+                  } else {
+                    name = 'N/A';
+                  }
+
+                  // Get enhanced status using the helper method
+                  final displayStatus = _getPatientStatus(data);
+                  final statusColor = _getStatusColor(displayStatus);
+                  final backgroundColor =
+                      _getStatusBackgroundColor(displayStatus);
+
+                  final isSelected = selectedPatientIds.contains(doc.id);
+
+                  return DataRow(
+                    color: isSelected
+                        ? WidgetStateProperty.all(Colors.grey.withOpacity(0.3))
+                        : null,
+                    onLongPress: () {
+                      setState(() {
+                        if (!_isSelectionMode) {
+                          _isSelectionMode = true;
+                          selectedPatientIds.add(doc.id);
+                        } else {
+                          if (selectedPatientIds.contains(doc.id)) {
+                            selectedPatientIds.remove(doc.id);
+                            if (selectedPatientIds.isEmpty) {
+                              _isSelectionMode = false;
+                            }
+                          } else {
+                            selectedPatientIds.add(doc.id);
+                          }
+                        }
+                      });
+                    },
+                    cells: [
+                      DataCell(
+                        Text(name,
+                            style: GoogleFonts.poppins(
+                              color: isSelected ? Colors.grey.shade600 : null,
+                            )),
+                        onTap: _isSelectionMode
+                            ? () {
+                                setState(() {
+                                  if (selectedPatientIds.contains(doc.id)) {
+                                    selectedPatientIds.remove(doc.id);
+                                    if (selectedPatientIds.isEmpty) {
+                                      _isSelectionMode = false;
+                                    }
+                                  } else {
+                                    selectedPatientIds.add(doc.id);
+                                  }
+                                });
+                              }
+                            : null,
                       ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  Builder(
-                    builder: (btnContext) => IconButton(
-                      icon: const Icon(Icons.visibility_rounded,
-                          color: Color(0xFFEF4444)),
-                      onPressed: () => _showDetailsDialog(btnContext, data),
-                      tooltip: 'View Details',
-                    ),
-                  ),
-                ),
-              ],
-            );
-          }).toList(),
-        ),
+                      DataCell(
+                        Text(data['email'] ?? 'N/A',
+                            style: GoogleFonts.poppins(
+                              color: isSelected ? Colors.grey.shade600 : null,
+                            )),
+                        onTap: _isSelectionMode
+                            ? () {
+                                setState(() {
+                                  if (selectedPatientIds.contains(doc.id)) {
+                                    selectedPatientIds.remove(doc.id);
+                                    if (selectedPatientIds.isEmpty) {
+                                      _isSelectionMode = false;
+                                    }
+                                  } else {
+                                    selectedPatientIds.add(doc.id);
+                                  }
+                                });
+                              }
+                            : null,
+                      ),
+                      DataCell(
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? Colors.grey.shade300
+                                : backgroundColor,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            displayStatus,
+                            style: GoogleFonts.poppins(
+                              color: isSelected
+                                  ? Colors.grey.shade600
+                                  : statusColor,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ),
+                      DataCell(
+                        Builder(
+                          builder: (btnContext) => IconButton(
+                            icon: Icon(Icons.visibility_rounded,
+                                color: isSelected
+                                    ? Colors.grey.shade400
+                                    : const Color(0xFFEF4444)),
+                            onPressed: () =>
+                                _showDetailsDialog(btnContext, data),
+                            tooltip: 'View Details',
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ],
       ),
     );
+  }
+
+  // Multi-select helper methods for patients
+  void _clearSelection() {
+    setState(() {
+      selectedPatientIds.clear();
+      _isSelectionMode = false;
+    });
+  }
+
+  Future<void> _sendBulkEmail(List<DocumentSnapshot> docs) async {
+    final selectedDocs =
+        docs.where((doc) => selectedPatientIds.contains(doc.id)).toList();
+
+    if (selectedDocs.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No patients selected')),
+      );
+      return;
+    }
+
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Send Email to Selected Patients'),
+        content: Text(
+          'Are you sure you want to send credentials email to ${selectedDocs.length} selected patient(s)?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+            ),
+            child: const Text('Send', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      // Send emails to all selected patients
+      for (final doc in selectedDocs) {
+        final data = doc.data() as Map<String, dynamic>;
+        await widget.onSendEmail(context, data, 'patient');
+      }
+
+      // Clear selection after sending
+      _clearSelection();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Emails sent to ${selectedDocs.length} patient(s)'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    }
   }
 
   void _showDetailsDialog(BuildContext context, Map<String, dynamic> data) {
@@ -3037,6 +3428,10 @@ class _HealthWorkersViewState extends State<HealthWorkersView> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
+  // Multi-select state for health workers
+  bool _isSelectionMode = false;
+  Set<String> selectedHealthWorkerIds = <String>{};
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -3211,70 +3606,284 @@ class _HealthWorkersViewState extends State<HealthWorkersView> {
         ],
         border: Border.all(color: const Color(0xFFF3F4F6), width: 1.5),
       ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          headingRowColor: WidgetStateProperty.all(const Color(0xFFF9FAFB)),
-          columns: [
-            DataColumn(
-                label: Text('Name',
-                    style: GoogleFonts.poppins(fontWeight: FontWeight.w700))),
-            DataColumn(
-                label: Text('Position',
-                    style: GoogleFonts.poppins(fontWeight: FontWeight.w700))),
-            DataColumn(
-                label: Text('Facility',
-                    style: GoogleFonts.poppins(fontWeight: FontWeight.w700))),
-            DataColumn(
-                label: Text('Email',
-                    style: GoogleFonts.poppins(fontWeight: FontWeight.w700))),
-            DataColumn(
-                label: Text('Actions',
-                    style: GoogleFonts.poppins(fontWeight: FontWeight.w700))),
-          ],
-          rows: docs.map((doc) {
-            final data = doc.data() as Map<String, dynamic>;
+      child: Column(
+        children: [
+          // Selection toolbar
+          if (_isSelectionMode)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: Color(0xFFF3F4F6),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: Row(
+                children: [
+                  Text(
+                    '${selectedHealthWorkerIds.length} health worker(s) selected',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                  ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: _clearSelection,
+                    child: const Text('Clear'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: () => _sendBulkEmail(docs),
+                    icon: const Icon(Icons.email, size: 18),
+                    label: const Text('Send Email'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFEF4444),
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          // DataTable
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                headingRowColor:
+                    WidgetStateProperty.all(const Color(0xFFF9FAFB)),
+                columns: [
+                  DataColumn(
+                      label: Text('Name',
+                          style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w700))),
+                  DataColumn(
+                      label: Text('Position',
+                          style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w700))),
+                  DataColumn(
+                      label: Text('Facility',
+                          style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w700))),
+                  DataColumn(
+                      label: Text('Email',
+                          style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w700))),
+                  DataColumn(
+                      label: Text('Actions',
+                          style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w700))),
+                ],
+                rows: docs.map((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
 
-            final facilityName =
-                data['facility'] != null && data['facility'] is Map
-                    ? data['facility']['name'] ?? 'N/A'
-                    : 'N/A';
+                  final facilityName =
+                      data['facility'] != null && data['facility'] is Map
+                          ? data['facility']['name'] ?? 'N/A'
+                          : 'N/A';
 
-            return DataRow(
-              cells: [
-                DataCell(Text(data['fullName'] ?? data['name'] ?? 'N/A',
-                    style: GoogleFonts.poppins())),
-                DataCell(Text(data['specialization'] ?? 'N/A',
-                    style: GoogleFonts.poppins())),
-                DataCell(Text(facilityName, style: GoogleFonts.poppins())),
-                DataCell(
-                    Text(data['email'] ?? 'N/A', style: GoogleFonts.poppins())),
-                DataCell(
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.visibility_rounded,
-                            color: Color(0xFFEF4444)),
-                        onPressed: () => _showDetailsDialog(context, data),
-                        tooltip: 'View Details',
+                  final isSelected = selectedHealthWorkerIds.contains(doc.id);
+
+                  return DataRow(
+                    color: isSelected
+                        ? WidgetStateProperty.all(Colors.grey.withOpacity(0.3))
+                        : null,
+                    onLongPress: () {
+                      setState(() {
+                        if (!_isSelectionMode) {
+                          _isSelectionMode = true;
+                          selectedHealthWorkerIds.add(doc.id);
+                        } else {
+                          if (selectedHealthWorkerIds.contains(doc.id)) {
+                            selectedHealthWorkerIds.remove(doc.id);
+                            if (selectedHealthWorkerIds.isEmpty) {
+                              _isSelectionMode = false;
+                            }
+                          } else {
+                            selectedHealthWorkerIds.add(doc.id);
+                          }
+                        }
+                      });
+                    },
+                    cells: [
+                      DataCell(
+                        Text(data['fullName'] ?? data['name'] ?? 'N/A',
+                            style: GoogleFonts.poppins(
+                              color: isSelected ? Colors.grey.shade600 : null,
+                            )),
+                        onTap: _isSelectionMode
+                            ? () {
+                                setState(() {
+                                  if (selectedHealthWorkerIds
+                                      .contains(doc.id)) {
+                                    selectedHealthWorkerIds.remove(doc.id);
+                                    if (selectedHealthWorkerIds.isEmpty) {
+                                      _isSelectionMode = false;
+                                    }
+                                  } else {
+                                    selectedHealthWorkerIds.add(doc.id);
+                                  }
+                                });
+                              }
+                            : null,
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.email_rounded,
-                            color: Color(0xFF059669)),
-                        onPressed: () =>
-                            widget.onSendEmail(context, data, 'healthworker'),
-                        tooltip: 'Send Credentials Email',
+                      DataCell(
+                        Text(data['specialization'] ?? 'N/A',
+                            style: GoogleFonts.poppins(
+                              color: isSelected ? Colors.grey.shade600 : null,
+                            )),
+                        onTap: _isSelectionMode
+                            ? () {
+                                setState(() {
+                                  if (selectedHealthWorkerIds
+                                      .contains(doc.id)) {
+                                    selectedHealthWorkerIds.remove(doc.id);
+                                    if (selectedHealthWorkerIds.isEmpty) {
+                                      _isSelectionMode = false;
+                                    }
+                                  } else {
+                                    selectedHealthWorkerIds.add(doc.id);
+                                  }
+                                });
+                              }
+                            : null,
+                      ),
+                      DataCell(
+                        Text(facilityName,
+                            style: GoogleFonts.poppins(
+                              color: isSelected ? Colors.grey.shade600 : null,
+                            )),
+                        onTap: _isSelectionMode
+                            ? () {
+                                setState(() {
+                                  if (selectedHealthWorkerIds
+                                      .contains(doc.id)) {
+                                    selectedHealthWorkerIds.remove(doc.id);
+                                    if (selectedHealthWorkerIds.isEmpty) {
+                                      _isSelectionMode = false;
+                                    }
+                                  } else {
+                                    selectedHealthWorkerIds.add(doc.id);
+                                  }
+                                });
+                              }
+                            : null,
+                      ),
+                      DataCell(
+                        Text(data['email'] ?? 'N/A',
+                            style: GoogleFonts.poppins(
+                              color: isSelected ? Colors.grey.shade600 : null,
+                            )),
+                        onTap: _isSelectionMode
+                            ? () {
+                                setState(() {
+                                  if (selectedHealthWorkerIds
+                                      .contains(doc.id)) {
+                                    selectedHealthWorkerIds.remove(doc.id);
+                                    if (selectedHealthWorkerIds.isEmpty) {
+                                      _isSelectionMode = false;
+                                    }
+                                  } else {
+                                    selectedHealthWorkerIds.add(doc.id);
+                                  }
+                                });
+                              }
+                            : null,
+                      ),
+                      DataCell(
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: Icon(Icons.visibility_rounded,
+                                  color: isSelected
+                                      ? Colors.grey.shade400
+                                      : const Color(0xFFEF4444)),
+                              onPressed: () =>
+                                  _showDetailsDialog(context, data),
+                              tooltip: 'View Details',
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.email_rounded,
+                                  color: isSelected
+                                      ? Colors.grey.shade400
+                                      : const Color(0xFF059669)),
+                              onPressed: () => widget.onSendEmail(
+                                  context, data, 'healthworker'),
+                              tooltip: 'Send Credentials Email',
+                            ),
+                          ],
+                        ),
                       ),
                     ],
-                  ),
-                ),
-              ],
-            );
-          }).toList(),
-        ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ],
       ),
     );
+  }
+
+  // Multi-select helper methods for health workers
+  void _clearSelection() {
+    setState(() {
+      selectedHealthWorkerIds.clear();
+      _isSelectionMode = false;
+    });
+  }
+
+  Future<void> _sendBulkEmail(List<DocumentSnapshot> docs) async {
+    final selectedDocs =
+        docs.where((doc) => selectedHealthWorkerIds.contains(doc.id)).toList();
+
+    if (selectedDocs.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No health workers selected')),
+      );
+      return;
+    }
+
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Send Email to Selected Health Workers'),
+        content: Text(
+          'Are you sure you want to send credentials email to ${selectedDocs.length} selected health worker(s)?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+            ),
+            child: const Text('Send', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      // Send emails to all selected health workers
+      for (final doc in selectedDocs) {
+        final data = doc.data() as Map<String, dynamic>;
+        await widget.onSendEmail(context, data, 'healthworker');
+      }
+
+      // Clear selection after sending
+      _clearSelection();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content:
+                Text('Emails sent to ${selectedDocs.length} health worker(s)'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    }
   }
 
   void _showDetailsDialog(BuildContext context, Map<String, dynamic> data) {

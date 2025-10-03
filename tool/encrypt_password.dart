@@ -3,7 +3,7 @@
 // This script demonstrates how to encrypt Gmail App Passwords before storing
 // them in Firestore. Run this with: dart run tool/encrypt_password.dart
 
-import '../lib/utils/encryption_helper.dart';
+import 'package:tb_frontend/utils/encryption_helper.dart';
 
 void main() {
   print('🔐 Password Encryption Utility for TBisita');

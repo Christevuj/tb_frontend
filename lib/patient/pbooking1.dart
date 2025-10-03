@@ -52,7 +52,16 @@ class _Pbooking1State extends State<Pbooking1> {
     'Select Valid ID',
     'Passport',
     'Driver\'s License',
-    'ID Card'
+    'National ID (PhilID)',
+    'SSS ID',
+    'School ID',
+    'Barangay ID',
+    'PWD ID',
+    'Senior Citizen ID',
+    'PRC ID',
+    'PhilHealth ID',
+    'UMID'
+        'Postal ID',
   ];
 
   // Time slots for appointment
@@ -144,7 +153,8 @@ class _Pbooking1State extends State<Pbooking1> {
               onPrimary: Colors.white,
               surface: Colors.white,
               onSurface: Colors.grey.shade800,
-            ), dialogTheme: DialogThemeData(backgroundColor: Colors.white),
+            ),
+            dialogTheme: DialogThemeData(backgroundColor: Colors.white),
           ),
           child: child!,
         );
@@ -362,7 +372,7 @@ class _Pbooking1State extends State<Pbooking1> {
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: DropdownButtonFormField<T>(
-        value: value,
+        initialValue: value,
         decoration: InputDecoration(
           labelText: label,
           labelStyle: TextStyle(

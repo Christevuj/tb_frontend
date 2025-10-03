@@ -81,8 +81,9 @@ class Viewhistory extends StatelessWidget {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: IconButton(
-                          icon: Icon(Icons.close, 
-                            color: Colors.grey.shade700, 
+                          icon: Icon(
+                            Icons.close,
+                            color: Colors.grey.shade700,
                             size: 22,
                           ),
                           onPressed: () => Navigator.pop(context),
@@ -90,132 +91,166 @@ class Viewhistory extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 24),              // Patient Details
-              const SectionTitle(title: "Patient Details"),
-              InfoField(
-                  icon: Icons.person,
-                  text: appointment["patientName"] ?? "Unknown Patient"),
-              InfoField(
-                  icon: Icons.email,
-                  text: appointment["patientEmail"] ?? "No email provided"),
-              InfoField(
-                  icon: Icons.phone,
-                  text: appointment["patientPhone"] ?? "No phone provided"),
+                  const SizedBox(height: 24), // Patient Details
+                  const SectionTitle(title: "Patient Details"),
+                  InfoField(
+                      icon: Icons.person,
+                      text: appointment["patientName"] ?? "Unknown Patient"),
+                  InfoField(
+                      icon: Icons.email,
+                      text: appointment["patientEmail"] ?? "No email provided"),
+                  InfoField(
+                      icon: Icons.phone,
+                      text: appointment["patientPhone"] ?? "No phone provided"),
 
-              const SizedBox(height: 20),
+                  const SizedBox(height: 20),
 
-              // Appointment Details
-              const SectionTitle(title: "Schedule"),
-              InfoField(
-                  icon: Icons.date_range,
-                  text: appointment["date"].toString().split(" ")[0]),
-              InfoField(icon: Icons.access_time, text: appointment["time"] ?? "-"),
+                  // Appointment Details
+                  const SectionTitle(title: "Schedule"),
+                  InfoField(
+                      icon: Icons.date_range,
+                      text: appointment["date"].toString().split(" ")[0]),
+                  InfoField(
+                      icon: Icons.access_time,
+                      text: appointment["time"] ?? "-"),
 
-              const SizedBox(height: 20),
+                  const SizedBox(height: 20),
 
-              // Status Section
-              const SectionTitle(title: "Status"),
-              Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey.shade200, width: 1),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: appointment["status"]?.toString().toLowerCase() == "approved"
-                            ? Colors.green.shade50
-                            : appointment["status"]?.toString().toLowerCase() == "rejected"
-                            ? Colors.red.shade50
-                            : Colors.orange.shade50,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        appointment["status"]?.toString().toLowerCase() == "approved" 
-                            ? Icons.check_circle 
-                            : appointment["status"]?.toString().toLowerCase() == "rejected"
-                            ? Icons.cancel
-                            : Icons.pending,
-                        color: appointment["status"]?.toString().toLowerCase() == "approved"
-                            ? Colors.green.shade600
-                            : appointment["status"]?.toString().toLowerCase() == "rejected"
-                            ? Colors.red.shade600
-                            : Colors.orange.shade600,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Text(
-            (appointment["status"]?.toString().toLowerCase() == "approved"
-              ? "COMPLETED"
-              : appointment["status"]?.toString().toUpperCase() ?? "UNKNOWN"),
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: appointment["status"]?.toString().toLowerCase() == "approved"
-                              ? Colors.green.shade700
-                              : appointment["status"]?.toString().toLowerCase() == "rejected"
-                              ? Colors.red.shade700
-                              : Colors.orange.shade700,
-                          height: 1.3,
+                  // Status Section
+                  const SectionTitle(title: "Status"),
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.shade200, width: 1),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: appointment["status"]
+                                        ?.toString()
+                                        .toLowerCase() ==
+                                    "approved"
+                                ? Colors.green.shade50
+                                : appointment["status"]
+                                            ?.toString()
+                                            .toLowerCase() ==
+                                        "rejected"
+                                    ? Colors.red.shade50
+                                    : Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            appointment["status"]?.toString().toLowerCase() ==
+                                    "approved"
+                                ? Icons.check_circle
+                                : appointment["status"]
+                                            ?.toString()
+                                            .toLowerCase() ==
+                                        "rejected"
+                                    ? Icons.cancel
+                                    : Icons.pending,
+                            color: appointment["status"]
+                                        ?.toString()
+                                        .toLowerCase() ==
+                                    "approved"
+                                ? Colors.green.shade600
+                                : appointment["status"]
+                                            ?.toString()
+                                            .toLowerCase() ==
+                                        "rejected"
+                                    ? Colors.red.shade600
+                                    : Colors.orange.shade600,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Text(
+                            (appointment["status"]?.toString().toLowerCase() ==
+                                    "approved"
+                                ? "COMPLETED"
+                                : appointment["status"]
+                                        ?.toString()
+                                        .toUpperCase() ??
+                                    "UNKNOWN"),
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: appointment["status"]
+                                          ?.toString()
+                                          .toLowerCase() ==
+                                      "approved"
+                                  ? Colors.green.shade700
+                                  : appointment["status"]
+                                              ?.toString()
+                                              .toLowerCase() ==
+                                          "rejected"
+                                      ? Colors.red.shade700
+                                      : Colors.orange.shade700,
+                              height: 1.3,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
 
-              // Show rejection reason if appointment is rejected
-              if (appointment["status"]?.toString().toLowerCase() == "rejected" && 
-                  appointment["rejectionReason"] != null)
-                Column(
-                  children: [
-                    const SizedBox(height: 20),
-                    const SectionTitle(title: "Rejection Reason"),
+                  // Show rejection reason if appointment is rejected
+                  if (appointment["status"]?.toString().toLowerCase() ==
+                          "rejected" &&
+                      appointment["rejectionReason"] != null)
+                    Column(
+                      children: [
+                        const SizedBox(height: 20),
+                        const SectionTitle(title: "Rejection Reason"),
+                        InfoField(
+                          icon: Icons.info_outline,
+                          text: appointment["rejectionReason"] ??
+                              "No reason provided",
+                        ),
+                      ],
+                    ),
+
+                  const SizedBox(height: 20),
+
+                  // Meeting Link (only show for approved appointments)
+                  if (appointment["status"]?.toString().toLowerCase() ==
+                      "approved") ...[
+                    const SectionTitle(title: "Meeting Link"),
                     InfoField(
-                      icon: Icons.info_outline,
-                      text: appointment["rejectionReason"] ?? "No reason provided",
-                    ),
+                        icon: Icons.link,
+                        text: appointment["meetingLink"] ?? "doc-consult.com"),
+                    const SizedBox(height: 20),
                   ],
-                ),
 
-              const SizedBox(height: 20),
+                  // E-Prescription (only show for approved appointments)
+                  if (appointment["status"]?.toString().toLowerCase() ==
+                      "approved") ...[
+                    const SectionTitle(title: "E-Prescription"),
+                    const InfoField(
+                        icon: Icons.picture_as_pdf, text: "e-prescription.pdf"),
+                    const SizedBox(height: 20),
+                  ],
 
-              // Meeting Link (only show for approved appointments)
-              if (appointment["status"]?.toString().toLowerCase() == "approved") ...[
-                const SectionTitle(title: "Meeting Link"),
-                InfoField(
-                  icon: Icons.link, 
-                  text: appointment["meetingLink"] ?? "doc-consult.com"
-                ),
-                const SizedBox(height: 20),
-              ],
-
-              // E-Prescription (only show for approved appointments)
-              if (appointment["status"]?.toString().toLowerCase() == "approved") ...[
-                const SectionTitle(title: "E-Prescription"),
-                const InfoField(icon: Icons.picture_as_pdf, text: "e-prescription.pdf"),
-                const SizedBox(height: 20),
-              ],
-
-              // Treatment Completion (only show for approved appointments)
-              if (appointment["status"]?.toString().toLowerCase() == "approved") ...[
-                const SectionTitle(title: "Treatment Completion"),
-                const InfoField(icon: Icons.picture_as_pdf, text: "cert.pdf"),
-              ],
+                  // Treatment Completion (only show for approved appointments)
+                  if (appointment["status"]?.toString().toLowerCase() ==
+                      "approved") ...[
+                    const SectionTitle(title: "Treatment Completion"),
+                    const InfoField(
+                        icon: Icons.picture_as_pdf, text: "cert.pdf"),
+                  ],
                 ],
               ),
             ),
@@ -298,7 +333,7 @@ class InfoField extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
-              icon, 
+              icon,
               color: Colors.blue.shade600,
               size: 20,
             ),

@@ -19,10 +19,12 @@ class GuestHealthWorkerChatScreen extends StatefulWidget {
   });
 
   @override
-  State<GuestHealthWorkerChatScreen> createState() => _GuestHealthWorkerChatScreenState();
+  State<GuestHealthWorkerChatScreen> createState() =>
+      _GuestHealthWorkerChatScreenState();
 }
 
-class _GuestHealthWorkerChatScreenState extends State<GuestHealthWorkerChatScreen> {
+class _GuestHealthWorkerChatScreenState
+    extends State<GuestHealthWorkerChatScreen> {
   final ChatService _chatService = ChatService();
   final TextEditingController _controller = TextEditingController();
   final PresenceService _presenceService = PresenceService();
@@ -30,14 +32,15 @@ class _GuestHealthWorkerChatScreenState extends State<GuestHealthWorkerChatScree
   late final String _chatId;
   bool _isHealthWorkerOnline = false;
   String _healthWorkerStatus = 'Offline';
-  Map<String, bool> _expandedTimestamps = {};
+  final Map<String, bool> _expandedTimestamps = {};
 
   @override
   void initState() {
     super.initState();
-    _chatId = _chatService.generateChatId(widget.guestId, widget.healthWorkerId);
+    _chatId =
+        _chatService.generateChatId(widget.guestId, widget.healthWorkerId);
     _monitorHealthWorkerPresence();
-    
+
     debugPrint('Guest-HealthWorker Chat initialized:');
     debugPrint('Guest: ${widget.guestId}');
     debugPrint('Health Worker: ${widget.healthWorkerId}');
@@ -45,19 +48,22 @@ class _GuestHealthWorkerChatScreenState extends State<GuestHealthWorkerChatScree
   }
 
   void _monitorHealthWorkerPresence() {
-    _presenceService.getUserPresenceStream(widget.healthWorkerId).listen((isOnline) {
+    _presenceService
+        .getUserPresenceStream(widget.healthWorkerId)
+        .listen((isOnline) {
       if (mounted) {
         setState(() {
           _isHealthWorkerOnline = isOnline;
         });
       }
     });
-    
+
     _updateHealthWorkerStatus();
   }
 
   void _updateHealthWorkerStatus() async {
-    final status = await _presenceService.getLastSeenText(widget.healthWorkerId);
+    final status =
+        await _presenceService.getLastSeenText(widget.healthWorkerId);
     if (mounted) {
       setState(() {
         _healthWorkerStatus = status;
@@ -67,16 +73,18 @@ class _GuestHealthWorkerChatScreenState extends State<GuestHealthWorkerChatScree
 
   String _formatDetailedTime(DateTime timestamp) {
     final now = DateTime.now();
-    final messageDate = DateTime(timestamp.year, timestamp.month, timestamp.day);
+    final messageDate =
+        DateTime(timestamp.year, timestamp.month, timestamp.day);
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
-    
+
     final hour = timestamp.hour;
     final minute = timestamp.minute;
     final period = hour >= 12 ? 'pm' : 'am';
     final displayHour = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
-    final timeString = '$displayHour:${minute.toString().padLeft(2, '0')}$period';
-    
+    final timeString =
+        '$displayHour:${minute.toString().padLeft(2, '0')}$period';
+
     if (messageDate == today) {
       return timeString;
     } else if (messageDate == yesterday) {
@@ -91,16 +99,18 @@ class _GuestHealthWorkerChatScreenState extends State<GuestHealthWorkerChatScree
 
   String _formatMessengerTimestamp(DateTime timestamp) {
     final now = DateTime.now();
-    final messageDate = DateTime(timestamp.year, timestamp.month, timestamp.day);
+    final messageDate =
+        DateTime(timestamp.year, timestamp.month, timestamp.day);
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
-    
+
     final hour = timestamp.hour;
     final minute = timestamp.minute;
     final period = hour >= 12 ? 'PM' : 'AM';
     final displayHour = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
-    final timeString = '$displayHour:${minute.toString().padLeft(2, '0')} $period';
-    
+    final timeString =
+        '$displayHour:${minute.toString().padLeft(2, '0')} $period';
+
     if (messageDate == today) {
       return 'TODAY';
     } else if (messageDate == yesterday) {
@@ -109,22 +119,46 @@ class _GuestHealthWorkerChatScreenState extends State<GuestHealthWorkerChatScree
       const weekdays = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
       return '${weekdays[timestamp.weekday - 1]} AT $timeString';
     } else if (timestamp.year == now.year) {
-      const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 
-                     'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+      const months = [
+        'JAN',
+        'FEB',
+        'MAR',
+        'APR',
+        'MAY',
+        'JUN',
+        'JUL',
+        'AUG',
+        'SEP',
+        'OCT',
+        'NOV',
+        'DEC'
+      ];
       return '${months[timestamp.month - 1]} ${timestamp.day}';
     } else {
-      const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 
-                     'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+      const months = [
+        'JAN',
+        'FEB',
+        'MAR',
+        'APR',
+        'MAY',
+        'JUN',
+        'JUL',
+        'AUG',
+        'SEP',
+        'OCT',
+        'NOV',
+        'DEC'
+      ];
       return '${months[timestamp.month - 1]} ${timestamp.day}, ${timestamp.year}';
     }
   }
 
   bool _shouldShowDateSeparator(DateTime current, DateTime? previous) {
     if (previous == null) return true;
-    
+
     final currentDate = DateTime(current.year, current.month, current.day);
     final previousDate = DateTime(previous.year, previous.month, previous.day);
-    
+
     return currentDate != previousDate;
   }
 
@@ -216,7 +250,8 @@ class _GuestHealthWorkerChatScreenState extends State<GuestHealthWorkerChatScree
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 ),
                 child: const Text(
                   'Delete',
@@ -261,7 +296,8 @@ class _GuestHealthWorkerChatScreenState extends State<GuestHealthWorkerChatScree
         ),
       );
 
-      await _chatService.deleteConversation(widget.guestId, widget.healthWorkerId);
+      await _chatService.deleteConversation(
+          widget.guestId, widget.healthWorkerId);
 
       if (mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -315,14 +351,14 @@ class _GuestHealthWorkerChatScreenState extends State<GuestHealthWorkerChatScree
 
     try {
       await _presenceService.markAsActive();
-      
+
       await _chatService.sendTextMessage(
         senderId: widget.guestId,
         receiverId: widget.healthWorkerId,
         text: text,
       );
       _controller.clear();
-      
+
       _updateHealthWorkerStatus();
     } catch (e) {
       debugPrint('Error sending message: $e');
@@ -396,7 +432,7 @@ class _GuestHealthWorkerChatScreenState extends State<GuestHealthWorkerChatScree
                       ),
                     ),
                     const SizedBox(width: 16),
-                    
+
                     // Health Worker Avatar with Online Status
                     Stack(
                       children: [
@@ -410,8 +446,8 @@ class _GuestHealthWorkerChatScreenState extends State<GuestHealthWorkerChatScree
                             borderRadius: BorderRadius.circular(24),
                             border: Border.all(color: Colors.white, width: 2),
                           ),
-                          child: widget.healthWorkerProfilePicture != null && 
-                                 widget.healthWorkerProfilePicture!.isNotEmpty
+                          child: widget.healthWorkerProfilePicture != null &&
+                                  widget.healthWorkerProfilePicture!.isNotEmpty
                               ? ClipRRect(
                                   borderRadius: BorderRadius.circular(22),
                                   child: Image.network(
@@ -420,8 +456,9 @@ class _GuestHealthWorkerChatScreenState extends State<GuestHealthWorkerChatScree
                                     errorBuilder: (context, error, stackTrace) {
                                       return Center(
                                         child: Text(
-                                          widget.healthWorkerName.isNotEmpty 
-                                              ? widget.healthWorkerName[0].toUpperCase() 
+                                          widget.healthWorkerName.isNotEmpty
+                                              ? widget.healthWorkerName[0]
+                                                  .toUpperCase()
                                               : 'H',
                                           style: const TextStyle(
                                             color: Colors.white,
@@ -435,8 +472,9 @@ class _GuestHealthWorkerChatScreenState extends State<GuestHealthWorkerChatScree
                                 )
                               : Center(
                                   child: Text(
-                                    widget.healthWorkerName.isNotEmpty 
-                                        ? widget.healthWorkerName[0].toUpperCase() 
+                                    widget.healthWorkerName.isNotEmpty
+                                        ? widget.healthWorkerName[0]
+                                            .toUpperCase()
                                         : 'H',
                                     style: const TextStyle(
                                       color: Colors.white,
@@ -454,7 +492,7 @@ class _GuestHealthWorkerChatScreenState extends State<GuestHealthWorkerChatScree
                             width: 14,
                             height: 14,
                             decoration: BoxDecoration(
-                              color: _isHealthWorkerOnline 
+                              color: _isHealthWorkerOnline
                                   ? const Color(0xFF4CAF50)
                                   : Colors.grey,
                               borderRadius: BorderRadius.circular(7),
@@ -465,7 +503,7 @@ class _GuestHealthWorkerChatScreenState extends State<GuestHealthWorkerChatScree
                       ],
                     ),
                     const SizedBox(width: 16),
-                    
+
                     // Health Worker Info
                     Expanded(
                       child: Column(
@@ -485,8 +523,8 @@ class _GuestHealthWorkerChatScreenState extends State<GuestHealthWorkerChatScree
                           Text(
                             _healthWorkerStatus,
                             style: TextStyle(
-                              color: _isHealthWorkerOnline 
-                                  ? Colors.white70 
+                              color: _isHealthWorkerOnline
+                                  ? Colors.white70
                                   : Colors.white54,
                               fontSize: 13,
                               fontWeight: FontWeight.w400,
@@ -495,7 +533,7 @@ class _GuestHealthWorkerChatScreenState extends State<GuestHealthWorkerChatScree
                         ],
                       ),
                     ),
-                    
+
                     // More Options Button
                     Container(
                       width: 40,
@@ -556,11 +594,12 @@ class _GuestHealthWorkerChatScreenState extends State<GuestHealthWorkerChatScree
               ),
             ),
           ),
-          
+
           // Messages List
           Expanded(
             child: StreamBuilder<List<Message>>(
-              stream: _chatService.getMessages(widget.guestId, widget.healthWorkerId),
+              stream: _chatService.getMessages(
+                  widget.guestId, widget.healthWorkerId),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return Center(
@@ -568,7 +607,8 @@ class _GuestHealthWorkerChatScreenState extends State<GuestHealthWorkerChatScree
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.redAccent),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.redAccent),
                         ),
                         const SizedBox(height: 16),
                         Text(
@@ -618,7 +658,7 @@ class _GuestHealthWorkerChatScreenState extends State<GuestHealthWorkerChatScree
                 }
 
                 final messages = snapshot.data ?? [];
-                
+
                 if (messages.isEmpty) {
                   return Center(
                     child: Column(
@@ -661,11 +701,14 @@ class _GuestHealthWorkerChatScreenState extends State<GuestHealthWorkerChatScree
 
                 return ListView.builder(
                   reverse: true,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
                     final message = messages[index];
-                    final previousMessage = index < messages.length - 1 ? messages[index + 1] : null;
+                    final previousMessage = index < messages.length - 1
+                        ? messages[index + 1]
+                        : null;
                     final showDateSeparator = _shouldShowDateSeparator(
                       message.timestamp,
                       previousMessage?.timestamp,
@@ -673,17 +716,19 @@ class _GuestHealthWorkerChatScreenState extends State<GuestHealthWorkerChatScree
 
                     return Column(
                       children: [
-                        if (showDateSeparator) _buildDateSeparator(message.timestamp),
+                        if (showDateSeparator)
+                          _buildDateSeparator(message.timestamp),
                         _MessageBubble(
                           message: message,
                           isMe: message.senderId == widget.guestId,
                           onTimestampTap: () {
                             setState(() {
-                              _expandedTimestamps[message.id] = 
+                              _expandedTimestamps[message.id] =
                                   !(_expandedTimestamps[message.id] ?? false);
                             });
                           },
-                          showDetailedTimestamp: _expandedTimestamps[message.id] ?? false,
+                          showDetailedTimestamp:
+                              _expandedTimestamps[message.id] ?? false,
                           detailedTime: _formatDetailedTime(message.timestamp),
                         ),
                       ],
@@ -693,7 +738,7 @@ class _GuestHealthWorkerChatScreenState extends State<GuestHealthWorkerChatScree
               },
             ),
           ),
-          
+
           // Message Input
           Container(
             decoration: BoxDecoration(
@@ -708,7 +753,8 @@ class _GuestHealthWorkerChatScreenState extends State<GuestHealthWorkerChatScree
             ),
             child: SafeArea(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Row(
                   children: [
                     Expanded(
@@ -809,10 +855,12 @@ class _MessageBubble extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.only(bottom: 12),
         child: Column(
-          crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          crossAxisAlignment:
+              isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+              mainAxisAlignment:
+                  isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 if (!isMe) const SizedBox(width: 8),
@@ -821,7 +869,8 @@ class _MessageBubble extends StatelessWidget {
                     constraints: BoxConstraints(
                       maxWidth: MediaQuery.of(context).size.width * 0.7,
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
                       gradient: isMe
                           ? const LinearGradient(

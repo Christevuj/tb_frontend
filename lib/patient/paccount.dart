@@ -56,9 +56,9 @@ class _PaccountState extends State<Paccount> {
 
   Future<void> _editField(
       String label, String currentValue, Function(String) onSave) async {
-  final controller = TextEditingController(text: currentValue);
-  final newPasswordController = TextEditingController();
-  bool newPasswordVisible = false;
+    final controller = TextEditingController(text: currentValue);
+    final newPasswordController = TextEditingController();
+    bool newPasswordVisible = false;
     final firebase_auth.User? authUser =
         firebase_auth.FirebaseAuth.instance.currentUser;
     if (authUser == null) return;
@@ -70,7 +70,8 @@ class _PaccountState extends State<Paccount> {
           return StatefulBuilder(
             builder: (context, setState) => Dialog(
               backgroundColor: Colors.transparent,
-              insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+              insetPadding:
+                  const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
               child: Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
@@ -110,11 +111,13 @@ class _PaccountState extends State<Paccount> {
                         labelStyle: const TextStyle(color: Colors.redAccent),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Colors.redAccent, width: 1.2),
+                          borderSide: const BorderSide(
+                              color: Colors.redAccent, width: 1.2),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Colors.redAccent, width: 2),
+                          borderSide: const BorderSide(
+                              color: Colors.redAccent, width: 2),
                         ),
                         fillColor: Colors.grey.shade50,
                         filled: true,
@@ -129,17 +132,21 @@ class _PaccountState extends State<Paccount> {
                         labelStyle: const TextStyle(color: Colors.redAccent),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Colors.redAccent, width: 1.2),
+                          borderSide: const BorderSide(
+                              color: Colors.redAccent, width: 1.2),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Colors.redAccent, width: 2),
+                          borderSide: const BorderSide(
+                              color: Colors.redAccent, width: 2),
                         ),
                         fillColor: Colors.grey.shade50,
                         filled: true,
                         suffixIcon: IconButton(
                           icon: Icon(
-                            newPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                            newPasswordVisible
+                                ? Icons.visibility
+                                : Icons.visibility_off,
                             color: Colors.redAccent,
                           ),
                           onPressed: () {
@@ -159,7 +166,8 @@ class _PaccountState extends State<Paccount> {
                           onPressed: () => Navigator.pop(context),
                           style: TextButton.styleFrom(
                             foregroundColor: Colors.black,
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 18, vertical: 10),
                           ),
                           child: const Text('Cancel'),
                         ),
@@ -168,24 +176,30 @@ class _PaccountState extends State<Paccount> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.redAccent,
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 24, vertical: 12),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
                           onPressed: () async {
                             try {
-                              final newPassword = newPasswordController.text.trim();
+                              final newPassword =
+                                  newPasswordController.text.trim();
                               if (newPassword.isNotEmpty) {
                                 await authUser.updatePassword(newPassword);
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Password updated successfully!')),
+                                  SnackBar(
+                                      content: Text(
+                                          'Password updated successfully!')),
                                 );
                                 onSave(newPassword);
                                 Navigator.pop(context);
                               } else {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('New password cannot be empty.')),
+                                  SnackBar(
+                                      content: Text(
+                                          'New password cannot be empty.')),
                                 );
                               }
                             } on firebase_auth.FirebaseAuthException catch (e) {
@@ -418,199 +432,200 @@ class _PaccountState extends State<Paccount> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : Stack(
-                children: [
-                  // 🔹 Background gradient + glow
-                  Container(
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Color.fromARGB(255, 255, 255, 255), Color(0xFFFFEBEB)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
+          ? const Center(child: CircularProgressIndicator())
+          : Stack(
+              children: [
+                // 🔹 Background gradient + glow
+                Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Color.fromARGB(255, 255, 255, 255),
+                        Color(0xFFFFEBEB)
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
                   ),
+                ),
 
-                  // 🔹 Content
-                  SafeArea(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        children: [
-                          const SizedBox(height: 20),
+                // 🔹 Content
+                SafeArea(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 20),
 
-                          // Profile header
-                          CircleAvatar(
-                            radius: 50,
-                            backgroundColor: Colors.redAccent,
-                            child: isGuest
-                                ? const Icon(Icons.person,
-                                    size: 60, color: Colors.white)
-                                : Text(
-                                    firstName!.isNotEmpty
-                                        ? firstName![0].toUpperCase()
-                                        : "?",
-                                    style: const TextStyle(
-                                      fontSize: 40,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
+                        // Profile header
+                        CircleAvatar(
+                          radius: 50,
+                          backgroundColor: Colors.redAccent,
+                          child: isGuest
+                              ? const Icon(Icons.person,
+                                  size: 60, color: Colors.white)
+                              : Text(
+                                  firstName!.isNotEmpty
+                                      ? firstName![0].toUpperCase()
+                                      : "?",
+                                  style: const TextStyle(
+                                    fontSize: 40,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
                                   ),
+                                ),
+                        ),
+                        const SizedBox(height: 16),
+                        if (!isGuest)
+                          Text(
+                            "$firstName $lastName",
+                            style: const TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold),
                           ),
-                          const SizedBox(height: 16),
-                          if (!isGuest)
-                            Text(
-                              "$firstName $lastName",
-                              style: const TextStyle(
-                                  fontSize: 18, fontWeight: FontWeight.bold),
+                        if (!isGuest)
+                          Text(email ?? "",
+                              style: const TextStyle(color: Colors.black54)),
+                        if (isGuest)
+                          const Padding(
+                            padding: EdgeInsets.all(12.0),
+                            child: Text(
+                              "You are currently using a guest account.\nPlease sign up to unlock full features.",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 14),
                             ),
-                          if (!isGuest)
-                            Text(email ?? "",
-                                style: const TextStyle(color: Colors.black54)),
-                          if (isGuest)
-                            const Padding(
-                              padding: EdgeInsets.all(12.0),
-                              child: Text(
-                                "You are currently using a guest account.\nPlease sign up to unlock full features.",
-                                textAlign: TextAlign.center,
-                                style: TextStyle(fontSize: 14),
-                              ),
-                            ),
+                          ),
 
-                          const SizedBox(height: 20),
+                        const SizedBox(height: 20),
 
-                          // Sections
-                          if (!isGuest) ...[
-                            _buildSection(
-                              title: "Personal Details",
-                              description:
-                                  "Manage your basic information and profile settings",
-                              icon: Icons.person,
-                              sectionId: "personal",
-                              children: [
-                                _buildEditableField("First Name",
-                                    firstName ?? "", icon: Icons.person, onEdit: () {
-                                  _editField("First Name", firstName ?? "",
-                                      (val) {
-                                    setState(() => firstName = val);
-                                  });
-                                }),
-                                _buildEditableField("Last Name", lastName ?? "",
-                                    icon: Icons.person_outline, onEdit: () {
-                                  _editField("Last Name", lastName ?? "",
-                                      (val) {
-                                    setState(() => lastName = val);
-                                  });
-                                }),
-                                _buildEditableField("Email", email ?? "",
-                                    icon: Icons.email),
-                              ],
-                            ),
-                            _buildSection(
-                              title: "Security & Privacy",
-                              description:
-                                  "Manage your password and account security settings",
-                              icon: Icons.lock,
-                              sectionId: "security",
-                              children: [
-                                _buildEditableField("Password", "********",
-                                    icon: Icons.lock, obscure: true, onEdit: () {
-                                  _editField("Password", "********", (_) {});
-                                }),
-                                Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        Colors.redAccent.withOpacity(0.1),
-                                        Colors.white
-                                      ],
-                                    ),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Row(
-                                    children: const [
-                                      Icon(Icons.shield,
-                                          color: Colors.redAccent),
-                                      SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          "Your account is secured. Last login: Today at 2:34 PM",
-                                          style: TextStyle(fontSize: 13),
-                                        ),
-                                      )
+                        // Sections
+                        if (!isGuest) ...[
+                          _buildSection(
+                            title: "Personal Details",
+                            description:
+                                "Manage your basic information and profile settings",
+                            icon: Icons.person,
+                            sectionId: "personal",
+                            children: [
+                              _buildEditableField("First Name", firstName ?? "",
+                                  icon: Icons.person, onEdit: () {
+                                _editField("First Name", firstName ?? "",
+                                    (val) {
+                                  setState(() => firstName = val);
+                                });
+                              }),
+                              _buildEditableField("Last Name", lastName ?? "",
+                                  icon: Icons.person_outline, onEdit: () {
+                                _editField("Last Name", lastName ?? "", (val) {
+                                  setState(() => lastName = val);
+                                });
+                              }),
+                              _buildEditableField("Email", email ?? "",
+                                  icon: Icons.email),
+                            ],
+                          ),
+                          _buildSection(
+                            title: "Security & Privacy",
+                            description:
+                                "Manage your password and account security settings",
+                            icon: Icons.lock,
+                            sectionId: "security",
+                            children: [
+                              _buildEditableField("Password", "********",
+                                  icon: Icons.lock, obscure: true, onEdit: () {
+                                _editField("Password", "********", (_) {});
+                              }),
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Colors.redAccent.withOpacity(0.1),
+                                      Colors.white
                                     ],
                                   ),
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
-                              ],
-                            ),
-                            _buildSection(
-                              title: "Account Action",
-                              description:
-                                  "Manage your account preferences and data",
-                              icon: Icons.settings,
-                              sectionId: "actions",
-                              children: [
-                                // Log Out button moved outside this section
-                                OutlinedButton(
-                                  style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 14, horizontal: 24),
-                                    side: const BorderSide(
-                                        color: Colors.redAccent, width: 2),
-                                    shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(30)),
-                                  ),
-                                  onPressed: _removeAccount,
-                                  child: const Text("Remove Account",
-                                      style: TextStyle(color: Colors.redAccent)),
+                                child: Row(
+                                  children: const [
+                                    Icon(Icons.shield, color: Colors.redAccent),
+                                    SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        "Your account is secured. Last login: Today at 2:34 PM",
+                                        style: TextStyle(fontSize: 13),
+                                      ),
+                                    )
+                                  ],
                                 ),
-                              ],
-                            ),
-                          ],
-
-                          if (!isGuest) ...[
-                            const SizedBox(height: 24),
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.black,
-                                padding: const EdgeInsets.symmetric(
-                                    vertical: 14, horizontal: 24),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(30)),
                               ),
-                              onPressed: _logout,
-                              child: const Text("Log Out",
-                                  style: TextStyle(color: Colors.white)),
-                            ),
-                          ],
-
-                          if (isGuest)
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.redAccent,
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 30, vertical: 14),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(30)),
+                            ],
+                          ),
+                          _buildSection(
+                            title: "Account Action",
+                            description:
+                                "Manage your account preferences and data",
+                            icon: Icons.settings,
+                            sectionId: "actions",
+                            children: [
+                              // Log Out button moved outside this section
+                              OutlinedButton(
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 14, horizontal: 24),
+                                  side: const BorderSide(
+                                      color: Colors.redAccent, width: 2),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(30)),
+                                ),
+                                onPressed: _removeAccount,
+                                child: const Text("Remove Account",
+                                    style: TextStyle(color: Colors.redAccent)),
                               ),
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (_) => const SignupScreen()),
-                                );
-                              },
-                              child: const Text("Sign Up",
-                                  style: TextStyle(color: Colors.white)),
-                            ),
+                            ],
+                          ),
                         ],
-                      ),
+
+                        if (!isGuest) ...[
+                          const SizedBox(height: 24),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.black,
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 14, horizontal: 24),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30)),
+                            ),
+                            onPressed: _logout,
+                            child: const Text("Log Out",
+                                style: TextStyle(color: Colors.white)),
+                          ),
+                        ],
+
+                        if (isGuest)
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.redAccent,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 30, vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30)),
+                            ),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => const SignupScreen()),
+                              );
+                            },
+                            child: const Text("Sign Up",
+                                style: TextStyle(color: Colors.white)),
+                          ),
+                      ],
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
+            ),
     );
   }
 }

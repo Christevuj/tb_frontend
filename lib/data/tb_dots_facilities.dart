@@ -22,7 +22,8 @@ class TBDotsFacility {
 final List<TBDotsFacility> tbDotsFacilities = [
   TBDotsFacility(
     name: "AGDAO",
-    address: "Agdao Public Market Corner Lapu-Lapu & C. Bangoy St., Agdao, Davao City",
+    address:
+        "Agdao Public Market Corner Lapu-Lapu & C. Bangoy St., Agdao, Davao City",
     email: "agdaohealthcenter@gmail.com",
     latitude: 7.0850,
     longitude: 125.6250,

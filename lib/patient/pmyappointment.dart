@@ -7,7 +7,6 @@ import 'package:printing/printing.dart';
 import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
-import 'dart:typed_data';
 import 'package:pdfx/pdfx.dart' as pdfx;
 import 'package:http/http.dart' as http;
 

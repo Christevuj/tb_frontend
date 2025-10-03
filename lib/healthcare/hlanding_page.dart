@@ -29,10 +29,13 @@ class _HlandingpageState extends State<Hlandingpage> {
   Future<void> _testFirestoreConnection() async {
     try {
       debugPrint('Testing Firestore connection for healthcare worker...');
-      final testQuery = await FirebaseFirestore.instance.collection('chats').limit(1).get();
-      debugPrint('Firestore connection successful. Found ${testQuery.docs.length} chats in total');
+      final testQuery =
+          await FirebaseFirestore.instance.collection('chats').limit(1).get();
+      debugPrint(
+          'Firestore connection successful. Found ${testQuery.docs.length} chats in total');
 
-      final allChats = await FirebaseFirestore.instance.collection('chats').get();
+      final allChats =
+          await FirebaseFirestore.instance.collection('chats').get();
       debugPrint('Total chats in database: ${allChats.docs.length}');
     } catch (e) {
       debugPrint('Firestore connection error: $e');
@@ -67,15 +70,19 @@ class _HlandingpageState extends State<Hlandingpage> {
 
   Future<String> _resolveCurrentUserName(User user) async {
     try {
-      final existingUserDoc =
-          await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final existingUserDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
       if (existingUserDoc.exists) {
         final data = existingUserDoc.data();
         if (data != null) {
           final firstName = data['firstName'];
           final lastName = data['lastName'];
-          final combined =
-              [firstName, lastName].whereType<String>().where((part) => part.trim().isNotEmpty).join(' ');
+          final combined = [firstName, lastName]
+              .whereType<String>()
+              .where((part) => part.trim().isNotEmpty)
+              .join(' ');
           if (combined.trim().isNotEmpty) {
             return combined.trim();
           }
@@ -86,8 +93,10 @@ class _HlandingpageState extends State<Hlandingpage> {
         }
       }
 
-      final healthcareDoc =
-          await FirebaseFirestore.instance.collection('healthcare').doc(user.uid).get();
+      final healthcareDoc = await FirebaseFirestore.instance
+          .collection('healthcare')
+          .doc(user.uid)
+          .get();
       if (healthcareDoc.exists) {
         final data = healthcareDoc.data();
         if (data != null) {
@@ -114,8 +123,10 @@ class _HlandingpageState extends State<Hlandingpage> {
 
   Future<String> _getPatientName(String patientId) async {
     try {
-      final userDoc =
-          await FirebaseFirestore.instance.collection('users').doc(patientId).get();
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(patientId)
+          .get();
 
       if (userDoc.exists) {
         final userData = userDoc.data()!;
@@ -127,15 +138,18 @@ class _HlandingpageState extends State<Hlandingpage> {
           if (fullName.isNotEmpty) return fullName;
         }
 
-        if (userData['name'] != null && (userData['name'] as String).trim().isNotEmpty) {
+        if (userData['name'] != null &&
+            (userData['name'] as String).trim().isNotEmpty) {
           return (userData['name'] as String).trim();
         }
 
-        if (userData['username'] != null && (userData['username'] as String).trim().isNotEmpty) {
+        if (userData['username'] != null &&
+            (userData['username'] as String).trim().isNotEmpty) {
           return (userData['username'] as String).trim();
         }
 
-        if (userData['email'] != null && (userData['email'] as String).contains('@')) {
+        if (userData['email'] != null &&
+            (userData['email'] as String).contains('@')) {
           return (userData['email'] as String).split('@').first;
         }
       }
@@ -235,7 +249,8 @@ class _HlandingpageState extends State<Hlandingpage> {
     final messageTime = timestamp.toDate();
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final messageDate = DateTime(messageTime.year, messageTime.month, messageTime.day);
+    final messageDate =
+        DateTime(messageTime.year, messageTime.month, messageTime.day);
 
     final hour = messageTime.hour;
     final minute = messageTime.minute.toString().padLeft(2, '0');
@@ -257,7 +272,7 @@ class _HlandingpageState extends State<Hlandingpage> {
   // Helper method to get role label and color
   Map<String, dynamic> _getRoleInfo(String? roleValue) {
     final role = roleValue?.toLowerCase();
-    
+
     switch (role) {
       case 'healthcare':
         return {
@@ -305,7 +320,8 @@ class _HlandingpageState extends State<Hlandingpage> {
         .where('participants', arrayContains: _currentUserId)
         .snapshots()
         .asyncMap((chatsSnapshot) async {
-      debugPrint('Found ${chatsSnapshot.docs.length} chats for healthcare user');
+      debugPrint(
+          'Found ${chatsSnapshot.docs.length} chats for healthcare user');
       final messagedPatients = <Map<String, dynamic>>[];
 
       for (var chatDoc in chatsSnapshot.docs) {
@@ -319,7 +335,8 @@ class _HlandingpageState extends State<Hlandingpage> {
 
         if (patientId.isNotEmpty) {
           final patientName = await _getPatientName(patientId);
-          final contactRole = await _chatService.getUserRole(patientId) ?? 'patient';
+          final contactRole =
+              await _chatService.getUserRole(patientId) ?? 'patient';
           messagedPatients.add({
             'id': patientId,
             'name': patientName,
@@ -377,7 +394,7 @@ class _HlandingpageState extends State<Hlandingpage> {
               ),
             ),
             const SizedBox(height: 3),
-            
+
             // Search bar
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -431,13 +448,14 @@ class _HlandingpageState extends State<Hlandingpage> {
                   stream: _streamMessagedPatients(),
                   builder: (context, snapshot) {
                     // Debug prints
-                    debugPrint('StreamBuilder state: ${snapshot.connectionState}');
+                    debugPrint(
+                        'StreamBuilder state: ${snapshot.connectionState}');
                     debugPrint('Has data: ${snapshot.hasData}');
                     debugPrint('Data length: ${snapshot.data?.length ?? 0}');
                     debugPrint('Error: ${snapshot.error}');
 
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return Container(
+                      return SizedBox(
                         height: 200,
                         child: Center(
                           child: CircularProgressIndicator(
@@ -450,7 +468,7 @@ class _HlandingpageState extends State<Hlandingpage> {
 
                     if (snapshot.hasError) {
                       debugPrint('StreamBuilder error: ${snapshot.error}');
-                      return Container(
+                      return SizedBox(
                         height: 200,
                         child: Center(
                           child: Column(
@@ -475,258 +493,288 @@ class _HlandingpageState extends State<Hlandingpage> {
                     }
 
                     if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                      return Container(
+                      return SizedBox(
                         height: 400,
                         child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            width: 100,
-                            height: 100,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  Colors.redAccent.withOpacity(0.1),
-                                  Colors.redAccent.withOpacity(0.05),
-                                ],
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              width: 100,
+                              height: 100,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.redAccent.withOpacity(0.1),
+                                    Colors.redAccent.withOpacity(0.05),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(50),
                               ),
-                              borderRadius: BorderRadius.circular(50),
+                              child: const Icon(
+                                Icons.chat_bubble_outline_rounded,
+                                color: Colors.redAccent,
+                                size: 50,
+                              ),
                             ),
-                            child: const Icon(
-                              Icons.chat_bubble_outline_rounded,
-                              color: Colors.redAccent,
-                              size: 50,
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          const Text(
-                            'No conversations yet',
-                            style: TextStyle(
-                              color: Color(0xFF2C2C2C),
-                              fontSize: 22,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 40),
-                            child: Text(
-                              'Patient conversations will appear here once you start exchanging messages.',
+                            const SizedBox(height: 24),
+                            const Text(
+                              'No conversations yet',
                               style: TextStyle(
-                                color: Colors.grey.shade600,
-                                fontSize: 16,
-                                height: 1.4,
+                                color: Color(0xFF2C2C2C),
+                                fontSize: 22,
+                                fontWeight: FontWeight.w600,
                               ),
-                              textAlign: TextAlign.center,
                             ),
-                          ),
-                          const SizedBox(height: 20),
-                          Text(
-                            'Current User: ${_currentUserId ?? "Not logged in"}',
-                            style: TextStyle(
-                              color: Colors.grey.shade500,
-                              fontSize: 12,
+                            const SizedBox(height: 12),
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 40),
+                              child: Text(
+                                'Patient conversations will appear here once you start exchanging messages.',
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                  fontSize: 16,
+                                  height: 1.4,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-
-                  final patients = snapshot.data!;
-                  
-                  // Filter patients based on search query
-                  final filteredPatients = _searchQuery.isEmpty
-                      ? patients
-                      : patients.where((patient) {
-                          final name = (patient['name'] as String? ?? '').toLowerCase();
-                          final lastMessage = (patient['lastMessage'] as String? ?? '').toLowerCase();
-                          return name.contains(_searchQuery) || lastMessage.contains(_searchQuery);
-                        }).toList();
-
-                  return ListView.builder(
-                    itemCount: filteredPatients.length,
-                    itemBuilder: (context, index) {
-                      final patient = filteredPatients[index];
-                      final patientName = patient['name'] as String? ?? 'Unknown Patient';
-                      final patientId = patient['id'] as String? ?? '';
-                      final String? roleValue = (patient['role'] as String?)?.toLowerCase();
-                      
-                      // Get role information using helper method
-                      final roleInfo = _getRoleInfo(roleValue);
-                      final String? roleLabel = roleInfo['label'] as String?;
-                      final Color roleColor = roleInfo['color'] as Color;
-                      final List<Color> avatarGradient = roleInfo['gradientColors'] as List<Color>;
-
-                      return Container(
-                        margin: const EdgeInsets.symmetric(vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.04),
-                              blurRadius: 15,
-                              offset: const Offset(0, 4),
+                            const SizedBox(height: 20),
+                            Text(
+                              'Current User: ${_currentUserId ?? "Not logged in"}',
+                              style: TextStyle(
+                                color: Colors.grey.shade500,
+                                fontSize: 12,
+                              ),
                             ),
                           ],
                         ),
-                        child: Material(
-                          color: Colors.transparent,
-                          borderRadius: BorderRadius.circular(16),
-                          child: InkWell(
+                      );
+                    }
+
+                    final patients = snapshot.data!;
+
+                    // Filter patients based on search query
+                    final filteredPatients = _searchQuery.isEmpty
+                        ? patients
+                        : patients.where((patient) {
+                            final name = (patient['name'] as String? ?? '')
+                                .toLowerCase();
+                            final lastMessage =
+                                (patient['lastMessage'] as String? ?? '')
+                                    .toLowerCase();
+                            return name.contains(_searchQuery) ||
+                                lastMessage.contains(_searchQuery);
+                          }).toList();
+
+                    return ListView.builder(
+                      itemCount: filteredPatients.length,
+                      itemBuilder: (context, index) {
+                        final patient = filteredPatients[index];
+                        final patientName =
+                            patient['name'] as String? ?? 'Unknown Patient';
+                        final patientId = patient['id'] as String? ?? '';
+                        final String? roleValue =
+                            (patient['role'] as String?)?.toLowerCase();
+
+                        // Get role information using helper method
+                        final roleInfo = _getRoleInfo(roleValue);
+                        final String? roleLabel = roleInfo['label'] as String?;
+                        final Color roleColor = roleInfo['color'] as Color;
+                        final List<Color> avatarGradient =
+                            roleInfo['gradientColors'] as List<Color>;
+
+                        return Container(
+                          margin: const EdgeInsets.symmetric(vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
                             borderRadius: BorderRadius.circular(16),
-                            splashColor: Colors.redAccent.withOpacity(0.1),
-                            highlightColor: Colors.redAccent.withOpacity(0.05),
-                            onTap: () {
-                              HapticFeedback.selectionClick();
-                              _openChat(patientId, patientName);
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.all(14),
-                              child: Row(
-                                children: [
-                                  // Avatar with online status
-                                  Stack(
-                                    children: [
-                                      Container(
-                                        width: 44,
-                                        height: 44,
-                                        decoration: BoxDecoration(
-                                          gradient: LinearGradient(
-                                            begin: Alignment.topLeft,
-                                            end: Alignment.bottomRight,
-                                            colors: avatarGradient,
-                                          ),
-                                          borderRadius: BorderRadius.circular(12),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: roleColor.withOpacity(0.3),
-                                              blurRadius: 8,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ],
-                                        ),
-                                        child: Center(
-                                          child: Text(
-                                            patientName.isNotEmpty
-                                                ? patientName[0].toUpperCase()
-                                                : 'P',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 22,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      // Online status indicator
-                                      Positioned(
-                                        bottom: 2,
-                                        right: 2,
-                                        child: Container(
-                                          width: 16,
-                                          height: 16,
-                                          decoration: BoxDecoration(
-                                            color: Colors.green,
-                                            borderRadius: BorderRadius.circular(8),
-                                            border: Border.all(
-                                              color: Colors.white,
-                                              width: 2,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(width: 16),
-                                  // Name and message info
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.04),
+                                blurRadius: 15,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            borderRadius: BorderRadius.circular(16),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(16),
+                              splashColor: Colors.redAccent.withOpacity(0.1),
+                              highlightColor:
+                                  Colors.redAccent.withOpacity(0.05),
+                              onTap: () {
+                                HapticFeedback.selectionClick();
+                                _openChat(patientId, patientName);
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.all(14),
+                                child: Row(
+                                  children: [
+                                    // Avatar with online status
+                                    Stack(
                                       children: [
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Expanded(
-                                              child: Row(
-                                                children: [
-                                                  Expanded(
-                                                    child: Text(
-                                                      patientName,
-                                                      style: const TextStyle(
-                                                        fontSize: 17,
-                                                        fontWeight: FontWeight.w600,
-                                                        color: Color(0xFF1A1A1A),
-                                                      ),
-                                                      overflow: TextOverflow.ellipsis,
-                                                    ),
-                                                  ),
-                                                  if (roleLabel != null) ...[
-                                                    const SizedBox(width: 8),
-                                                    Container(
-                                                      padding: const EdgeInsets.symmetric(
-                                                        horizontal: 10,
-                                                        vertical: 4,
-                                                      ),
-                                                      decoration: BoxDecoration(
-                                                        color: roleColor.withOpacity(0.12),
-                                                        borderRadius: BorderRadius.circular(12),
-                                                      ),
-                                                      child: Text(
-                                                        roleLabel,
-                                                        style: TextStyle(
-                                                          color: roleColor,
-                                                          fontSize: 11,
-                                                          fontWeight: FontWeight.w600,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ],
+                                        Container(
+                                          width: 44,
+                                          height: 44,
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                              colors: avatarGradient,
+                                            ),
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color:
+                                                    roleColor.withOpacity(0.3),
+                                                blurRadius: 8,
+                                                offset: const Offset(0, 2),
+                                              ),
+                                            ],
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              patientName.isNotEmpty
+                                                  ? patientName[0].toUpperCase()
+                                                  : 'P',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 22,
+                                                fontWeight: FontWeight.w600,
                                               ),
                                             ),
-                                            Text(
-                                              _formatTimeDetailed(patient['lastTimestamp'] as Timestamp?),
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                color: Colors.grey.shade500,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                          ],
+                                          ),
                                         ),
-                                        const SizedBox(height: 6),
-                                        Row(
-                                          children: [
-                                            Expanded(
-                                              child: Text(
-                                                patient['lastMessage'] as String? ?? 'No messages yet',
-                                                style: TextStyle(
-                                                  fontSize: 15,
-                                                  color: Colors.grey.shade600,
-                                                  fontWeight: FontWeight.w400,
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
+                                        // Online status indicator
+                                        Positioned(
+                                          bottom: 2,
+                                          right: 2,
+                                          child: Container(
+                                            width: 16,
+                                            height: 16,
+                                            decoration: BoxDecoration(
+                                              color: Colors.green,
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              border: Border.all(
+                                                color: Colors.white,
+                                                width: 2,
                                               ),
                                             ),
-                                          ],
+                                          ),
                                         ),
                                       ],
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(width: 16),
+                                    // Name and message info
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Expanded(
+                                                child: Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: Text(
+                                                        patientName,
+                                                        style: const TextStyle(
+                                                          fontSize: 17,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          color:
+                                                              Color(0xFF1A1A1A),
+                                                        ),
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                      ),
+                                                    ),
+                                                    if (roleLabel != null) ...[
+                                                      const SizedBox(width: 8),
+                                                      Container(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .symmetric(
+                                                          horizontal: 10,
+                                                          vertical: 4,
+                                                        ),
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          color: roleColor
+                                                              .withOpacity(
+                                                                  0.12),
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(12),
+                                                        ),
+                                                        child: Text(
+                                                          roleLabel,
+                                                          style: TextStyle(
+                                                            color: roleColor,
+                                                            fontSize: 11,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ],
+                                                ),
+                                              ),
+                                              Text(
+                                                _formatTimeDetailed(
+                                                    patient['lastTimestamp']
+                                                        as Timestamp?),
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color: Colors.grey.shade500,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  patient['lastMessage']
+                                                          as String? ??
+                                                      'No messages yet',
+                                                  style: TextStyle(
+                                                    fontSize: 15,
+                                                    color: Colors.grey.shade600,
+                                                    fontWeight: FontWeight.w400,
+                                                  ),
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      );
-                    },
-                  );
-                },
+                        );
+                      },
+                    );
+                  },
+                ),
               ),
             ),
-          ),
           ],
         ),
       ),

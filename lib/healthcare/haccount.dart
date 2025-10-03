@@ -173,9 +173,9 @@ class _HAccountState extends State<HAccount> {
 
                             // Update the specific facility field
                             String facilityField = '';
-                            if (label == 'Facility Name')
+                            if (label == 'Facility Name') {
                               facilityField = 'name';
-                            else if (label == 'Facility Address')
+                            } else if (label == 'Facility Address')
                               facilityField = 'address';
                             else if (label == 'Facility Email')
                               facilityField = 'email';
@@ -189,9 +189,9 @@ class _HAccountState extends State<HAccount> {
                           } else {
                             // Handle regular field updates
                             String fieldName = '';
-                            if (label == 'Full Name')
+                            if (label == 'Full Name') {
                               fieldName = 'fullName';
-                            else if (label == 'Role')
+                            } else if (label == 'Role')
                               fieldName = 'role';
                             else if (label == 'Specialization')
                               fieldName = 'specialization';

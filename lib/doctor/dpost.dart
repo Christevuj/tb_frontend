@@ -102,6 +102,7 @@ class _DpostappointmentState extends State<Dpostappointment> {
                     ? FirebaseFirestore.instance
                         .collection('completed_appointments')
                         .where('doctorId', isEqualTo: _currentUserId)
+                        .where('processedToHistory', isNotEqualTo: true)
                         .snapshots()
                     : const Stream.empty(),
                 builder: (context, snapshot) {

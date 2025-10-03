@@ -30,14 +30,14 @@ class _GuestPatientChatScreenState extends State<GuestPatientChatScreen> {
   late final String _chatId;
   bool _isPatientOnline = false;
   String _patientStatus = 'Offline';
-  Map<String, bool> _expandedTimestamps = {};
+  final Map<String, bool> _expandedTimestamps = {};
 
   @override
   void initState() {
     super.initState();
     _chatId = _chatService.generateChatId(widget.guestId, widget.patientId);
     _monitorPatientPresence();
-    
+
     debugPrint('Guest-Patient Chat initialized:');
     debugPrint('Guest (Healthcare Worker): ${widget.guestId}');
     debugPrint('Patient: ${widget.patientId}');
@@ -52,7 +52,7 @@ class _GuestPatientChatScreenState extends State<GuestPatientChatScreen> {
         });
       }
     });
-    
+
     _updatePatientStatus();
   }
 
@@ -67,16 +67,18 @@ class _GuestPatientChatScreenState extends State<GuestPatientChatScreen> {
 
   String _formatDetailedTime(DateTime timestamp) {
     final now = DateTime.now();
-    final messageDate = DateTime(timestamp.year, timestamp.month, timestamp.day);
+    final messageDate =
+        DateTime(timestamp.year, timestamp.month, timestamp.day);
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
-    
+
     final hour = timestamp.hour;
     final minute = timestamp.minute;
     final period = hour >= 12 ? 'pm' : 'am';
     final displayHour = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
-    final timeString = '$displayHour:${minute.toString().padLeft(2, '0')}$period';
-    
+    final timeString =
+        '$displayHour:${minute.toString().padLeft(2, '0')}$period';
+
     if (messageDate == today) {
       return timeString;
     } else if (messageDate == yesterday) {
@@ -91,16 +93,18 @@ class _GuestPatientChatScreenState extends State<GuestPatientChatScreen> {
 
   String _formatMessengerTimestamp(DateTime timestamp) {
     final now = DateTime.now();
-    final messageDate = DateTime(timestamp.year, timestamp.month, timestamp.day);
+    final messageDate =
+        DateTime(timestamp.year, timestamp.month, timestamp.day);
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
-    
+
     final hour = timestamp.hour;
     final minute = timestamp.minute;
     final period = hour >= 12 ? 'PM' : 'AM';
     final displayHour = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
-    final timeString = '$displayHour:${minute.toString().padLeft(2, '0')} $period';
-    
+    final timeString =
+        '$displayHour:${minute.toString().padLeft(2, '0')} $period';
+
     if (messageDate == today) {
       return 'TODAY';
     } else if (messageDate == yesterday) {
@@ -109,22 +113,46 @@ class _GuestPatientChatScreenState extends State<GuestPatientChatScreen> {
       const weekdays = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
       return '${weekdays[timestamp.weekday - 1]} AT $timeString';
     } else if (timestamp.year == now.year) {
-      const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 
-                     'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+      const months = [
+        'JAN',
+        'FEB',
+        'MAR',
+        'APR',
+        'MAY',
+        'JUN',
+        'JUL',
+        'AUG',
+        'SEP',
+        'OCT',
+        'NOV',
+        'DEC'
+      ];
       return '${months[timestamp.month - 1]} ${timestamp.day}';
     } else {
-      const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 
-                     'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+      const months = [
+        'JAN',
+        'FEB',
+        'MAR',
+        'APR',
+        'MAY',
+        'JUN',
+        'JUL',
+        'AUG',
+        'SEP',
+        'OCT',
+        'NOV',
+        'DEC'
+      ];
       return '${months[timestamp.month - 1]} ${timestamp.day}, ${timestamp.year}';
     }
   }
 
   bool _shouldShowDateSeparator(DateTime current, DateTime? previous) {
     if (previous == null) return true;
-    
+
     final currentDate = DateTime(current.year, current.month, current.day);
     final previousDate = DateTime(previous.year, previous.month, previous.day);
-    
+
     return currentDate != previousDate;
   }
 
@@ -216,7 +244,8 @@ class _GuestPatientChatScreenState extends State<GuestPatientChatScreen> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 ),
                 child: const Text(
                   'Delete',
@@ -315,14 +344,14 @@ class _GuestPatientChatScreenState extends State<GuestPatientChatScreen> {
 
     try {
       await _presenceService.markAsActive();
-      
+
       await _chatService.sendTextMessage(
         senderId: widget.guestId,
         receiverId: widget.patientId,
         text: text,
       );
       _controller.clear();
-      
+
       _updatePatientStatus();
     } catch (e) {
       debugPrint('Error sending message: $e');
@@ -396,7 +425,7 @@ class _GuestPatientChatScreenState extends State<GuestPatientChatScreen> {
                       ),
                     ),
                     const SizedBox(width: 16),
-                    
+
                     // Patient Avatar with Online Status
                     Stack(
                       children: [
@@ -410,8 +439,8 @@ class _GuestPatientChatScreenState extends State<GuestPatientChatScreen> {
                             borderRadius: BorderRadius.circular(24),
                             border: Border.all(color: Colors.white, width: 2),
                           ),
-                          child: widget.patientProfilePicture != null && 
-                                 widget.patientProfilePicture!.isNotEmpty
+                          child: widget.patientProfilePicture != null &&
+                                  widget.patientProfilePicture!.isNotEmpty
                               ? ClipRRect(
                                   borderRadius: BorderRadius.circular(22),
                                   child: Image.network(
@@ -420,8 +449,9 @@ class _GuestPatientChatScreenState extends State<GuestPatientChatScreen> {
                                     errorBuilder: (context, error, stackTrace) {
                                       return Center(
                                         child: Text(
-                                          widget.patientName.isNotEmpty 
-                                              ? widget.patientName[0].toUpperCase() 
+                                          widget.patientName.isNotEmpty
+                                              ? widget.patientName[0]
+                                                  .toUpperCase()
                                               : 'P',
                                           style: const TextStyle(
                                             color: Colors.white,
@@ -435,8 +465,8 @@ class _GuestPatientChatScreenState extends State<GuestPatientChatScreen> {
                                 )
                               : Center(
                                   child: Text(
-                                    widget.patientName.isNotEmpty 
-                                        ? widget.patientName[0].toUpperCase() 
+                                    widget.patientName.isNotEmpty
+                                        ? widget.patientName[0].toUpperCase()
                                         : 'P',
                                     style: const TextStyle(
                                       color: Colors.white,
@@ -454,7 +484,7 @@ class _GuestPatientChatScreenState extends State<GuestPatientChatScreen> {
                             width: 14,
                             height: 14,
                             decoration: BoxDecoration(
-                              color: _isPatientOnline 
+                              color: _isPatientOnline
                                   ? const Color(0xFF4CAF50)
                                   : Colors.grey,
                               borderRadius: BorderRadius.circular(7),
@@ -465,7 +495,7 @@ class _GuestPatientChatScreenState extends State<GuestPatientChatScreen> {
                       ],
                     ),
                     const SizedBox(width: 16),
-                    
+
                     // Patient Info
                     Expanded(
                       child: Column(
@@ -485,8 +515,8 @@ class _GuestPatientChatScreenState extends State<GuestPatientChatScreen> {
                           Text(
                             _patientStatus,
                             style: TextStyle(
-                              color: _isPatientOnline 
-                                  ? Colors.white70 
+                              color: _isPatientOnline
+                                  ? Colors.white70
                                   : Colors.white54,
                               fontSize: 13,
                               fontWeight: FontWeight.w400,
@@ -495,7 +525,7 @@ class _GuestPatientChatScreenState extends State<GuestPatientChatScreen> {
                         ],
                       ),
                     ),
-                    
+
                     // More Options Button
                     Container(
                       width: 40,
@@ -556,11 +586,12 @@ class _GuestPatientChatScreenState extends State<GuestPatientChatScreen> {
               ),
             ),
           ),
-          
+
           // Messages List
           Expanded(
             child: StreamBuilder<List<Message>>(
-              stream: _chatService.getMessages(widget.guestId, widget.patientId),
+              stream:
+                  _chatService.getMessages(widget.guestId, widget.patientId),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return Center(
@@ -568,7 +599,8 @@ class _GuestPatientChatScreenState extends State<GuestPatientChatScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.redAccent),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.redAccent),
                         ),
                         const SizedBox(height: 16),
                         Text(
@@ -618,7 +650,7 @@ class _GuestPatientChatScreenState extends State<GuestPatientChatScreen> {
                 }
 
                 final messages = snapshot.data ?? [];
-                
+
                 if (messages.isEmpty) {
                   return Center(
                     child: Column(
@@ -661,11 +693,14 @@ class _GuestPatientChatScreenState extends State<GuestPatientChatScreen> {
 
                 return ListView.builder(
                   reverse: true,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
                     final message = messages[index];
-                    final previousMessage = index < messages.length - 1 ? messages[index + 1] : null;
+                    final previousMessage = index < messages.length - 1
+                        ? messages[index + 1]
+                        : null;
                     final showDateSeparator = _shouldShowDateSeparator(
                       message.timestamp,
                       previousMessage?.timestamp,
@@ -673,17 +708,19 @@ class _GuestPatientChatScreenState extends State<GuestPatientChatScreen> {
 
                     return Column(
                       children: [
-                        if (showDateSeparator) _buildDateSeparator(message.timestamp),
+                        if (showDateSeparator)
+                          _buildDateSeparator(message.timestamp),
                         _MessageBubble(
                           message: message,
                           isMe: message.senderId == widget.guestId,
                           onTimestampTap: () {
                             setState(() {
-                              _expandedTimestamps[message.id] = 
+                              _expandedTimestamps[message.id] =
                                   !(_expandedTimestamps[message.id] ?? false);
                             });
                           },
-                          showDetailedTimestamp: _expandedTimestamps[message.id] ?? false,
+                          showDetailedTimestamp:
+                              _expandedTimestamps[message.id] ?? false,
                           detailedTime: _formatDetailedTime(message.timestamp),
                         ),
                       ],
@@ -693,7 +730,7 @@ class _GuestPatientChatScreenState extends State<GuestPatientChatScreen> {
               },
             ),
           ),
-          
+
           // Message Input
           Container(
             decoration: BoxDecoration(
@@ -708,7 +745,8 @@ class _GuestPatientChatScreenState extends State<GuestPatientChatScreen> {
             ),
             child: SafeArea(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Row(
                   children: [
                     Expanded(
@@ -809,10 +847,12 @@ class _MessageBubble extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.only(bottom: 12),
         child: Column(
-          crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          crossAxisAlignment:
+              isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+              mainAxisAlignment:
+                  isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 if (!isMe) const SizedBox(width: 8),
@@ -821,7 +861,8 @@ class _MessageBubble extends StatelessWidget {
                     constraints: BoxConstraints(
                       maxWidth: MediaQuery.of(context).size.width * 0.7,
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
                       gradient: isMe
                           ? const LinearGradient(

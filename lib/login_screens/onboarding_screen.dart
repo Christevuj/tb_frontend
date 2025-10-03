@@ -102,8 +102,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
             // Buttons + Skip
             Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 24.0).copyWith(bottom: 30),
+              padding: const EdgeInsets.symmetric(horizontal: 24.0)
+                  .copyWith(bottom: 30),
               child: Column(
                 children: [
                   Row(
@@ -127,9 +127,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             ),
                           ),
                         ),
-
                       if (_currentPage > 0) const SizedBox(width: 12),
-
                       Expanded(
                         child: ElevatedButton(
                           onPressed: _nextPage,

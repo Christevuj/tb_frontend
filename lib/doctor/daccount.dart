@@ -393,7 +393,10 @@ class _DaccountState extends State<Daccount> {
                     Container(
                       decoration: const BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [Color.fromARGB(255, 255, 255, 255), Color(0xFFFFEBEB)],
+                          colors: [
+                            Color.fromARGB(255, 255, 255, 255),
+                            Color(0xFFFFEBEB)
+                          ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -428,7 +431,8 @@ class _DaccountState extends State<Daccount> {
                             // Sections
                             _buildSection(
                               title: "Bio",
-                              description: "These details will be visible to patients. Please ensure accuracy.",
+                              description:
+                                  "These details will be visible to patients. Please ensure accuracy.",
                               icon: Icons.person,
                               sectionId: "bio",
                               children: [
@@ -436,7 +440,8 @@ class _DaccountState extends State<Daccount> {
                                   label: "Full Name",
                                   value: fullNameController.text,
                                   icon: Icons.badge,
-                                  description: "Your complete name as it will appear to patients.",
+                                  description:
+                                      "Your complete name as it will appear to patients.",
                                   controller: fullNameController,
                                   fieldKey: "fullName",
                                 ),
@@ -444,7 +449,8 @@ class _DaccountState extends State<Daccount> {
                                   label: "Medical License",
                                   value: licenseController.text,
                                   icon: Icons.card_membership,
-                                  description: "Your official medical license number.",
+                                  description:
+                                      "Your official medical license number.",
                                   controller: licenseController,
                                   fieldKey: "license",
                                 ),
@@ -452,7 +458,8 @@ class _DaccountState extends State<Daccount> {
                                   label: "Specialization",
                                   value: specializationController.text,
                                   icon: Icons.local_hospital,
-                                  description: "Your area of medical expertise (e.g., Pulmonology, Pediatrics).",
+                                  description:
+                                      "Your area of medical expertise (e.g., Pulmonology, Pediatrics).",
                                   controller: specializationController,
                                   fieldKey: "specialization",
                                 ),
@@ -460,7 +467,8 @@ class _DaccountState extends State<Daccount> {
                                   label: "Experience",
                                   value: experienceController.text,
                                   icon: Icons.work_history,
-                                  description: "Years of professional experience or a brief summary.",
+                                  description:
+                                      "Years of professional experience or a brief summary.",
                                   controller: experienceController,
                                   fieldKey: "experience",
                                 ),
@@ -468,7 +476,8 @@ class _DaccountState extends State<Daccount> {
                                   padding: EdgeInsets.only(top: 8.0),
                                   child: Text(
                                     "Note: Bio details will appear on your public profile and are visible to patients.",
-                                    style: TextStyle(fontSize: 13, color: Colors.redAccent),
+                                    style: TextStyle(
+                                        fontSize: 13, color: Colors.redAccent),
                                   ),
                                 ),
                               ],
@@ -512,13 +521,16 @@ class _DaccountState extends State<Daccount> {
                               children: [
                                 doctorData!['affiliations'] != null
                                     ? Column(
-                                        children: (doctorData!['affiliations'] as List<dynamic>)
+                                        children: (doctorData!['affiliations']
+                                                as List<dynamic>)
                                             .map((a) => _affiliationCard(a))
                                             .toList(),
                                       )
                                     : const Text(
                                         "No affiliations added",
-                                        style: TextStyle(fontSize: 14, color: Colors.black54),
+                                        style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.black54),
                                       ),
                               ],
                             ),
@@ -526,11 +538,14 @@ class _DaccountState extends State<Daccount> {
                             ElevatedButton(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.black,
-                                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 14, horizontal: 24),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(30)),
                               ),
                               onPressed: _logout,
-                              child: const Text("Log Out", style: TextStyle(color: Colors.white)),
+                              child: const Text("Log Out",
+                                  style: TextStyle(color: Colors.white)),
                             ),
                           ],
                         ),
@@ -655,7 +670,9 @@ class _DaccountState extends State<Daccount> {
   }
 
   // Editable field (read-only for email)
-  Widget _buildEditableField(String label, String value, {
+  Widget _buildEditableField(
+    String label,
+    String value, {
     IconData? icon,
     TextEditingController? controller,
     bool obscure = false,
@@ -692,261 +709,282 @@ class _DaccountState extends State<Daccount> {
     );
   }
 
-  Future<void> _editField(String label, String currentValue, TextEditingController? controller, String fieldKey, bool obscure) async {
-  final currentPasswordController = TextEditingController(text: '********');
-  final newPasswordController = TextEditingController();
-  bool newPasswordVisible = false;
-  await showDialog(
-    context: context,
-    builder: (context) {
-      if (label != "Password") {
-        // Default dialog for other fields
-        final editController = TextEditingController(text: currentValue);
-        bool passwordVisible = false;
-        return StatefulBuilder(
-          builder: (context, setState) => Dialog(
-            backgroundColor: Colors.transparent,
-            insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-            child: Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
-                    blurRadius: 24,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.edit,
-                        color: Colors.redAccent,
-                        size: 28,
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        'Edit $label',
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  TextField(
-                    controller: editController,
-                    decoration: InputDecoration(
-                      labelText: label,
-                      labelStyle: const TextStyle(color: Colors.redAccent),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Colors.redAccent, width: 1.2),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Colors.redAccent, width: 2),
-                      ),
-                      fillColor: Colors.grey.shade50,
-                      filled: true,
+  Future<void> _editField(String label, String currentValue,
+      TextEditingController? controller, String fieldKey, bool obscure) async {
+    final currentPasswordController = TextEditingController(text: '********');
+    final newPasswordController = TextEditingController();
+    bool newPasswordVisible = false;
+    await showDialog(
+      context: context,
+      builder: (context) {
+        if (label != "Password") {
+          // Default dialog for other fields
+          final editController = TextEditingController(text: currentValue);
+          bool passwordVisible = false;
+          return StatefulBuilder(
+            builder: (context, setState) => Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding:
+                  const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 24,
+                      offset: const Offset(0, 8),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                        ),
-                        child: const Text('Cancel'),
-                      ),
-                      const SizedBox(width: 8),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.redAccent,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        onPressed: () async {
-                          final newValue = editController.text.trim();
-                          if (newValue.isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('$label cannot be empty.')),
-                            );
-                            return;
-                          }
-                          await _saveField(fieldKey, newValue);
-                          if (controller != null) controller.text = newValue;
-                          await _loadDoctorData();
-                          Navigator.pop(context);
-                          setState(() {});
-                        },
-                        child: const Text('Save'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      } else {
-        // Password dialog
-        return StatefulBuilder(
-          builder: (context, setState) => Dialog(
-            backgroundColor: Colors.transparent,
-            insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-            child: Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
-                    blurRadius: 24,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.lock, color: Colors.redAccent, size: 28),
-                      const SizedBox(width: 10),
-                      const Text(
-                        'Edit Password',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  TextField(
-                    controller: currentPasswordController,
-                    enabled: false,
-                    decoration: InputDecoration(
-                      labelText: 'Current Password',
-                      labelStyle: const TextStyle(color: Colors.redAccent),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Colors.redAccent, width: 1.2),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Colors.redAccent, width: 2),
-                      ),
-                      fillColor: Colors.grey.shade50,
-                      filled: true,
-                    ),
-                    obscureText: true,
-                  ),
-                  const SizedBox(height: 18),
-                  TextField(
-                    controller: newPasswordController,
-                    decoration: InputDecoration(
-                      labelText: 'New Password',
-                      labelStyle: const TextStyle(color: Colors.redAccent),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Colors.redAccent, width: 1.2),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Colors.redAccent, width: 2),
-                      ),
-                      fillColor: Colors.grey.shade50,
-                      filled: true,
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          newPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.edit,
                           color: Colors.redAccent,
+                          size: 28,
                         ),
-                        onPressed: () {
-                          setState(() {
-                            newPasswordVisible = !newPasswordVisible;
-                          });
-                        },
-                      ),
-                    ),
-                    obscureText: !newPasswordVisible,
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                        ),
-                        child: const Text('Cancel'),
-                      ),
-                      const SizedBox(width: 8),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.redAccent,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Edit $label',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                        onPressed: () async {
-                          final newPassword = newPasswordController.text.trim();
-                          if (newPassword.isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('New password cannot be empty.')),
-                            );
-                            return;
-                          }
-                          final user = FirebaseAuth.instance.currentUser;
-                          if (user != null) {
-                            try {
-                              await user.updatePassword(newPassword);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Password updated successfully!')),
-                              );
-                              Navigator.pop(context);
-                            } catch (e) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Error: $e')),
-                              );
-                            }
-                          }
-                        },
-                        child: const Text('Save'),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    TextField(
+                      controller: editController,
+                      decoration: InputDecoration(
+                        labelText: label,
+                        labelStyle: const TextStyle(color: Colors.redAccent),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                              color: Colors.redAccent, width: 1.2),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                              color: Colors.redAccent, width: 2),
+                        ),
+                        fillColor: Colors.grey.shade50,
+                        filled: true,
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.black,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 18, vertical: 10),
+                          ),
+                          child: const Text('Cancel'),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.redAccent,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 24, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          onPressed: () async {
+                            final newValue = editController.text.trim();
+                            if (newValue.isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                    content: Text('$label cannot be empty.')),
+                              );
+                              return;
+                            }
+                            await _saveField(fieldKey, newValue);
+                            if (controller != null) controller.text = newValue;
+                            await _loadDoctorData();
+                            Navigator.pop(context);
+                            setState(() {});
+                          },
+                          child: const Text('Save'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        );
-      }
-    },
-    barrierDismissible: false,
-  );
-}
+          );
+        } else {
+          // Password dialog
+          return StatefulBuilder(
+            builder: (context, setState) => Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding:
+                  const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 24,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.lock, color: Colors.redAccent, size: 28),
+                        const SizedBox(width: 10),
+                        const Text(
+                          'Edit Password',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    TextField(
+                      controller: currentPasswordController,
+                      enabled: false,
+                      decoration: InputDecoration(
+                        labelText: 'Current Password',
+                        labelStyle: const TextStyle(color: Colors.redAccent),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                              color: Colors.redAccent, width: 1.2),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                              color: Colors.redAccent, width: 2),
+                        ),
+                        fillColor: Colors.grey.shade50,
+                        filled: true,
+                      ),
+                      obscureText: true,
+                    ),
+                    const SizedBox(height: 18),
+                    TextField(
+                      controller: newPasswordController,
+                      decoration: InputDecoration(
+                        labelText: 'New Password',
+                        labelStyle: const TextStyle(color: Colors.redAccent),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                              color: Colors.redAccent, width: 1.2),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                              color: Colors.redAccent, width: 2),
+                        ),
+                        fillColor: Colors.grey.shade50,
+                        filled: true,
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            newPasswordVisible
+                                ? Icons.visibility
+                                : Icons.visibility_off,
+                            color: Colors.redAccent,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              newPasswordVisible = !newPasswordVisible;
+                            });
+                          },
+                        ),
+                      ),
+                      obscureText: !newPasswordVisible,
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.black,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 18, vertical: 10),
+                          ),
+                          child: const Text('Cancel'),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.redAccent,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 24, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          onPressed: () async {
+                            final newPassword =
+                                newPasswordController.text.trim();
+                            if (newPassword.isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content:
+                                        Text('New password cannot be empty.')),
+                              );
+                              return;
+                            }
+                            final user = FirebaseAuth.instance.currentUser;
+                            if (user != null) {
+                              try {
+                                await user.updatePassword(newPassword);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content: Text(
+                                          'Password updated successfully!')),
+                                );
+                                Navigator.pop(context);
+                              } catch (e) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Error: $e')),
+                                );
+                              }
+                            }
+                          },
+                          child: const Text('Save'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+      },
+      barrierDismissible: false,
+    );
+  }
 }

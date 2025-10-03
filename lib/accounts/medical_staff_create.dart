@@ -145,7 +145,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             DropdownButtonFormField<TBDotsFacility>(
-                              value: selectedFacility,
+                              initialValue: selectedFacility,
                               decoration: const InputDecoration(
                                 labelText: "Select TB DOTS Facility",
                                 prefixIcon: Icon(Icons.local_hospital,
@@ -328,7 +328,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
 
               // Role Selection Dropdown
               DropdownButtonFormField<String>(
-                value: _selectedRole,
+                initialValue: _selectedRole,
                 decoration: InputDecoration(
                   labelText: 'Staff Role',
                   border: OutlineInputBorder(

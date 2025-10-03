@@ -189,7 +189,8 @@ class Phealthworker extends StatelessWidget {
 
                       // Check if this doctor is affiliated with this facility by address
                       for (var affiliation in affiliations) {
-                        if (affiliation is Map && affiliation['address'] == facilityAddress) {
+                        if (affiliation is Map &&
+                            affiliation['address'] == facilityAddress) {
                           allStaff.add({
                             'name': data['fullName'] ??
                                 data['name'], // Handle both field names
@@ -311,8 +312,9 @@ class Phealthworker extends StatelessWidget {
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: (isDoctor ? Colors.blue : const Color(0xE0F44336))
-                            .withOpacity(0.3),
+                        color:
+                            (isDoctor ? Colors.blue : const Color(0xE0F44336))
+                                .withOpacity(0.3),
                         blurRadius: 8,
                         offset: const Offset(0, 4),
                       ),
@@ -563,13 +565,14 @@ class Phealthworker extends StatelessWidget {
 
       // Wait a moment for auth state to stabilize
       await Future.delayed(const Duration(milliseconds: 300));
-      
+
       // Try to reload the user in case the auth state is stale
       await FirebaseAuth.instance.currentUser?.reload();
       final currentUser = FirebaseAuth.instance.currentUser;
-      
-      debugPrint('🔍 Checking auth state: User = ${currentUser?.uid ?? "null"}, Email = ${currentUser?.email ?? "null"}');
-      
+
+      debugPrint(
+          '🔍 Checking auth state: User = ${currentUser?.uid ?? "null"}, Email = ${currentUser?.email ?? "null"}');
+
       if (currentUser == null) {
         debugPrint('❌ No authenticated user found');
         if (context.mounted) {
@@ -585,7 +588,8 @@ class Phealthworker extends StatelessWidget {
       }
 
       final authUid = currentUser.uid;
-      debugPrint('💬 Opening chat with $workerType: $workerName (ID: $workerId)');
+      debugPrint(
+          '💬 Opening chat with $workerType: $workerName (ID: $workerId)');
 
       // Initialize ChatService
       final chatService = ChatService();

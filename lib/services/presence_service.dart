@@ -59,7 +59,7 @@ class PresenceService {
   /// Start periodic presence updates (heartbeat)
   void _startPresenceUpdates() {
     _presenceTimer?.cancel();
-    
+
     // Update presence every 30 seconds to show user is still active
     _presenceTimer = Timer.periodic(const Duration(seconds: 30), (timer) async {
       if (_isActive && _currentUserId != null) {
@@ -89,21 +89,21 @@ class PresenceService {
         .snapshots()
         .map((doc) {
       if (!doc.exists) return false;
-      
+
       final data = doc.data() as Map<String, dynamic>;
       final isOnline = data['isOnline'] as bool? ?? false;
       final lastSeen = data['lastSeen'] as Timestamp?;
-      
+
       if (!isOnline) return false;
-      
+
       // If no lastSeen timestamp, consider offline
       if (lastSeen == null) return false;
-      
+
       // Consider user offline if last seen is more than 2 minutes ago
       final now = DateTime.now();
       final lastSeenTime = lastSeen.toDate();
       final difference = now.difference(lastSeenTime);
-      
+
       // User is considered online if they were active within the last 2 minutes
       return difference.inMinutes < 2;
     });
@@ -112,25 +112,23 @@ class PresenceService {
   /// Get presence status for a user (one-time check)
   Future<bool> getUserPresenceStatus(String userId) async {
     try {
-      final doc = await _firestore
-          .collection('user_presence')
-          .doc(userId)
-          .get();
+      final doc =
+          await _firestore.collection('user_presence').doc(userId).get();
 
       if (!doc.exists) return false;
-      
+
       final data = doc.data() as Map<String, dynamic>;
       final isOnline = data['isOnline'] as bool? ?? false;
       final lastSeen = data['lastSeen'] as Timestamp?;
-      
+
       if (!isOnline) return false;
-      
+
       if (lastSeen == null) return false;
-      
+
       final now = DateTime.now();
       final lastSeenTime = lastSeen.toDate();
       final difference = now.difference(lastSeenTime);
-      
+
       return difference.inMinutes < 2;
     } catch (e) {
       print('Error getting user presence: $e');
@@ -141,32 +139,30 @@ class PresenceService {
   /// Get formatted last seen time
   Future<String> getLastSeenText(String userId) async {
     try {
-      final doc = await _firestore
-          .collection('user_presence')
-          .doc(userId)
-          .get();
+      final doc =
+          await _firestore.collection('user_presence').doc(userId).get();
 
       if (!doc.exists) return 'Offline';
-      
+
       final data = doc.data() as Map<String, dynamic>;
       final isOnline = data['isOnline'] as bool? ?? false;
       final lastSeen = data['lastSeen'] as Timestamp?;
-      
+
       if (isOnline && lastSeen != null) {
         final now = DateTime.now();
         final lastSeenTime = lastSeen.toDate();
         final difference = now.difference(lastSeenTime);
-        
+
         if (difference.inMinutes < 2) {
           return 'Active now';
         }
       }
-      
+
       if (lastSeen != null) {
         final lastSeenTime = lastSeen.toDate();
         final now = DateTime.now();
         final difference = now.difference(lastSeenTime);
-        
+
         if (difference.inMinutes < 60) {
           return 'Active ${difference.inMinutes}m ago';
         } else if (difference.inHours < 24) {
@@ -175,7 +171,7 @@ class PresenceService {
           return 'Active ${difference.inDays}d ago';
         }
       }
-      
+
       return 'Offline';
     } catch (e) {
       print('Error getting last seen: $e');

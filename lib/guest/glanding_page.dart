@@ -62,7 +62,6 @@ class _GlandingPageState extends State<GlandingPage> {
             appBar: AppBar(
               backgroundColor: Colors.transparent,
               elevation: 0,
-
               actions: [
                 IconButton(
                   icon: const Icon(Icons.close, color: Colors.white),
@@ -76,7 +75,7 @@ class _GlandingPageState extends State<GlandingPage> {
                 boundaryMargin: const EdgeInsets.all(0),
                 minScale: 0.5,
                 maxScale: 5.0,
-                child: Container(
+                child: SizedBox(
                   width: double.infinity,
                   height: double.infinity,
                   child: Image.asset(
@@ -147,15 +146,19 @@ class _GlandingPageState extends State<GlandingPage> {
                               height: 200,
                               decoration: BoxDecoration(
                                 color: Colors.grey.shade100,
-                                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                                borderRadius: const BorderRadius.vertical(
+                                    top: Radius.circular(16)),
                               ),
                               child: const Center(
                                 child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    CircularProgressIndicator(color: Colors.redAccent),
+                                    CircularProgressIndicator(
+                                        color: Colors.redAccent),
                                     SizedBox(height: 8),
-                                    Text('Loading video...', style: TextStyle(color: Colors.black54)),
+                                    Text('Loading video...',
+                                        style:
+                                            TextStyle(color: Colors.black54)),
                                   ],
                                 ),
                               ),
@@ -169,15 +172,20 @@ class _GlandingPageState extends State<GlandingPage> {
                                   height: 200,
                                   decoration: BoxDecoration(
                                     color: Colors.grey.shade100,
-                                    borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                                    borderRadius: const BorderRadius.vertical(
+                                        top: Radius.circular(16)),
                                   ),
                                   child: const Center(
                                     child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
-                                        Icon(Icons.video_library_outlined, size: 48, color: Colors.black54),
+                                        Icon(Icons.video_library_outlined,
+                                            size: 48, color: Colors.black54),
                                         SizedBox(height: 8),
-                                        Text("No video available", style: TextStyle(color: Colors.black54)),
+                                        Text("No video available",
+                                            style: TextStyle(
+                                                color: Colors.black54)),
                                       ],
                                     ),
                                   ),
@@ -226,7 +234,8 @@ class _GlandingPageState extends State<GlandingPage> {
                               color: Colors.redAccent.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: const Icon(Icons.description_outlined, size: 24, color: Colors.redAccent),
+                            child: const Icon(Icons.description_outlined,
+                                size: 24, color: Colors.redAccent),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -265,13 +274,16 @@ class _GlandingPageState extends State<GlandingPage> {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (_) => const PracticalPdfViewerScreen(
-                                          assetPath: 'assets/documents/NTP_MOP_6TH_EDITION.pdf'),
+                                      builder: (_) =>
+                                          const PracticalPdfViewerScreen(
+                                              assetPath:
+                                                  'assets/documents/NTP_MOP_6TH_EDITION.pdf'),
                                     ),
                                   );
                                 },
                                 child: const Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 15, vertical: 11),
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: 15, vertical: 11),
                                   child: Text(
                                     'Open',
                                     style: TextStyle(

@@ -435,7 +435,8 @@ class GHealthWorkers extends StatelessWidget {
                           profilePicture: profilePicture,
                         ),
                         icon: const Icon(Icons.message_rounded, size: 16),
-                        label: Text('Message ${type == 'Doctor' ? 'Doctor' : 'Health Worker'}'),
+                        label: Text(
+                            'Message ${type == 'Doctor' ? 'Doctor' : 'Health Worker'}'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xE0F44336),
                           foregroundColor: Colors.white,
@@ -522,12 +523,14 @@ class GHealthWorkers extends StatelessWidget {
       // Try to get current user, or create a temporary guest ID
       User? currentUser = FirebaseAuth.instance.currentUser;
       String guestUid;
-      
+
       if (currentUser == null) {
         // Try anonymous sign-in first
         try {
-          debugPrint('Guest not authenticated, attempting anonymous sign-in...');
-          final userCredential = await FirebaseAuth.instance.signInAnonymously();
+          debugPrint(
+              'Guest not authenticated, attempting anonymous sign-in...');
+          final userCredential =
+              await FirebaseAuth.instance.signInAnonymously();
           currentUser = userCredential.user;
           if (currentUser != null) {
             guestUid = currentUser.uid;
@@ -539,11 +542,11 @@ class GHealthWorkers extends StatelessWidget {
           // If anonymous auth is disabled, use a device-based temporary ID
           debugPrint('Anonymous auth not available: $authError');
           debugPrint('Using temporary guest ID...');
-          
+
           // Generate a unique temporary guest ID
           final timestamp = DateTime.now().millisecondsSinceEpoch;
           guestUid = 'guest_$timestamp';
-          
+
           // Show info to user that they're using temporary guest mode
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -565,14 +568,14 @@ class GHealthWorkers extends StatelessWidget {
 
       // Create/update user documents with proper roles
       final ChatService chatService = ChatService();
-      
+
       // Register guest user with 'guest' role
       await chatService.createUserDoc(
         userId: guestUid,
         name: 'Anonymous',
         role: 'guest',
       );
-      
+
       // Register health worker
       await chatService.createUserDoc(
         userId: workerId,

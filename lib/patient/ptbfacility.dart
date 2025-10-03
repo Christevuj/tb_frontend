@@ -1560,50 +1560,51 @@ class _PtbfacilityPageState extends State<PtbfacilityPage> {
                                   ),
                                 ],
                               ),
-                        child: TextField(
-                          controller: _searchController,
-                          focusNode: _searchFocusNode,
-                          onChanged: (value) {
-                            _filterFacilities(value);
-                            setState(() {
-                              _isSearching = value.isNotEmpty;
-                            });
-                          },
-                          onTap: () {
-                            if (_searchController.text.isNotEmpty) {
-                              _generateSearchSuggestions(
-                                  _searchController.text);
-                            }
-                          },
-                          decoration: InputDecoration(
-                            hintText: 'Search facilities or locations...',
-                            // Redirect to GHealthWorkers (patient's health worker list)
-                            hintStyle: TextStyle(color: Colors.grey.shade500),
-                            prefixIcon:
-                                Icon(Icons.search, color: Colors.grey.shade600),
-                            suffixIcon: _searchController.text.isNotEmpty
-                                ? IconButton(
-                                    icon: Icon(Icons.clear,
-                                        color: Colors.grey.shade600),
-                                    onPressed: () {
-                                      _searchController.clear();
-                                      _filterFacilities('');
-                                      setState(() {
-                                        _showSearchDropdown = false;
-                                        _searchSuggestions = [];
-                                        _isSearching = false;
-                                      });
-                                      _searchFocusNode.unfocus();
-                                    },
-                                  )
-                                : null,
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 15,
-                            ),
-                          ),
-                        ),
+                              child: TextField(
+                                controller: _searchController,
+                                focusNode: _searchFocusNode,
+                                onChanged: (value) {
+                                  _filterFacilities(value);
+                                  setState(() {
+                                    _isSearching = value.isNotEmpty;
+                                  });
+                                },
+                                onTap: () {
+                                  if (_searchController.text.isNotEmpty) {
+                                    _generateSearchSuggestions(
+                                        _searchController.text);
+                                  }
+                                },
+                                decoration: InputDecoration(
+                                  hintText: 'Search facilities or locations...',
+                                  // Redirect to GHealthWorkers (patient's health worker list)
+                                  hintStyle:
+                                      TextStyle(color: Colors.grey.shade500),
+                                  prefixIcon: Icon(Icons.search,
+                                      color: Colors.grey.shade600),
+                                  suffixIcon: _searchController.text.isNotEmpty
+                                      ? IconButton(
+                                          icon: Icon(Icons.clear,
+                                              color: Colors.grey.shade600),
+                                          onPressed: () {
+                                            _searchController.clear();
+                                            _filterFacilities('');
+                                            setState(() {
+                                              _showSearchDropdown = false;
+                                              _searchSuggestions = [];
+                                              _isSearching = false;
+                                            });
+                                            _searchFocusNode.unfocus();
+                                          },
+                                        )
+                                      : null,
+                                  border: InputBorder.none,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                    vertical: 15,
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
                         ],

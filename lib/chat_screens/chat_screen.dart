@@ -28,7 +28,8 @@ class _ChatScreenState extends State<ChatScreen> {
   String _otherUserName = '';
   bool _isOtherUserOnline = false;
   String _otherUserStatus = 'Offline';
-  final Map<String, bool> _expandedTimestamps = {}; // Track which messages have expanded timestamps
+  final Map<String, bool> _expandedTimestamps =
+      {}; // Track which messages have expanded timestamps
 
   @override
   void initState() {
@@ -36,13 +37,13 @@ class _ChatScreenState extends State<ChatScreen> {
     // Generate chatId automatically based on both users
     _chatId =
         _chatService.generateChatId(widget.currentUserId, widget.otherUserId);
-    
+
     // Get the other user's name
     _getOtherUserName();
-    
+
     // Start monitoring other user's presence
     _monitorOtherUserPresence();
-    
+
     // Debug: Print the chat ID and user IDs
     print('Chat initialized:');
     print('Current User: ${widget.currentUserId}');
@@ -52,14 +53,16 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _monitorOtherUserPresence() {
     // Listen to the other user's presence status
-    _presenceService.getUserPresenceStream(widget.otherUserId).listen((isOnline) {
+    _presenceService
+        .getUserPresenceStream(widget.otherUserId)
+        .listen((isOnline) {
       if (mounted) {
         setState(() {
           _isOtherUserOnline = isOnline;
         });
       }
     });
-    
+
     // Also update the status text periodically
     _updateOtherUserStatus();
   }
@@ -79,42 +82,44 @@ class _ChatScreenState extends State<ChatScreen> {
           .collection('users')
           .doc(widget.otherUserId)
           .get();
-      
+
       if (userDoc.exists) {
         setState(() {
           _otherUserName = userDoc.data()?['name'] ?? widget.otherUserId;
         });
         return;
       }
-      
+
       // If no user document, try to get name from appointments
       final appointmentQuery = await FirebaseFirestore.instance
           .collection('pending_patient_data')
           .where('patientUid', isEqualTo: widget.otherUserId)
           .limit(1)
           .get();
-      
+
       if (appointmentQuery.docs.isNotEmpty) {
         setState(() {
-          _otherUserName = appointmentQuery.docs.first.data()['patientName'] ?? widget.otherUserId;
+          _otherUserName = appointmentQuery.docs.first.data()['patientName'] ??
+              widget.otherUserId;
         });
         return;
       }
-      
+
       // Try as doctor
       final doctorQuery = await FirebaseFirestore.instance
           .collection('pending_patient_data')
           .where('doctorUid', isEqualTo: widget.otherUserId)
           .limit(1)
           .get();
-      
+
       if (doctorQuery.docs.isNotEmpty) {
         setState(() {
-          _otherUserName = doctorQuery.docs.first.data()['doctorName'] ?? widget.otherUserId;
+          _otherUserName =
+              doctorQuery.docs.first.data()['doctorName'] ?? widget.otherUserId;
         });
         return;
       }
-      
+
       // Fallback to otherUserId
       setState(() {
         _otherUserName = widget.otherUserId;
@@ -129,17 +134,19 @@ class _ChatScreenState extends State<ChatScreen> {
 
   String _formatDetailedTime(DateTime timestamp) {
     final now = DateTime.now();
-    final messageDate = DateTime(timestamp.year, timestamp.month, timestamp.day);
+    final messageDate =
+        DateTime(timestamp.year, timestamp.month, timestamp.day);
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
-    
+
     // Convert to 12-hour format
     final hour = timestamp.hour;
     final minute = timestamp.minute;
     final period = hour >= 12 ? 'pm' : 'am';
     final displayHour = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
-    final timeString = '$displayHour:${minute.toString().padLeft(2, '0')}$period';
-    
+    final timeString =
+        '$displayHour:${minute.toString().padLeft(2, '0')}$period';
+
     if (messageDate == today) {
       return timeString;
     } else if (messageDate == yesterday) {
@@ -154,17 +161,19 @@ class _ChatScreenState extends State<ChatScreen> {
 
   String _formatMessengerTimestamp(DateTime timestamp) {
     final now = DateTime.now();
-    final messageDate = DateTime(timestamp.year, timestamp.month, timestamp.day);
+    final messageDate =
+        DateTime(timestamp.year, timestamp.month, timestamp.day);
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
-    
+
     // Convert to 12-hour format
     final hour = timestamp.hour;
     final minute = timestamp.minute;
     final period = hour >= 12 ? 'PM' : 'AM';
     final displayHour = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
-    final timeString = '$displayHour:${minute.toString().padLeft(2, '0')} $period';
-    
+    final timeString =
+        '$displayHour:${minute.toString().padLeft(2, '0')} $period';
+
     if (messageDate == today) {
       return 'TODAY';
     } else if (messageDate == yesterday) {
@@ -173,22 +182,46 @@ class _ChatScreenState extends State<ChatScreen> {
       const weekdays = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
       return '${weekdays[timestamp.weekday - 1]} AT $timeString';
     } else if (timestamp.year == now.year) {
-      const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 
-                     'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+      const months = [
+        'JAN',
+        'FEB',
+        'MAR',
+        'APR',
+        'MAY',
+        'JUN',
+        'JUL',
+        'AUG',
+        'SEP',
+        'OCT',
+        'NOV',
+        'DEC'
+      ];
       return '${months[timestamp.month - 1]} ${timestamp.day}';
     } else {
-      const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 
-                     'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+      const months = [
+        'JAN',
+        'FEB',
+        'MAR',
+        'APR',
+        'MAY',
+        'JUN',
+        'JUL',
+        'AUG',
+        'SEP',
+        'OCT',
+        'NOV',
+        'DEC'
+      ];
       return '${months[timestamp.month - 1]} ${timestamp.day}, ${timestamp.year}';
     }
   }
 
   bool _shouldShowDateSeparator(DateTime current, DateTime? previous) {
     if (previous == null) return true; // Always show for first message
-    
+
     final currentDate = DateTime(current.year, current.month, current.day);
     final previousDate = DateTime(previous.year, previous.month, previous.day);
-    
+
     return currentDate != previousDate;
   }
 
@@ -280,7 +313,8 @@ class _ChatScreenState extends State<ChatScreen> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 ),
                 child: const Text(
                   'Delete',
@@ -327,7 +361,8 @@ class _ChatScreenState extends State<ChatScreen> {
       );
 
       // Delete the conversation using the chat service
-      await _chatService.deleteConversation(widget.currentUserId, widget.otherUserId);
+      await _chatService.deleteConversation(
+          widget.currentUserId, widget.otherUserId);
 
       // Show success message
       if (mounted) {
@@ -384,14 +419,14 @@ class _ChatScreenState extends State<ChatScreen> {
     try {
       // Mark current user as active when sending a message
       await _presenceService.markAsActive();
-      
+
       await _chatService.sendTextMessage(
         senderId: widget.currentUserId,
         receiverId: widget.otherUserId,
         text: text,
       );
       _controller.clear();
-      
+
       // Update the other user's status after sending message
       _updateOtherUserStatus();
     } catch (e) {
@@ -466,7 +501,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       ),
                     ),
                     const SizedBox(width: 16),
-                    
+
                     // User Avatar with Online Status
                     Stack(
                       children: [
@@ -475,15 +510,18 @@ class _ChatScreenState extends State<ChatScreen> {
                           height: 48,
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
-                              colors: [Color(0xFFFF5252), Color(0xFFE91E63)], // redAccent to pink accent
+                              colors: [
+                                Color(0xFFFF5252),
+                                Color(0xFFE91E63)
+                              ], // redAccent to pink accent
                             ),
                             borderRadius: BorderRadius.circular(24),
                             border: Border.all(color: Colors.white, width: 2),
                           ),
                           child: Center(
                             child: Text(
-                              widget.otherUserId.isNotEmpty 
-                                  ? widget.otherUserId[0].toUpperCase() 
+                              widget.otherUserId.isNotEmpty
+                                  ? widget.otherUserId[0].toUpperCase()
                                   : 'U',
                               style: const TextStyle(
                                 color: Colors.white,
@@ -501,9 +539,11 @@ class _ChatScreenState extends State<ChatScreen> {
                             width: 14,
                             height: 14,
                             decoration: BoxDecoration(
-                              color: _isOtherUserOnline 
-                                  ? const Color(0xFF4CAF50) // Green if user is currently active
-                                  : Colors.grey, // Gray if user is offline/inactive
+                              color: _isOtherUserOnline
+                                  ? const Color(
+                                      0xFF4CAF50) // Green if user is currently active
+                                  : Colors
+                                      .grey, // Gray if user is offline/inactive
                               borderRadius: BorderRadius.circular(7),
                               border: Border.all(color: Colors.white, width: 2),
                             ),
@@ -512,14 +552,16 @@ class _ChatScreenState extends State<ChatScreen> {
                       ],
                     ),
                     const SizedBox(width: 16),
-                    
+
                     // User Info
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            _otherUserName.isEmpty ? widget.otherUserId : _otherUserName,
+                            _otherUserName.isEmpty
+                                ? widget.otherUserId
+                                : _otherUserName,
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 18,
@@ -533,8 +575,8 @@ class _ChatScreenState extends State<ChatScreen> {
                           Text(
                             _otherUserStatus,
                             style: TextStyle(
-                              color: _isOtherUserOnline 
-                                  ? Colors.white70 
+                              color: _isOtherUserOnline
+                                  ? Colors.white70
                                   : Colors.white54,
                               fontSize: 13,
                               fontWeight: FontWeight.w400,
@@ -543,7 +585,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         ],
                       ),
                     ),
-                    
+
                     // More Options Button
                     Container(
                       width: 40,
@@ -631,13 +673,13 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                   );
                 }
-                
+
                 // Debug: Print what we're getting
                 print('Chat ${widget.currentUserId} -> ${widget.otherUserId}:');
                 print('Has data: ${snapshot.hasData}');
                 print('Data length: ${snapshot.data?.length ?? 0}');
                 print('Error: ${snapshot.error}');
-                
+
                 if (snapshot.hasError) {
                   return Center(
                     child: Column(
@@ -669,7 +711,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                   );
                 }
-                
+
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
                   return Center(
                     child: Column(
@@ -720,172 +762,183 @@ class _ChatScreenState extends State<ChatScreen> {
                 final messages = snapshot.data!;
 
                 return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   itemCount: messages.length,
                   itemBuilder: (context, i) {
                     final m = messages[i];
                     final isMe = m.senderId == widget.currentUserId;
-                    final showAvatar = i == messages.length - 1 || 
+                    final showAvatar = i == messages.length - 1 ||
                         messages[i + 1].senderId != m.senderId;
-                    
+
                     // Check if we need to show date separator
                     final previousMessage = i > 0 ? messages[i - 1] : null;
                     final showDateSeparator = _shouldShowDateSeparator(
-                      m.timestamp, 
-                      previousMessage?.timestamp
-                    );
+                        m.timestamp, previousMessage?.timestamp);
 
                     return Column(
                       children: [
                         // Show date separator if needed
-                        if (showDateSeparator)
-                          _buildDateSeparator(m.timestamp),
-                        
+                        if (showDateSeparator) _buildDateSeparator(m.timestamp),
+
                         // Message container
                         Container(
-                      margin: EdgeInsets.only(
-                        top: 2,
-                        bottom: showAvatar ? 12 : 2,
-                        left: isMe ? 50 : 0,
-                        right: isMe ? 0 : 50,
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        mainAxisAlignment:
-                            isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-                        children: [
-                          if (!isMe && showAvatar) ...[
-                            // Other user Avatar (only show for last message in group)
-                            Container(
-                              width: 32,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [Color(0xFFFF5252), Color(0xFFE91E63)], // redAccent to pink accent
-                                ),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: Colors.white, width: 1.5),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  widget.otherUserId.isNotEmpty 
-                                      ? widget.otherUserId[0].toUpperCase() 
-                                      : 'U',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                          ] else if (!isMe) ...[
-                            const SizedBox(width: 40),
-                          ],
-                          
-                          // Message Bubble
-                          Flexible(
-                            child: Column(
-                              crossAxisAlignment: isMe 
-                                  ? CrossAxisAlignment.end 
-                                  : CrossAxisAlignment.start,
-                              children: [
-                                GestureDetector(
-                                  onTap: () {
-                                    HapticFeedback.lightImpact();
-                                    setState(() {
-                                      _expandedTimestamps[m.id] = 
-                                          !(_expandedTimestamps[m.id] ?? false);
-                                    });
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 12,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      gradient: isMe
-                                          ? LinearGradient(
-                                              begin: Alignment.topLeft,
-                                              end: Alignment.bottomRight,
-                                              colors: [
-                                                Colors.redAccent,
-                                                Colors.redAccent.withOpacity(0.8),
-                                              ],
-                                            )
-                                          : null,
-                                      color: isMe ? null : Colors.white,
-                                      borderRadius: BorderRadius.only(
-                                        topLeft: const Radius.circular(20),
-                                        topRight: const Radius.circular(20),
-                                        bottomLeft: isMe 
-                                            ? const Radius.circular(20) 
-                                            : const Radius.circular(4),
-                                        bottomRight: isMe 
-                                            ? const Radius.circular(4) 
-                                            : const Radius.circular(20),
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: isMe 
-                                              ? const Color(0x33FF5252) // redAccent with opacity
-                                              : const Color(0x1A000000),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Text(
-                                      m.text,
-                                      style: TextStyle(
-                                        color: isMe ? Colors.white : const Color(0xFF2C2C2C),
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w400,
-                                        height: 1.4,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                // Show timestamp below bubble if expanded
-                                if (_expandedTimestamps[m.id] ?? false) ...[
-                                  const SizedBox(height: 4),
-                                  AnimatedContainer(
-                                    duration: const Duration(milliseconds: 200),
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey.shade100,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          _formatDetailedTime(m.timestamp),
-                                          style: TextStyle(
-                                            color: Colors.grey.shade600,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w400,
-                                          ),
-                                        ),
-                                        if (isMe) ...[
-                                          const SizedBox(width: 4),
-                                          Icon(
-                                            Icons.done_all_rounded,
-                                            size: 14,
-                                            color: Colors.grey.shade600,
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
+                          margin: EdgeInsets.only(
+                            top: 2,
+                            bottom: showAvatar ? 12 : 2,
+                            left: isMe ? 50 : 0,
+                            right: isMe ? 0 : 50,
                           ),
-                        ], // Close Row children (Row inside Container)
-                      ), // Close Row
-                    ), // Close Container
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            mainAxisAlignment: isMe
+                                ? MainAxisAlignment.end
+                                : MainAxisAlignment.start,
+                            children: [
+                              if (!isMe && showAvatar) ...[
+                                // Other user Avatar (only show for last message in group)
+                                Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [
+                                        Color(0xFFFF5252),
+                                        Color(0xFFE91E63)
+                                      ], // redAccent to pink accent
+                                    ),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                        color: Colors.white, width: 1.5),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      widget.otherUserId.isNotEmpty
+                                          ? widget.otherUserId[0].toUpperCase()
+                                          : 'U',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                              ] else if (!isMe) ...[
+                                const SizedBox(width: 40),
+                              ],
+
+                              // Message Bubble
+                              Flexible(
+                                child: Column(
+                                  crossAxisAlignment: isMe
+                                      ? CrossAxisAlignment.end
+                                      : CrossAxisAlignment.start,
+                                  children: [
+                                    GestureDetector(
+                                      onTap: () {
+                                        HapticFeedback.lightImpact();
+                                        setState(() {
+                                          _expandedTimestamps[m.id] =
+                                              !(_expandedTimestamps[m.id] ??
+                                                  false);
+                                        });
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 12,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          gradient: isMe
+                                              ? LinearGradient(
+                                                  begin: Alignment.topLeft,
+                                                  end: Alignment.bottomRight,
+                                                  colors: [
+                                                    Colors.redAccent,
+                                                    Colors.redAccent
+                                                        .withOpacity(0.8),
+                                                  ],
+                                                )
+                                              : null,
+                                          color: isMe ? null : Colors.white,
+                                          borderRadius: BorderRadius.only(
+                                            topLeft: const Radius.circular(20),
+                                            topRight: const Radius.circular(20),
+                                            bottomLeft: isMe
+                                                ? const Radius.circular(20)
+                                                : const Radius.circular(4),
+                                            bottomRight: isMe
+                                                ? const Radius.circular(4)
+                                                : const Radius.circular(20),
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: isMe
+                                                  ? const Color(
+                                                      0x33FF5252) // redAccent with opacity
+                                                  : const Color(0x1A000000),
+                                              blurRadius: 8,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Text(
+                                          m.text,
+                                          style: TextStyle(
+                                            color: isMe
+                                                ? Colors.white
+                                                : const Color(0xFF2C2C2C),
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w400,
+                                            height: 1.4,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    // Show timestamp below bubble if expanded
+                                    if (_expandedTimestamps[m.id] ?? false) ...[
+                                      const SizedBox(height: 4),
+                                      AnimatedContainer(
+                                        duration:
+                                            const Duration(milliseconds: 200),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey.shade100,
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              _formatDetailedTime(m.timestamp),
+                                              style: TextStyle(
+                                                color: Colors.grey.shade600,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w400,
+                                              ),
+                                            ),
+                                            if (isMe) ...[
+                                              const SizedBox(width: 4),
+                                              Icon(
+                                                Icons.done_all_rounded,
+                                                size: 14,
+                                                color: Colors.grey.shade600,
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ], // Close Row children (Row inside Container)
+                          ), // Close Row
+                        ), // Close Container
                       ], // Close Column children
                     ); // Close Column
                   },
@@ -931,7 +984,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  
+
                   // Input Field
                   Expanded(
                     child: Container(
@@ -966,7 +1019,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  
+
                   // Send Button
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 200),

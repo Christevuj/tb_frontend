@@ -29,10 +29,13 @@ class _HmessagesState extends State<Hmessages> {
   Future<void> _testFirestoreConnection() async {
     try {
       debugPrint('Testing Firestore connection for healthcare worker...');
-      final testQuery = await FirebaseFirestore.instance.collection('chats').limit(1).get();
-      debugPrint('Firestore connection successful. Found ${testQuery.docs.length} chats in total');
+      final testQuery =
+          await FirebaseFirestore.instance.collection('chats').limit(1).get();
+      debugPrint(
+          'Firestore connection successful. Found ${testQuery.docs.length} chats in total');
 
-      final allChats = await FirebaseFirestore.instance.collection('chats').get();
+      final allChats =
+          await FirebaseFirestore.instance.collection('chats').get();
       debugPrint('Total chats in database: ${allChats.docs.length}');
     } catch (e) {
       debugPrint('Firestore connection error: $e');
@@ -67,15 +70,19 @@ class _HmessagesState extends State<Hmessages> {
 
   Future<String> _resolveCurrentUserName(User user) async {
     try {
-      final existingUserDoc =
-          await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final existingUserDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
       if (existingUserDoc.exists) {
         final data = existingUserDoc.data();
         if (data != null) {
           final firstName = data['firstName'];
           final lastName = data['lastName'];
-          final combined =
-              [firstName, lastName].whereType<String>().where((part) => part.trim().isNotEmpty).join(' ');
+          final combined = [firstName, lastName]
+              .whereType<String>()
+              .where((part) => part.trim().isNotEmpty)
+              .join(' ');
           if (combined.trim().isNotEmpty) {
             return combined.trim();
           }
@@ -86,8 +93,10 @@ class _HmessagesState extends State<Hmessages> {
         }
       }
 
-      final healthcareDoc =
-          await FirebaseFirestore.instance.collection('healthcare').doc(user.uid).get();
+      final healthcareDoc = await FirebaseFirestore.instance
+          .collection('healthcare')
+          .doc(user.uid)
+          .get();
       if (healthcareDoc.exists) {
         final data = healthcareDoc.data();
         if (data != null) {
@@ -114,8 +123,10 @@ class _HmessagesState extends State<Hmessages> {
 
   Future<String> _getPatientName(String patientId) async {
     try {
-      final userDoc =
-          await FirebaseFirestore.instance.collection('users').doc(patientId).get();
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(patientId)
+          .get();
 
       if (userDoc.exists) {
         final userData = userDoc.data()!;
@@ -127,15 +138,18 @@ class _HmessagesState extends State<Hmessages> {
           if (fullName.isNotEmpty) return fullName;
         }
 
-        if (userData['name'] != null && (userData['name'] as String).trim().isNotEmpty) {
+        if (userData['name'] != null &&
+            (userData['name'] as String).trim().isNotEmpty) {
           return (userData['name'] as String).trim();
         }
 
-        if (userData['username'] != null && (userData['username'] as String).trim().isNotEmpty) {
+        if (userData['username'] != null &&
+            (userData['username'] as String).trim().isNotEmpty) {
           return (userData['username'] as String).trim();
         }
 
-        if (userData['email'] != null && (userData['email'] as String).contains('@')) {
+        if (userData['email'] != null &&
+            (userData['email'] as String).contains('@')) {
           return (userData['email'] as String).split('@').first;
         }
       }
@@ -235,7 +249,8 @@ class _HmessagesState extends State<Hmessages> {
     final messageTime = timestamp.toDate();
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final messageDate = DateTime(messageTime.year, messageTime.month, messageTime.day);
+    final messageDate =
+        DateTime(messageTime.year, messageTime.month, messageTime.day);
 
     final hour = messageTime.hour;
     final minute = messageTime.minute.toString().padLeft(2, '0');
@@ -267,7 +282,8 @@ class _HmessagesState extends State<Hmessages> {
         .where('participants', arrayContains: _currentUserId)
         .snapshots()
         .asyncMap((chatsSnapshot) async {
-      debugPrint('Found ${chatsSnapshot.docs.length} chats for healthcare user');
+      debugPrint(
+          'Found ${chatsSnapshot.docs.length} chats for healthcare user');
       final messagedPatients = <Map<String, dynamic>>[];
 
       for (var chatDoc in chatsSnapshot.docs) {
@@ -281,7 +297,8 @@ class _HmessagesState extends State<Hmessages> {
 
         if (patientId.isNotEmpty) {
           final patientName = await _getPatientName(patientId);
-          final contactRole = await _chatService.getUserRole(patientId) ?? 'patient';
+          final contactRole =
+              await _chatService.getUserRole(patientId) ?? 'patient';
           messagedPatients.add({
             'id': patientId,
             'name': patientName,
@@ -349,7 +366,8 @@ class _HmessagesState extends State<Hmessages> {
                 ),
                 child: SafeArea(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -469,7 +487,7 @@ class _HmessagesState extends State<Hmessages> {
 
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return SliverToBoxAdapter(
-                    child: Container(
+                    child: SizedBox(
                       height: 200,
                       child: Center(
                         child: CircularProgressIndicator(
@@ -484,7 +502,7 @@ class _HmessagesState extends State<Hmessages> {
                 if (snapshot.hasError) {
                   debugPrint('StreamBuilder error: ${snapshot.error}');
                   return SliverToBoxAdapter(
-                    child: Container(
+                    child: SizedBox(
                       height: 200,
                       child: Center(
                         child: Column(
@@ -511,7 +529,7 @@ class _HmessagesState extends State<Hmessages> {
 
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
                   return SliverToBoxAdapter(
-                    child: Container(
+                    child: SizedBox(
                       height: 400,
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -571,23 +589,29 @@ class _HmessagesState extends State<Hmessages> {
                 }
 
                 final patients = snapshot.data!;
-                
+
                 // Filter patients based on search query
                 final filteredPatients = _searchQuery.isEmpty
                     ? patients
                     : patients.where((patient) {
-                        final name = (patient['name'] as String? ?? '').toLowerCase();
-                        final lastMessage = (patient['lastMessage'] as String? ?? '').toLowerCase();
-                        return name.contains(_searchQuery) || lastMessage.contains(_searchQuery);
+                        final name =
+                            (patient['name'] as String? ?? '').toLowerCase();
+                        final lastMessage =
+                            (patient['lastMessage'] as String? ?? '')
+                                .toLowerCase();
+                        return name.contains(_searchQuery) ||
+                            lastMessage.contains(_searchQuery);
                       }).toList();
 
                 return SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
                       final patient = filteredPatients[index];
-                      final patientName = patient['name'] as String? ?? 'Unknown Patient';
+                      final patientName =
+                          patient['name'] as String? ?? 'Unknown Patient';
                       final patientId = patient['id'] as String? ?? '';
-                      final String? roleValue = (patient['role'] as String?)?.toLowerCase();
+                      final String? roleValue =
+                          (patient['role'] as String?)?.toLowerCase();
                       String? roleLabel;
                       Color roleColor = Colors.teal;
                       if (roleValue == 'healthcare') {
@@ -647,10 +671,12 @@ class _HmessagesState extends State<Hmessages> {
                                               Colors.deepOrange.shade400,
                                             ],
                                           ),
-                                          borderRadius: BorderRadius.circular(12),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
                                           boxShadow: [
                                             BoxShadow(
-                                              color: Colors.redAccent.withOpacity(0.3),
+                                              color: Colors.redAccent
+                                                  .withOpacity(0.3),
                                               blurRadius: 8,
                                               offset: const Offset(0, 2),
                                             ),
@@ -678,7 +704,8 @@ class _HmessagesState extends State<Hmessages> {
                                           height: 16,
                                           decoration: BoxDecoration(
                                             color: Colors.green,
-                                            borderRadius: BorderRadius.circular(8),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
                                             border: Border.all(
                                               color: Colors.white,
                                               width: 2,
@@ -692,10 +719,12 @@ class _HmessagesState extends State<Hmessages> {
                                   // Name and message info
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
                                           children: [
                                             Expanded(
                                               child: Row(
@@ -705,29 +734,37 @@ class _HmessagesState extends State<Hmessages> {
                                                       patientName,
                                                       style: const TextStyle(
                                                         fontSize: 17,
-                                                        fontWeight: FontWeight.w600,
-                                                        color: Color(0xFF1A1A1A),
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        color:
+                                                            Color(0xFF1A1A1A),
                                                       ),
-                                                      overflow: TextOverflow.ellipsis,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
                                                     ),
                                                   ),
                                                   if (roleLabel != null) ...[
                                                     const SizedBox(width: 8),
                                                     Container(
-                                                      padding: const EdgeInsets.symmetric(
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
                                                         horizontal: 10,
                                                         vertical: 4,
                                                       ),
                                                       decoration: BoxDecoration(
-                                                        color: roleColor.withOpacity(0.12),
-                                                        borderRadius: BorderRadius.circular(12),
+                                                        color: roleColor
+                                                            .withOpacity(0.12),
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(12),
                                                       ),
                                                       child: Text(
                                                         roleLabel,
                                                         style: TextStyle(
                                                           color: roleColor,
                                                           fontSize: 11,
-                                                          fontWeight: FontWeight.w600,
+                                                          fontWeight:
+                                                              FontWeight.w600,
                                                         ),
                                                       ),
                                                     ),
@@ -736,7 +773,9 @@ class _HmessagesState extends State<Hmessages> {
                                               ),
                                             ),
                                             Text(
-                                              _formatTimeDetailed(patient['lastTimestamp'] as Timestamp?),
+                                              _formatTimeDetailed(
+                                                  patient['lastTimestamp']
+                                                      as Timestamp?),
                                               style: TextStyle(
                                                 fontSize: 14,
                                                 color: Colors.grey.shade500,
@@ -750,7 +789,9 @@ class _HmessagesState extends State<Hmessages> {
                                           children: [
                                             Expanded(
                                               child: Text(
-                                                patient['lastMessage'] as String? ?? 'No messages yet',
+                                                patient['lastMessage']
+                                                        as String? ??
+                                                    'No messages yet',
                                                 style: TextStyle(
                                                   fontSize: 15,
                                                   color: Colors.grey.shade600,

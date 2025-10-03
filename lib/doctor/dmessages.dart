@@ -29,18 +29,16 @@ class _DmessagesState extends State<Dmessages> {
   Future<void> _testFirestoreConnection() async {
     try {
       print('Testing Firestore connection...');
-      final testQuery = await FirebaseFirestore.instance
-          .collection('chats')
-          .limit(1)
-          .get();
-      print('Firestore connection successful. Found ${testQuery.docs.length} chats in total');
-      
+      final testQuery =
+          await FirebaseFirestore.instance.collection('chats').limit(1).get();
+      print(
+          'Firestore connection successful. Found ${testQuery.docs.length} chats in total');
+
       // Check if there are any chats at all
-      final allChats = await FirebaseFirestore.instance
-          .collection('chats')
-          .get();
+      final allChats =
+          await FirebaseFirestore.instance.collection('chats').get();
       print('Total chats in database: ${allChats.docs.length}');
-      
+
       for (var doc in allChats.docs) {
         print('Chat ${doc.id}: ${doc.data()}');
       }
@@ -68,55 +66,58 @@ class _DmessagesState extends State<Dmessages> {
           .collection('users')
           .doc(patientId)
           .get();
-      
+
       if (userDoc.exists) {
         final userData = userDoc.data()!;
-        
+
         // Try to get the full name from firstName + lastName (for patients)
         final firstName = userData['firstName'];
         final lastName = userData['lastName'];
         if (firstName != null && lastName != null) {
           return '$firstName $lastName'.trim();
         }
-        
+
         // Fallback to 'name' field (for other user types)
         if (userData['name'] != null) {
           return userData['name'];
         }
-        
+
         // Try username field if it exists
         if (userData['username'] != null) {
           return userData['username'];
         }
-        
+
         // Try email as last resort for identification
         if (userData['email'] != null) {
-          return userData['email'].split('@')[0]; // Use part before @ as username
+          return userData['email']
+              .split('@')[0]; // Use part before @ as username
         }
       }
-      
+
       // If no user document, try to get name from appointments
       final appointmentQuery = await FirebaseFirestore.instance
           .collection('pending_patient_data')
           .where('patientUid', isEqualTo: patientId)
           .limit(1)
           .get();
-      
+
       if (appointmentQuery.docs.isNotEmpty) {
-        return appointmentQuery.docs.first.data()['patientName'] ?? 'Unknown Patient';
+        return appointmentQuery.docs.first.data()['patientName'] ??
+            'Unknown Patient';
       }
-      
+
       // Try to get from approved appointments as well
       final approvedQuery = await FirebaseFirestore.instance
           .collection('approved_appointments')
           .where('patientUid', isEqualTo: patientId)
           .limit(1)
           .get();
-      
+
       if (approvedQuery.docs.isNotEmpty) {
-        return approvedQuery.docs.first.data()['patientName'] ?? 'Unknown Patient';
+        return approvedQuery.docs.first.data()['patientName'] ??
+            'Unknown Patient';
       }
-      
+
       return 'Unknown Patient';
     } catch (e) {
       print('Error getting patient name for $patientId: $e');
@@ -180,17 +181,18 @@ class _DmessagesState extends State<Dmessages> {
 
   String _formatTimeDetailed(Timestamp? timestamp) {
     if (timestamp == null) return 'now';
-    
+
     final messageTime = timestamp.toDate();
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final messageDate = DateTime(messageTime.year, messageTime.month, messageTime.day);
-    
+    final messageDate =
+        DateTime(messageTime.year, messageTime.month, messageTime.day);
+
     final hour = messageTime.hour;
     final minute = messageTime.minute.toString().padLeft(2, '0');
     final period = hour < 12 ? 'AM' : 'PM';
     final displayHour = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
-    
+
     if (messageDate == today) {
       return '$displayHour:$minute $period';
     } else if (now.difference(messageTime).inDays == 1) {
@@ -224,9 +226,9 @@ class _DmessagesState extends State<Dmessages> {
       for (var chatDoc in chatsSnapshot.docs) {
         final chatData = chatDoc.data();
         final participants = List<String>.from(chatData['participants'] ?? []);
-        
+
         print('Chat ${chatDoc.id}: participants = $participants');
-        
+
         // Find the other participant (patient)
         final patientId = participants.firstWhere(
           (id) => id != _currentUserId,
@@ -237,7 +239,7 @@ class _DmessagesState extends State<Dmessages> {
           print('Found patient ID: $patientId');
           final patientName = await _getPatientName(patientId);
           print('Patient name: $patientName');
-          
+
           messagedPatients.add({
             'id': patientId,
             'name': patientName,
@@ -251,11 +253,11 @@ class _DmessagesState extends State<Dmessages> {
       messagedPatients.sort((a, b) {
         final aTime = a['lastTimestamp'] as Timestamp?;
         final bTime = b['lastTimestamp'] as Timestamp?;
-        
+
         if (aTime == null && bTime == null) return 0;
         if (aTime == null) return 1;
         if (bTime == null) return -1;
-        
+
         return bTime.compareTo(aTime); // Descending order
       });
 
@@ -306,7 +308,8 @@ class _DmessagesState extends State<Dmessages> {
                 ),
                 child: SafeArea(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -423,14 +426,15 @@ class _DmessagesState extends State<Dmessages> {
                 print('Has data: ${snapshot.hasData}');
                 print('Data length: ${snapshot.data?.length ?? 0}');
                 print('Error: ${snapshot.error}');
-                
+
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return SliverToBoxAdapter(
                     child: SizedBox(
                       height: 200,
                       child: Center(
                         child: CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.redAccent),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.redAccent),
                         ),
                       ),
                     ),
@@ -446,7 +450,8 @@ class _DmessagesState extends State<Dmessages> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.error, color: Colors.redAccent, size: 48),
+                            Icon(Icons.error,
+                                color: Colors.redAccent, size: 48),
                             SizedBox(height: 16),
                             Text(
                               'Error loading conversations',
@@ -454,7 +459,8 @@ class _DmessagesState extends State<Dmessages> {
                             ),
                             Text(
                               '${snapshot.error}',
-                              style: TextStyle(color: Colors.grey, fontSize: 12),
+                              style:
+                                  TextStyle(color: Colors.grey, fontSize: 12),
                               textAlign: TextAlign.center,
                             ),
                           ],
@@ -526,14 +532,18 @@ class _DmessagesState extends State<Dmessages> {
                 }
 
                 final patients = snapshot.data!;
-                
+
                 // Filter patients based on search query
                 final filteredPatients = _searchQuery.isEmpty
                     ? patients
                     : patients.where((patient) {
-                        final name = (patient['name'] as String? ?? '').toLowerCase();
-                        final lastMessage = (patient['lastMessage'] as String? ?? '').toLowerCase();
-                        return name.contains(_searchQuery) || lastMessage.contains(_searchQuery);
+                        final name =
+                            (patient['name'] as String? ?? '').toLowerCase();
+                        final lastMessage =
+                            (patient['lastMessage'] as String? ?? '')
+                                .toLowerCase();
+                        return name.contains(_searchQuery) ||
+                            lastMessage.contains(_searchQuery);
                       }).toList();
 
                 return SliverList(
@@ -542,7 +552,7 @@ class _DmessagesState extends State<Dmessages> {
                       final patient = filteredPatients[index];
                       final patientName = patient['name'];
                       final patientId = patient['id'];
-                      
+
                       return Container(
                         margin: const EdgeInsets.symmetric(vertical: 6),
                         decoration: BoxDecoration(
@@ -586,10 +596,12 @@ class _DmessagesState extends State<Dmessages> {
                                               Colors.deepOrange.shade400,
                                             ],
                                           ),
-                                          borderRadius: BorderRadius.circular(12),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
                                           boxShadow: [
                                             BoxShadow(
-                                              color: Colors.redAccent.withOpacity(0.3),
+                                              color: Colors.redAccent
+                                                  .withOpacity(0.3),
                                               blurRadius: 8,
                                               offset: const Offset(0, 2),
                                             ),
@@ -597,8 +609,8 @@ class _DmessagesState extends State<Dmessages> {
                                         ),
                                         child: Center(
                                           child: Text(
-                                            patientName.isNotEmpty 
-                                                ? patientName[0].toUpperCase() 
+                                            patientName.isNotEmpty
+                                                ? patientName[0].toUpperCase()
                                                 : 'P',
                                             style: const TextStyle(
                                               color: Colors.white,
@@ -613,17 +625,22 @@ class _DmessagesState extends State<Dmessages> {
                                         bottom: 2,
                                         right: 2,
                                         child: StreamBuilder<bool>(
-                                          stream: _presenceService.getUserPresenceStream(patientId),
+                                          stream: _presenceService
+                                              .getUserPresenceStream(patientId),
                                           builder: (context, snapshot) {
-                                            final isOnline = snapshot.data ?? false;
+                                            final isOnline =
+                                                snapshot.data ?? false;
                                             return Container(
                                               width: 16,
                                               height: 16,
                                               decoration: BoxDecoration(
-                                                color: isOnline 
-                                                    ? Colors.lightGreen.shade400 // Green if patient is currently active
-                                                    : Colors.grey, // Gray if patient is offline/inactive
-                                                borderRadius: BorderRadius.circular(8),
+                                                color: isOnline
+                                                    ? Colors.lightGreen
+                                                        .shade400 // Green if patient is currently active
+                                                    : Colors
+                                                        .grey, // Gray if patient is offline/inactive
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
                                                 border: Border.all(
                                                   color: Colors.white,
                                                   width: 2,
@@ -635,16 +652,18 @@ class _DmessagesState extends State<Dmessages> {
                                       ),
                                     ],
                                   ),
-                                  
+
                                   const SizedBox(width: 16),
-                                  
+
                                   // Chat info
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
                                           children: [
                                             Expanded(
                                               child: Text(
@@ -658,7 +677,8 @@ class _DmessagesState extends State<Dmessages> {
                                               ),
                                             ),
                                             Text(
-                                              _formatTimeDetailed(patient['lastTimestamp']),
+                                              _formatTimeDetailed(
+                                                  patient['lastTimestamp']),
                                               style: TextStyle(
                                                 fontSize: 14,
                                                 color: Colors.grey.shade500,
@@ -670,10 +690,10 @@ class _DmessagesState extends State<Dmessages> {
                                         const SizedBox(height: 6),
                                         Row(
                                           children: [
-                              
                                             Expanded(
                                               child: Text(
-                                                patient['lastMessage'] ?? 'No messages yet',
+                                                patient['lastMessage'] ??
+                                                    'No messages yet',
                                                 style: TextStyle(
                                                   fontSize: 15,
                                                   color: Colors.grey.shade600,
@@ -709,7 +729,8 @@ class _DmessagesState extends State<Dmessages> {
     print('🧪 Testing stream manually...');
     _streamMessagedPatients().listen(
       (conversations) {
-        print('🧪 Manual stream test - Got ${conversations.length} conversations');
+        print(
+            '🧪 Manual stream test - Got ${conversations.length} conversations');
         for (var conv in conversations) {
           print('🧪 Manual stream test - Conversation: $conv');
         }

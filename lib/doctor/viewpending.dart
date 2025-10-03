@@ -247,7 +247,8 @@ class _ViewpendingState extends State<Viewpending> {
       }
 
       final patientId = widget.appointment['patientUid'];
-      final patientName = widget.appointment['patientName'] ?? 'Unknown Patient';
+      final patientName =
+          widget.appointment['patientName'] ?? 'Unknown Patient';
 
       if (patientId == null) {
         throw Exception('Patient ID not found');
@@ -1869,7 +1870,9 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                                     onPrimary: Colors.white,
                                     surface: Colors.white,
                                     onSurface: Colors.grey.shade800,
-                                  ), dialogTheme: DialogThemeData(backgroundColor: Colors.white),
+                                  ),
+                                  dialogTheme: DialogThemeData(
+                                      backgroundColor: Colors.white),
                                 ),
                                 child: child!,
                               );

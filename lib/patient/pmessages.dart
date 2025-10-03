@@ -247,7 +247,7 @@ class _PmessagesState extends State<Pmessages> {
   // Helper method to get role label and color
   Map<String, dynamic> _getRoleInfo(String? roleValue) {
     final role = roleValue?.toLowerCase();
-    
+
     switch (role) {
       case 'healthcare':
         return {
@@ -315,7 +315,7 @@ class _PmessagesState extends State<Pmessages> {
           print('Found doctor ID: $doctorId');
           final doctorName = await _getDoctorName(doctorId);
           print('Doctor name: $doctorName');
-          
+
           // Determine role by checking healthcare collection first, then fall back to doctor
           String contactRole = 'doctor';
           try {
@@ -324,7 +324,7 @@ class _PmessagesState extends State<Pmessages> {
                 .collection('healthcare')
                 .doc(doctorId)
                 .get();
-            
+
             if (healthcareDoc.exists) {
               contactRole = 'healthcare';
             } else {
@@ -334,7 +334,7 @@ class _PmessagesState extends State<Pmessages> {
                   .where('authUid', isEqualTo: doctorId)
                   .limit(1)
                   .get();
-              
+
               if (healthcareQuery.docs.isNotEmpty) {
                 contactRole = 'healthcare';
               } else {
@@ -619,7 +619,7 @@ class _PmessagesState extends State<Pmessages> {
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 40),
                             child: Text(
-                                  'Start a conversation with your care team after booking appointments. They will appear here once you have exchanged messages.',
+                              'Start a conversation with your care team after booking appointments. They will appear here once you have exchanged messages.',
                               style: TextStyle(
                                 color: Colors.grey.shade600,
                                 fontSize: 16,
@@ -648,9 +648,13 @@ class _PmessagesState extends State<Pmessages> {
                 final filteredDoctors = _searchQuery.isEmpty
                     ? doctors
                     : doctors.where((doctor) {
-                        final name = (doctor['name'] as String? ?? '').toLowerCase();
-                        final lastMessage = (doctor['lastMessage'] as String? ?? '').toLowerCase();
-                        return name.contains(_searchQuery) || lastMessage.contains(_searchQuery);
+                        final name =
+                            (doctor['name'] as String? ?? '').toLowerCase();
+                        final lastMessage =
+                            (doctor['lastMessage'] as String? ?? '')
+                                .toLowerCase();
+                        return name.contains(_searchQuery) ||
+                            lastMessage.contains(_searchQuery);
                       }).toList();
 
                 return SliverList(
@@ -659,179 +663,196 @@ class _PmessagesState extends State<Pmessages> {
                       final doctor = filteredDoctors[index];
                       final doctorName = doctor['name'];
                       final doctorId = doctor['id'];
-                      final String? roleValue = (doctor['role'] as String?)?.toLowerCase();
-                      
+                      final String? roleValue =
+                          (doctor['role'] as String?)?.toLowerCase();
+
                       // Get role information using helper method
                       final roleInfo = _getRoleInfo(roleValue);
                       final String? roleLabel = roleInfo['label'] as String?;
                       final Color roleColor = roleInfo['color'] as Color;
-                      final List<Color> avatarGradient = roleInfo['gradientColors'] as List<Color>;
+                      final List<Color> avatarGradient =
+                          roleInfo['gradientColors'] as List<Color>;
 
                       return RepaintBoundary(
                         child: Container(
-                        margin: const EdgeInsets.symmetric(vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: Colors.grey.shade200,
-                            width: 1,
-                          ),
-                        ),
-                        child: Material(
-                          color: Colors.transparent,
-                          borderRadius: BorderRadius.circular(16),
-                          child: InkWell(
+                          margin: const EdgeInsets.symmetric(vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
                             borderRadius: BorderRadius.circular(16),
-                            splashColor: Colors.redAccent.withOpacity(0.1),
-                            highlightColor: Colors.redAccent.withOpacity(0.05),
-                            onTap: () {
-                              print('Tapping doctor: $doctorName ($doctorId)');
-                              _openChat(doctorId, doctorName);
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.all(14),
-                              child: Row(
-                                children: [
-                                  // Avatar with online status (optimized)
-                                  Stack(
-                                    children: [
-                                      Container(
-                                        width: 44,
-                                        height: 44,
-                                        decoration: BoxDecoration(
-                                          gradient: LinearGradient(
-                                            begin: Alignment.topLeft,
-                                            end: Alignment.bottomRight,
-                                            colors: avatarGradient,
-                                          ),
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: roleColor.withOpacity(0.3),
-                                              blurRadius: 8,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ],
-                                        ),
-                                        child: Center(
-                                          child: Text(
-                                            doctorName.isNotEmpty
-                                                ? doctorName[0].toUpperCase()
-                                                : 'D',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 22,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      // Online status indicator
-                                      Positioned(
-                                        bottom: 2,
-                                        right: 2,
-                                        child: Container(
-                                          width: 12,
-                                          height: 12,
-                                          decoration: BoxDecoration(
-                                            color: Colors.green,
-                                            shape: BoxShape.circle,
-                                            border: Border.all(
-                                              color: Colors.white,
-                                              width: 2,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(width: 16),
-                                  // Name and message info
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                            border: Border.all(
+                              color: Colors.grey.shade200,
+                              width: 1,
+                            ),
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            borderRadius: BorderRadius.circular(16),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(16),
+                              splashColor: Colors.redAccent.withOpacity(0.1),
+                              highlightColor:
+                                  Colors.redAccent.withOpacity(0.05),
+                              onTap: () {
+                                print(
+                                    'Tapping doctor: $doctorName ($doctorId)');
+                                _openChat(doctorId, doctorName);
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.all(14),
+                                child: Row(
+                                  children: [
+                                    // Avatar with online status (optimized)
+                                    Stack(
                                       children: [
-                                        Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Expanded(
-                                              child: Row(
-                                                children: [
-                                                  Expanded(
-                                                    child: Text(
-                                                      doctorName,
-                                                      style: const TextStyle(
-                                                        fontSize: 17,
-                                                        fontWeight: FontWeight.w600,
-                                                        color: Color(0xFF1A1A1A),
-                                                      ),
-                                                      overflow: TextOverflow.ellipsis,
-                                                    ),
-                                                  ),
-                                                  if (roleLabel != null) ...[
-                                                    const SizedBox(width: 8),
-                                                    Container(
-                                                      padding: const EdgeInsets.symmetric(
-                                                        horizontal: 10,
-                                                        vertical: 4,
-                                                      ),
-                                                      decoration: BoxDecoration(
-                                                        color: roleColor.withOpacity(0.12),
-                                                        borderRadius: BorderRadius.circular(12),
-                                                      ),
-                                                      child: Text(
-                                                        roleLabel,
-                                                        style: TextStyle(
-                                                          color: roleColor,
-                                                          fontSize: 11,
-                                                          fontWeight: FontWeight.w600,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ],
+                                        Container(
+                                          width: 44,
+                                          height: 44,
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                              colors: avatarGradient,
+                                            ),
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color:
+                                                    roleColor.withOpacity(0.3),
+                                                blurRadius: 8,
+                                                offset: const Offset(0, 2),
+                                              ),
+                                            ],
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              doctorName.isNotEmpty
+                                                  ? doctorName[0].toUpperCase()
+                                                  : 'D',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 22,
+                                                fontWeight: FontWeight.w600,
                                               ),
                                             ),
-                                            Text(
-                                              _formatTimeDetailed(
-                                                  doctor['lastTimestamp']),
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                color: Colors.grey.shade500,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                          ],
+                                          ),
                                         ),
-                                        const SizedBox(height: 6),
-                                        Row(
-                                          children: [
-                                            Expanded(
-                                              child: Text(
-                                                doctor['lastMessage'] ??
-                                                    'No messages yet',
-                                                style: TextStyle(
-                                                  fontSize: 15,
-                                                  color: Colors.grey.shade600,
-                                                  fontWeight: FontWeight.w400,
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
+                                        // Online status indicator
+                                        Positioned(
+                                          bottom: 2,
+                                          right: 2,
+                                          child: Container(
+                                            width: 12,
+                                            height: 12,
+                                            decoration: BoxDecoration(
+                                              color: Colors.green,
+                                              shape: BoxShape.circle,
+                                              border: Border.all(
+                                                color: Colors.white,
+                                                width: 2,
                                               ),
                                             ),
-                                          ],
+                                          ),
                                         ),
                                       ],
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(width: 16),
+                                    // Name and message info
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Expanded(
+                                                child: Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: Text(
+                                                        doctorName,
+                                                        style: const TextStyle(
+                                                          fontSize: 17,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          color:
+                                                              Color(0xFF1A1A1A),
+                                                        ),
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                      ),
+                                                    ),
+                                                    if (roleLabel != null) ...[
+                                                      const SizedBox(width: 8),
+                                                      Container(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .symmetric(
+                                                          horizontal: 10,
+                                                          vertical: 4,
+                                                        ),
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          color: roleColor
+                                                              .withOpacity(
+                                                                  0.12),
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(12),
+                                                        ),
+                                                        child: Text(
+                                                          roleLabel,
+                                                          style: TextStyle(
+                                                            color: roleColor,
+                                                            fontSize: 11,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ],
+                                                ),
+                                              ),
+                                              Text(
+                                                _formatTimeDetailed(
+                                                    doctor['lastTimestamp']),
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color: Colors.grey.shade500,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  doctor['lastMessage'] ??
+                                                      'No messages yet',
+                                                  style: TextStyle(
+                                                    fontSize: 15,
+                                                    color: Colors.grey.shade600,
+                                                    fontWeight: FontWeight.w400,
+                                                  ),
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
-                        ),
                         ),
                       );
                     },

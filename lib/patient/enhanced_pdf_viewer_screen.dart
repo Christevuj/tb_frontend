@@ -8,13 +8,14 @@ class EnhancedPdfViewerScreen extends StatefulWidget {
   const EnhancedPdfViewerScreen({super.key, required this.assetPath});
 
   @override
-  State<EnhancedPdfViewerScreen> createState() => _EnhancedPdfViewerScreenState();
+  State<EnhancedPdfViewerScreen> createState() =>
+      _EnhancedPdfViewerScreenState();
 }
 
 class _EnhancedPdfViewerScreenState extends State<EnhancedPdfViewerScreen> {
   final TextEditingController _searchController = TextEditingController();
   late PdfController _pdfController;
-  
+
   int _currentPage = 1;
   int _totalPages = 0;
   List<int> _searchResults = [];
@@ -25,10 +26,31 @@ class _EnhancedPdfViewerScreenState extends State<EnhancedPdfViewerScreen> {
   final Map<String, List<int>> _contentDatabase = {
     // Basic TB terms
     'tuberculosis': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
-    'tb': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+    'tb': [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20
+    ],
     'bacillus': [1, 2, 3, 4, 5],
     'mycobacterium': [1, 2, 3, 4, 5],
-    
+
     // DOTS and Treatment
     'dots': [1, 2, 3, 15, 16, 17, 18, 19, 20],
     'directly': [15, 16, 17],
@@ -36,7 +58,7 @@ class _EnhancedPdfViewerScreenState extends State<EnhancedPdfViewerScreen> {
     'treatment': [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
     'therapy': [8, 9, 10, 11, 12, 13, 14],
     'regimen': [11, 12, 13, 14, 15],
-    
+
     // Diagnosis and Testing
     'diagnosis': [5, 6, 7, 8, 9],
     'diagnostic': [5, 6, 7, 8],
@@ -44,7 +66,7 @@ class _EnhancedPdfViewerScreenState extends State<EnhancedPdfViewerScreen> {
     'testing': [6, 7, 8, 9],
     'screening': [5, 6, 7],
     'examination': [5, 6, 7, 8],
-    
+
     // Symptoms
     'symptom': [4, 5, 6],
     'symptoms': [4, 5, 6],
@@ -55,7 +77,7 @@ class _EnhancedPdfViewerScreenState extends State<EnhancedPdfViewerScreen> {
     'fatigue': [4, 5],
     'night': [4, 5],
     'sweats': [4, 5],
-    
+
     // Chest and Respiratory
     'chest': [4, 5, 6, 7, 8],
     'lung': [4, 5, 6, 7, 8],
@@ -63,13 +85,13 @@ class _EnhancedPdfViewerScreenState extends State<EnhancedPdfViewerScreen> {
     'respiratory': [4, 5, 6],
     'pulmonary': [4, 5, 6, 7, 8],
     'extrapulmonary': [8, 9, 10],
-    
+
     // Imaging
     'xray': [6, 7, 8],
     'x-ray': [6, 7, 8],
     'radiography': [6, 7, 8],
     'imaging': [6, 7, 8],
-    
+
     // Laboratory Tests
     'sputum': [6, 7, 8, 9],
     'culture': [7, 8, 9],
@@ -77,7 +99,7 @@ class _EnhancedPdfViewerScreenState extends State<EnhancedPdfViewerScreen> {
     'microscopy': [6, 7, 8],
     'laboratory': [6, 7, 8, 9],
     'lab': [6, 7, 8, 9],
-    
+
     // Medications
     'drug': [11, 12, 13, 14, 15],
     'drugs': [11, 12, 13, 14, 15],
@@ -89,7 +111,7 @@ class _EnhancedPdfViewerScreenState extends State<EnhancedPdfViewerScreen> {
     'ethambutol': [11, 12, 13, 14],
     'pyrazinamide': [11, 12, 13, 14],
     'streptomycin': [11, 12, 13],
-    
+
     // Drug Resistance
     'resistance': [13, 14, 15, 16],
     'resistant': [13, 14, 15, 16],
@@ -97,13 +119,55 @@ class _EnhancedPdfViewerScreenState extends State<EnhancedPdfViewerScreen> {
     'multidrug': [14, 15, 16],
     'extensively': [15, 16],
     'xdr': [15, 16],
-    
+
     // Patient Care
-    'patient': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
-    'patients': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+    'patient': [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20
+    ],
+    'patients': [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20
+    ],
     'care': [1, 2, 3, 15, 16, 17, 18, 19, 20],
     'management': [8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
-    
+
     // Healthcare Workers
     'healthcare': [1, 2, 17, 18, 19, 20],
     'health': [1, 2, 17, 18, 19, 20],
@@ -111,7 +175,7 @@ class _EnhancedPdfViewerScreenState extends State<EnhancedPdfViewerScreen> {
     'workers': [17, 18, 19, 20],
     'staff': [17, 18, 19, 20],
     'provider': [17, 18, 19, 20],
-    
+
     // Prevention and Control
     'prevention': [17, 18, 19, 20],
     'control': [17, 18, 19, 20],
@@ -119,14 +183,14 @@ class _EnhancedPdfViewerScreenState extends State<EnhancedPdfViewerScreen> {
     'transmission': [17, 18, 19],
     'contact': [19, 20],
     'contacts': [19, 20],
-    
+
     // Monitoring
     'monitoring': [12, 13, 14, 15, 16],
     'follow': [12, 13, 14, 15],
     'followup': [12, 13, 14, 15],
     'adherence': [15, 16, 17],
     'compliance': [15, 16, 17],
-    
+
     // Side Effects
     'side': [13, 14],
     'effects': [13, 14],
@@ -213,17 +277,18 @@ class _EnhancedPdfViewerScreenState extends State<EnhancedPdfViewerScreen> {
           _currentSearchIndex = 0;
           _isSearching = false;
         });
-        
+
         // Navigate to first search result
         await _pdfController.animateToPage(
           _searchResults[0],
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
         );
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Found ${_searchResults.length} relevant page(s) for "$text"'),
+            content: Text(
+                'Found ${_searchResults.length} relevant page(s) for "$text"'),
             duration: const Duration(seconds: 3),
           ),
         );
@@ -231,10 +296,11 @@ class _EnhancedPdfViewerScreenState extends State<EnhancedPdfViewerScreen> {
         setState(() {
           _isSearching = false;
         });
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('No results found for "$text". Try: tuberculosis, treatment, diagnosis, symptoms'),
+            content: Text(
+                'No results found for "$text". Try: tuberculosis, treatment, diagnosis, symptoms'),
             duration: const Duration(seconds: 4),
           ),
         );
@@ -250,12 +316,13 @@ class _EnhancedPdfViewerScreenState extends State<EnhancedPdfViewerScreen> {
         ),
       );
     }
-    
+
     FocusScope.of(context).unfocus();
   }
 
   void _navigateToNextResult() {
-    if (_searchResults.isNotEmpty && _currentSearchIndex < _searchResults.length - 1) {
+    if (_searchResults.isNotEmpty &&
+        _currentSearchIndex < _searchResults.length - 1) {
       setState(() {
         _currentSearchIndex++;
       });
@@ -347,13 +414,14 @@ class _EnhancedPdfViewerScreenState extends State<EnhancedPdfViewerScreen> {
                         controller: _searchController,
                         decoration: InputDecoration(
                           hintText: "Search comprehensive TB content...",
-                          prefixIcon: _isSearching 
+                          prefixIcon: _isSearching
                               ? const Padding(
                                   padding: EdgeInsets.all(12.0),
                                   child: SizedBox(
                                     width: 20,
                                     height: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
                                   ),
                                 )
                               : const Icon(Icons.search),
@@ -365,7 +433,8 @@ class _EnhancedPdfViewerScreenState extends State<EnhancedPdfViewerScreen> {
                               : null,
                           filled: true,
                           fillColor: Colors.white,
-                          contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
+                          contentPadding: const EdgeInsets.symmetric(
+                              vertical: 0, horizontal: 12),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide.none,
@@ -378,12 +447,14 @@ class _EnhancedPdfViewerScreenState extends State<EnhancedPdfViewerScreen> {
                     const SizedBox(width: 8),
                     Material(
                       color: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                       child: InkWell(
                         onTap: _isSearching ? null : _performSearch,
                         borderRadius: BorderRadius.circular(12),
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 12),
                           child: Icon(
                             Icons.search,
                             color: _isSearching ? Colors.grey : themeRed,
@@ -393,13 +464,14 @@ class _EnhancedPdfViewerScreenState extends State<EnhancedPdfViewerScreen> {
                     ),
                   ],
                 ),
-                
+
                 // Search Results Navigation
                 if (_searchResults.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
@@ -416,33 +488,40 @@ class _EnhancedPdfViewerScreenState extends State<EnhancedPdfViewerScreen> {
                         children: [
                           Text(
                             'Page ${_currentSearchIndex + 1} of ${_searchResults.length} results',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                            style: const TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.w500),
                           ),
                           Row(
                             children: [
                               InkWell(
-                                onTap: _currentSearchIndex > 0 ? _navigateToPreviousResult : null,
+                                onTap: _currentSearchIndex > 0
+                                    ? _navigateToPreviousResult
+                                    : null,
                                 borderRadius: BorderRadius.circular(6),
                                 child: Padding(
                                   padding: const EdgeInsets.all(4),
-                                  child: Icon(
-                                    Icons.keyboard_arrow_up, 
-                                    size: 20, 
-                                    color: _currentSearchIndex > 0 ? themeRed : Colors.grey
-                                  ),
+                                  child: Icon(Icons.keyboard_arrow_up,
+                                      size: 20,
+                                      color: _currentSearchIndex > 0
+                                          ? themeRed
+                                          : Colors.grey),
                                 ),
                               ),
                               const SizedBox(width: 8),
                               InkWell(
-                                onTap: _currentSearchIndex < _searchResults.length - 1 ? _navigateToNextResult : null,
+                                onTap: _currentSearchIndex <
+                                        _searchResults.length - 1
+                                    ? _navigateToNextResult
+                                    : null,
                                 borderRadius: BorderRadius.circular(6),
                                 child: Padding(
                                   padding: const EdgeInsets.all(4),
-                                  child: Icon(
-                                    Icons.keyboard_arrow_down, 
-                                    size: 20, 
-                                    color: _currentSearchIndex < _searchResults.length - 1 ? themeRed : Colors.grey
-                                  ),
+                                  child: Icon(Icons.keyboard_arrow_down,
+                                      size: 20,
+                                      color: _currentSearchIndex <
+                                              _searchResults.length - 1
+                                          ? themeRed
+                                          : Colors.grey),
                                 ),
                               ),
                             ],

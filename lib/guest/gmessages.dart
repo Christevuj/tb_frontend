@@ -26,10 +26,11 @@ class _GmessagesState extends State<Gmessages> {
   Future<void> _getCurrentUserDetails() async {
     User? user = FirebaseAuth.instance.currentUser;
     String? userId;
-    
+
     // If no user is authenticated, try anonymous sign-in or use temporary ID
     if (user == null) {
-      debugPrint('No authenticated guest user found, attempting anonymous sign-in...');
+      debugPrint(
+          'No authenticated guest user found, attempting anonymous sign-in...');
       try {
         final userCredential = await FirebaseAuth.instance.signInAnonymously();
         user = userCredential.user;
@@ -45,13 +46,14 @@ class _GmessagesState extends State<Gmessages> {
     } else {
       userId = user.uid;
     }
-    
+
     if (userId == null) {
       debugPrint('Failed to get or create guest user ID');
       return;
     }
 
-    final resolvedName = user != null ? await _resolveCurrentUserName(user) : 'Anonymous';
+    final resolvedName =
+        user != null ? await _resolveCurrentUserName(user) : 'Anonymous';
 
     if (!mounted) return;
     setState(() {
@@ -73,15 +75,19 @@ class _GmessagesState extends State<Gmessages> {
 
   Future<String> _resolveCurrentUserName(User user) async {
     try {
-      final existingUserDoc =
-          await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final existingUserDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
       if (existingUserDoc.exists) {
         final data = existingUserDoc.data();
         if (data != null) {
           final firstName = data['firstName'];
           final lastName = data['lastName'];
-          final combined =
-              [firstName, lastName].whereType<String>().where((part) => part.trim().isNotEmpty).join(' ');
+          final combined = [firstName, lastName]
+              .whereType<String>()
+              .where((part) => part.trim().isNotEmpty)
+              .join(' ');
           if (combined.trim().isNotEmpty) {
             return combined.trim();
           }
@@ -93,8 +99,10 @@ class _GmessagesState extends State<Gmessages> {
       }
 
       // Check if it's a healthcare worker (should not happen in guest mode, but for safety)
-      final healthcareDoc =
-          await FirebaseFirestore.instance.collection('healthcare').doc(user.uid).get();
+      final healthcareDoc = await FirebaseFirestore.instance
+          .collection('healthcare')
+          .doc(user.uid)
+          .get();
       if (healthcareDoc.exists) {
         final data = healthcareDoc.data();
         if (data != null) {
@@ -122,8 +130,10 @@ class _GmessagesState extends State<Gmessages> {
 
   Future<String> _getPatientName(String patientId) async {
     try {
-      final userDoc =
-          await FirebaseFirestore.instance.collection('users').doc(patientId).get();
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(patientId)
+          .get();
 
       if (userDoc.exists) {
         final userData = userDoc.data()!;
@@ -135,15 +145,18 @@ class _GmessagesState extends State<Gmessages> {
           if (fullName.isNotEmpty) return fullName;
         }
 
-        if (userData['name'] != null && (userData['name'] as String).trim().isNotEmpty) {
+        if (userData['name'] != null &&
+            (userData['name'] as String).trim().isNotEmpty) {
           return (userData['name'] as String).trim();
         }
 
-        if (userData['username'] != null && (userData['username'] as String).trim().isNotEmpty) {
+        if (userData['username'] != null &&
+            (userData['username'] as String).trim().isNotEmpty) {
           return (userData['username'] as String).trim();
         }
 
-        if (userData['email'] != null && (userData['email'] as String).contains('@')) {
+        if (userData['email'] != null &&
+            (userData['email'] as String).contains('@')) {
           return (userData['email'] as String).split('@').first;
         }
       }
@@ -155,16 +168,19 @@ class _GmessagesState extends State<Gmessages> {
     }
   }
 
-  Future<void> _openChat(String patientId, String patientName, String? profilePicture) async {
+  Future<void> _openChat(
+      String patientId, String patientName, String? profilePicture) async {
     try {
       User? currentUser = FirebaseAuth.instance.currentUser;
       String guestUid;
-      
+
       // If no user is authenticated, try anonymous sign-in or use temporary ID
       if (currentUser == null) {
         try {
-          debugPrint('Guest not authenticated, attempting anonymous sign-in...');
-          final userCredential = await FirebaseAuth.instance.signInAnonymously();
+          debugPrint(
+              'Guest not authenticated, attempting anonymous sign-in...');
+          final userCredential =
+              await FirebaseAuth.instance.signInAnonymously();
           currentUser = userCredential.user;
           if (currentUser != null) {
             guestUid = currentUser.uid;
@@ -182,7 +198,7 @@ class _GmessagesState extends State<Gmessages> {
       } else {
         guestUid = currentUser.uid;
       }
-      
+
       final guestName = _currentUserName ??
           currentUser?.displayName ??
           currentUser?.email ??
@@ -238,25 +254,25 @@ class _GmessagesState extends State<Gmessages> {
     for (int i = 0; i < seed.length; i++) {
       hash = seed.codeUnitAt(i) + ((hash << 5) - hash);
     }
-    
+
     // Generate two pastel colors from the hash
     final random1 = (hash & 0xFF) / 255.0;
     final random2 = ((hash >> 8) & 0xFF) / 255.0;
-    
+
     // Create pastel colors (high lightness, medium saturation)
     final hue1 = (random1 * 360);
     final hue2 = ((random2 * 360) + 30) % 360; // Offset for gradient
-    
+
     final color1 = HSLColor.fromAHSL(1.0, hue1, 0.5, 0.85).toColor();
     final color2 = HSLColor.fromAHSL(1.0, hue2, 0.5, 0.80).toColor();
-    
+
     return [color1, color2];
   }
 
   // Helper method to get role label and color
   Map<String, dynamic> _getRoleInfo(String? roleValue, {String? name}) {
     final role = roleValue?.toLowerCase();
-    
+
     // Special handling for guests or anonymous users
     if (name == 'Anonymous' || name == 'Guest' || role == 'guest') {
       return {
@@ -264,7 +280,7 @@ class _GmessagesState extends State<Gmessages> {
         'color': Colors.orange,
       };
     }
-    
+
     switch (role) {
       case 'healthcare':
         return {
@@ -272,7 +288,7 @@ class _GmessagesState extends State<Gmessages> {
           'color': Colors.redAccent,
         };
       case 'doctor':
-        return {  
+        return {
           'label': 'Doctor',
           'color': Colors.blueAccent,
         };
@@ -295,7 +311,8 @@ class _GmessagesState extends State<Gmessages> {
     final messageTime = timestamp.toDate();
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final messageDate = DateTime(messageTime.year, messageTime.month, messageTime.day);
+    final messageDate =
+        DateTime(messageTime.year, messageTime.month, messageTime.day);
 
     final hour = messageTime.hour;
     final minute = messageTime.minute.toString().padLeft(2, '0');
@@ -327,7 +344,8 @@ class _GmessagesState extends State<Gmessages> {
         .where('participants', arrayContains: _currentUserId)
         .snapshots()
         .asyncMap((chatsSnapshot) async {
-      debugPrint('Found ${chatsSnapshot.docs.length} chats for healthcare user');
+      debugPrint(
+          'Found ${chatsSnapshot.docs.length} chats for healthcare user');
       final messagedPatients = <Map<String, dynamic>>[];
 
       for (var chatDoc in chatsSnapshot.docs) {
@@ -341,8 +359,9 @@ class _GmessagesState extends State<Gmessages> {
 
         if (patientId.isNotEmpty) {
           final patientName = await _getPatientName(patientId);
-          final contactRole = await _chatService.getUserRole(patientId) ?? 'patient';
-          
+          final contactRole =
+              await _chatService.getUserRole(patientId) ?? 'patient';
+
           // Get profile picture if available
           String? profilePicture;
           try {
@@ -415,7 +434,7 @@ class _GmessagesState extends State<Gmessages> {
               ),
             ),
             const SizedBox(height: 3),
-            
+
             // Search bar
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -469,7 +488,7 @@ class _GmessagesState extends State<Gmessages> {
                   stream: _streamMessagedPatients(),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return Container(
+                      return SizedBox(
                         height: 200,
                         child: Center(
                           child: CircularProgressIndicator(
@@ -481,7 +500,7 @@ class _GmessagesState extends State<Gmessages> {
                     }
 
                     if (snapshot.hasError) {
-                      return Container(
+                      return SizedBox(
                         height: 200,
                         child: Center(
                           child: Column(
@@ -506,7 +525,7 @@ class _GmessagesState extends State<Gmessages> {
                     }
 
                     if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                      return Container(
+                      return SizedBox(
                         height: 400,
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -540,7 +559,8 @@ class _GmessagesState extends State<Gmessages> {
                             ),
                             const SizedBox(height: 12),
                             Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 40),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 40),
                               child: Text(
                                 'Conversations will appear here once you start exchanging messages.',
                                 style: TextStyle(
@@ -557,27 +577,35 @@ class _GmessagesState extends State<Gmessages> {
                     }
 
                     final patients = snapshot.data!;
-                    
+
                     // Filter patients based on search query
                     final filteredPatients = searchQuery.isEmpty
                         ? patients
                         : patients.where((patient) {
-                            final name = (patient['name'] as String? ?? '').toLowerCase();
-                            final lastMessage = (patient['lastMessage'] as String? ?? '').toLowerCase();
-                            return name.contains(searchQuery) || lastMessage.contains(searchQuery);
+                            final name = (patient['name'] as String? ?? '')
+                                .toLowerCase();
+                            final lastMessage =
+                                (patient['lastMessage'] as String? ?? '')
+                                    .toLowerCase();
+                            return name.contains(searchQuery) ||
+                                lastMessage.contains(searchQuery);
                           }).toList();
 
                     return ListView.builder(
                       itemCount: filteredPatients.length,
                       itemBuilder: (context, index) {
                         final patient = filteredPatients[index];
-                        final patientName = patient['name'] as String? ?? 'Unknown Patient';
+                        final patientName =
+                            patient['name'] as String? ?? 'Unknown Patient';
                         final patientId = patient['id'] as String? ?? '';
-                        final profilePicture = patient['profilePicture'] as String?;
-                        final String? roleValue = (patient['role'] as String?)?.toLowerCase();
-                        
+                        final profilePicture =
+                            patient['profilePicture'] as String?;
+                        final String? roleValue =
+                            (patient['role'] as String?)?.toLowerCase();
+
                         // Get role information using helper method
-                        final roleInfo = _getRoleInfo(roleValue, name: patientName);
+                        final roleInfo =
+                            _getRoleInfo(roleValue, name: patientName);
                         final String? roleLabel = roleInfo['label'] as String?;
                         final Color roleColor = roleInfo['color'] as Color;
 
@@ -600,9 +628,11 @@ class _GmessagesState extends State<Gmessages> {
                             child: InkWell(
                               borderRadius: BorderRadius.circular(16),
                               splashColor: Colors.redAccent.withOpacity(0.1),
-                              highlightColor: Colors.redAccent.withOpacity(0.05),
+                              highlightColor:
+                                  Colors.redAccent.withOpacity(0.05),
                               onTap: () {
-                                _openChat(patientId, patientName, profilePicture);
+                                _openChat(
+                                    patientId, patientName, profilePicture);
                               },
                               child: Padding(
                                 padding: const EdgeInsets.all(14),
@@ -616,35 +646,46 @@ class _GmessagesState extends State<Gmessages> {
                                         gradient: LinearGradient(
                                           begin: Alignment.topLeft,
                                           end: Alignment.bottomRight,
-                                          colors: _generatePastelColors(patientId),
+                                          colors:
+                                              _generatePastelColors(patientId),
                                         ),
                                         borderRadius: BorderRadius.circular(12),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: _generatePastelColors(patientId)[0].withOpacity(0.3),
+                                            color: _generatePastelColors(
+                                                    patientId)[0]
+                                                .withOpacity(0.3),
                                             blurRadius: 8,
                                             offset: const Offset(0, 2),
                                           ),
                                         ],
                                       ),
-                                      child: profilePicture != null && profilePicture.isNotEmpty
+                                      child: profilePicture != null &&
+                                              profilePicture.isNotEmpty
                                           ? ClipRRect(
-                                              borderRadius: BorderRadius.circular(12),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
                                               child: Image.network(
                                                 profilePicture,
                                                 fit: BoxFit.cover,
-                                                errorBuilder: (context, error, stackTrace) {
+                                                errorBuilder: (context, error,
+                                                    stackTrace) {
                                                   return Center(
                                                     child: Text(
                                                       patientName.isNotEmpty
-                                                          ? patientName[0].toUpperCase()
+                                                          ? patientName[0]
+                                                              .toUpperCase()
                                                           : 'P',
                                                       style: TextStyle(
-                                                        color: _generatePastelColors(patientId)[0].computeLuminance() > 0.5 
-                                                            ? Colors.black87 
+                                                        color: _generatePastelColors(
+                                                                        patientId)[0]
+                                                                    .computeLuminance() >
+                                                                0.5
+                                                            ? Colors.black87
                                                             : Colors.white,
                                                         fontSize: 22,
-                                                        fontWeight: FontWeight.w600,
+                                                        fontWeight:
+                                                            FontWeight.w600,
                                                       ),
                                                     ),
                                                   );
@@ -654,11 +695,15 @@ class _GmessagesState extends State<Gmessages> {
                                           : Center(
                                               child: Text(
                                                 patientName.isNotEmpty
-                                                    ? patientName[0].toUpperCase()
+                                                    ? patientName[0]
+                                                        .toUpperCase()
                                                     : 'P',
                                                 style: TextStyle(
-                                                  color: _generatePastelColors(patientId)[0].computeLuminance() > 0.5 
-                                                      ? Colors.black87 
+                                                  color: _generatePastelColors(
+                                                                  patientId)[0]
+                                                              .computeLuminance() >
+                                                          0.5
+                                                      ? Colors.black87
                                                       : Colors.white,
                                                   fontSize: 22,
                                                   fontWeight: FontWeight.w600,
@@ -670,7 +715,8 @@ class _GmessagesState extends State<Gmessages> {
                                     // Patient info
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Row(
                                             children: [
@@ -682,25 +728,31 @@ class _GmessagesState extends State<Gmessages> {
                                                     fontWeight: FontWeight.w600,
                                                     color: Color(0xFF2C2C2C),
                                                   ),
-                                                  overflow: TextOverflow.ellipsis,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                 ),
                                               ),
                                               if (roleLabel != null) ...[
                                                 const SizedBox(width: 8),
                                                 Container(
-                                                  padding: const EdgeInsets.symmetric(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
                                                     horizontal: 8,
                                                     vertical: 2,
                                                   ),
                                                   decoration: BoxDecoration(
-                                                    color: roleColor.withOpacity(0.1),
-                                                    borderRadius: BorderRadius.circular(8),
+                                                    color: roleColor
+                                                        .withOpacity(0.1),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8),
                                                   ),
                                                   child: Text(
                                                     roleLabel,
                                                     style: TextStyle(
                                                       fontSize: 10,
-                                                      fontWeight: FontWeight.w600,
+                                                      fontWeight:
+                                                          FontWeight.w600,
                                                       color: roleColor,
                                                     ),
                                                   ),
@@ -710,7 +762,8 @@ class _GmessagesState extends State<Gmessages> {
                                           ),
                                           const SizedBox(height: 4),
                                           Text(
-                                            patient['lastMessage'] as String? ?? 'No messages yet',
+                                            patient['lastMessage'] as String? ??
+                                                'No messages yet',
                                             style: TextStyle(
                                               fontSize: 14,
                                               color: Colors.grey.shade600,
@@ -724,7 +777,9 @@ class _GmessagesState extends State<Gmessages> {
                                     const SizedBox(width: 8),
                                     // Timestamp
                                     Text(
-                                      _formatTimeDetailed(patient['lastTimestamp'] as Timestamp?),
+                                      _formatTimeDetailed(
+                                          patient['lastTimestamp']
+                                              as Timestamp?),
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: Colors.grey.shade500,

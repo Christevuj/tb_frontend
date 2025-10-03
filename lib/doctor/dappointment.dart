@@ -275,8 +275,7 @@ class _DappointmentState extends State<Dappointment> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
                                     date != null

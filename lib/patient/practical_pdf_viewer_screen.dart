@@ -8,7 +8,8 @@ class PracticalPdfViewerScreen extends StatefulWidget {
   const PracticalPdfViewerScreen({super.key, required this.assetPath});
 
   @override
-  State<PracticalPdfViewerScreen> createState() => _PracticalPdfViewerScreenState();
+  State<PracticalPdfViewerScreen> createState() =>
+      _PracticalPdfViewerScreenState();
 }
 
 class _PracticalPdfViewerScreenState extends State<PracticalPdfViewerScreen> {
@@ -24,10 +25,31 @@ class _PracticalPdfViewerScreenState extends State<PracticalPdfViewerScreen> {
   final Map<String, List<int>> _contentDatabase = {
     // Basic TB terms
     'tuberculosis': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
-    'tb': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+    'tb': [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20
+    ],
     'bacillus': [1, 2, 3, 4, 5],
     'mycobacterium': [1, 2, 3, 4, 5],
-    
+
     // DOTS and Treatment
     'dots': [1, 2, 3, 15, 16, 17, 18, 19, 20],
     'directly': [15, 16, 17],
@@ -35,7 +57,7 @@ class _PracticalPdfViewerScreenState extends State<PracticalPdfViewerScreen> {
     'treatment': [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
     'therapy': [8, 9, 10, 11, 12, 13, 14],
     'regimen': [11, 12, 13, 14, 15],
-    
+
     // Diagnosis and Testing
     'diagnosis': [5, 6, 7, 8, 9],
     'diagnostic': [5, 6, 7, 8],
@@ -43,7 +65,7 @@ class _PracticalPdfViewerScreenState extends State<PracticalPdfViewerScreen> {
     'testing': [6, 7, 8, 9],
     'screening': [5, 6, 7],
     'examination': [5, 6, 7, 8],
-    
+
     // Symptoms
     'symptom': [4, 5, 6],
     'symptoms': [4, 5, 6],
@@ -54,7 +76,7 @@ class _PracticalPdfViewerScreenState extends State<PracticalPdfViewerScreen> {
     'fatigue': [4, 5],
     'night': [4, 5],
     'sweats': [4, 5],
-    
+
     // Chest and Respiratory
     'chest': [4, 5, 6, 7, 8],
     'lung': [4, 5, 6, 7, 8],
@@ -62,13 +84,13 @@ class _PracticalPdfViewerScreenState extends State<PracticalPdfViewerScreen> {
     'respiratory': [4, 5, 6],
     'pulmonary': [4, 5, 6, 7, 8],
     'extrapulmonary': [8, 9, 10],
-    
+
     // Imaging
     'xray': [6, 7, 8],
     'x-ray': [6, 7, 8],
     'radiography': [6, 7, 8],
     'imaging': [6, 7, 8],
-    
+
     // Laboratory Tests
     'sputum': [6, 7, 8, 9],
     'culture': [7, 8, 9],
@@ -76,7 +98,7 @@ class _PracticalPdfViewerScreenState extends State<PracticalPdfViewerScreen> {
     'microscopy': [6, 7, 8],
     'laboratory': [6, 7, 8, 9],
     'lab': [6, 7, 8, 9],
-    
+
     // Medications
     'drug': [11, 12, 13, 14, 15],
     'drugs': [11, 12, 13, 14, 15],
@@ -88,7 +110,7 @@ class _PracticalPdfViewerScreenState extends State<PracticalPdfViewerScreen> {
     'ethambutol': [11, 12, 13, 14],
     'pyrazinamide': [11, 12, 13, 14],
     'streptomycin': [11, 12, 13],
-    
+
     // Drug Resistance
     'resistance': [13, 14, 15, 16],
     'resistant': [13, 14, 15, 16],
@@ -96,13 +118,55 @@ class _PracticalPdfViewerScreenState extends State<PracticalPdfViewerScreen> {
     'multidrug': [14, 15, 16],
     'extensively': [15, 16],
     'xdr': [15, 16],
-    
+
     // Patient Care
-    'patient': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
-    'patients': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+    'patient': [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20
+    ],
+    'patients': [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20
+    ],
     'care': [1, 2, 3, 15, 16, 17, 18, 19, 20],
     'management': [8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
-    
+
     // Healthcare Workers
     'healthcare': [1, 2, 17, 18, 19, 20],
     'health': [1, 2, 17, 18, 19, 20],
@@ -110,7 +174,7 @@ class _PracticalPdfViewerScreenState extends State<PracticalPdfViewerScreen> {
     'workers': [17, 18, 19, 20],
     'staff': [17, 18, 19, 20],
     'provider': [17, 18, 19, 20],
-    
+
     // Prevention and Control
     'prevention': [17, 18, 19, 20],
     'control': [17, 18, 19, 20],
@@ -118,14 +182,14 @@ class _PracticalPdfViewerScreenState extends State<PracticalPdfViewerScreen> {
     'transmission': [17, 18, 19],
     'contact': [19, 20],
     'contacts': [19, 20],
-    
+
     // Monitoring
     'monitoring': [12, 13, 14, 15, 16],
     'follow': [12, 13, 14, 15],
     'followup': [12, 13, 14, 15],
     'adherence': [15, 16, 17],
     'compliance': [15, 16, 17],
-    
+
     // Side Effects
     'side': [13, 14],
     'effects': [13, 14],
@@ -133,7 +197,7 @@ class _PracticalPdfViewerScreenState extends State<PracticalPdfViewerScreen> {
     'reaction': [13, 14],
     'reactions': [13, 14],
     'toxicity': [13, 14],
-    
+
     // Common Medical Terms
     'clinical': [5, 6, 7, 8, 9, 10],
     'medical': [1, 2, 5, 6, 7, 8],
@@ -225,24 +289,25 @@ class _PracticalPdfViewerScreenState extends State<PracticalPdfViewerScreen> {
           _currentSearchIndex = 0;
           _isSearching = false;
         });
-        
+
         // Navigate to first search result
         await _pdfController.animateToPage(
           _searchResults[0],
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
         );
-        
+
         // Show detailed search results
         _showSearchResultsDialog(text);
       } else {
         setState(() {
           _isSearching = false;
         });
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('No results found for "$text". Try terms like: tuberculosis, TB, treatment, diagnosis, symptoms'),
+            content: Text(
+                'No results found for "$text". Try terms like: tuberculosis, TB, treatment, diagnosis, symptoms'),
             duration: const Duration(seconds: 4),
           ),
         );
@@ -258,12 +323,13 @@ class _PracticalPdfViewerScreenState extends State<PracticalPdfViewerScreen> {
         ),
       );
     }
-    
+
     FocusScope.of(context).unfocus();
   }
 
   void _navigateToNextResult() {
-    if (_searchResults.isNotEmpty && _currentSearchIndex < _searchResults.length - 1) {
+    if (_searchResults.isNotEmpty &&
+        _currentSearchIndex < _searchResults.length - 1) {
       setState(() {
         _currentSearchIndex++;
       });
@@ -300,7 +366,8 @@ class _PracticalPdfViewerScreenState extends State<PracticalPdfViewerScreen> {
   void _showSearchResultsDialog(String searchText) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Found ${_searchResults.length} relevant page(s) for "$searchText"'),
+        content: Text(
+            'Found ${_searchResults.length} relevant page(s) for "$searchText"'),
         duration: const Duration(seconds: 3),
       ),
     );
@@ -364,13 +431,14 @@ class _PracticalPdfViewerScreenState extends State<PracticalPdfViewerScreen> {
                         controller: _searchController,
                         decoration: InputDecoration(
                           hintText: "Search comprehensive TB content...",
-                          prefixIcon: _isSearching 
+                          prefixIcon: _isSearching
                               ? const Padding(
                                   padding: EdgeInsets.all(12.0),
                                   child: SizedBox(
                                     width: 20,
                                     height: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
                                   ),
                                 )
                               : const Icon(Icons.search),
@@ -382,7 +450,8 @@ class _PracticalPdfViewerScreenState extends State<PracticalPdfViewerScreen> {
                               : null,
                           filled: true,
                           fillColor: Colors.white,
-                          contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
+                          contentPadding: const EdgeInsets.symmetric(
+                              vertical: 0, horizontal: 12),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide.none,
@@ -395,12 +464,14 @@ class _PracticalPdfViewerScreenState extends State<PracticalPdfViewerScreen> {
                     const SizedBox(width: 8),
                     Material(
                       color: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                       child: InkWell(
                         onTap: _isSearching ? null : _performSearch,
                         borderRadius: BorderRadius.circular(12),
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 12),
                           child: Icon(
                             Icons.search,
                             color: _isSearching ? Colors.grey : themeRed,
@@ -410,13 +481,14 @@ class _PracticalPdfViewerScreenState extends State<PracticalPdfViewerScreen> {
                     ),
                   ],
                 ),
-                
+
                 // Search Results Navigation
                 if (_searchResults.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
@@ -435,32 +507,43 @@ class _PracticalPdfViewerScreenState extends State<PracticalPdfViewerScreen> {
                             children: [
                               Text(
                                 'Page ${_currentSearchIndex + 1} of ${_searchResults.length} results',
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                style: const TextStyle(
+                                    fontSize: 12, fontWeight: FontWeight.w500),
                               ),
                               Row(
                                 children: [
                                   InkWell(
-                                    onTap: _currentSearchIndex > 0 ? _navigateToPreviousResult : null,
+                                    onTap: _currentSearchIndex > 0
+                                        ? _navigateToPreviousResult
+                                        : null,
                                     borderRadius: BorderRadius.circular(6),
                                     child: Padding(
                                       padding: const EdgeInsets.all(4),
                                       child: Icon(
                                         Icons.keyboard_arrow_up,
                                         size: 20,
-                                        color: _currentSearchIndex > 0 ? themeRed : Colors.grey,
+                                        color: _currentSearchIndex > 0
+                                            ? themeRed
+                                            : Colors.grey,
                                       ),
                                     ),
                                   ),
                                   const SizedBox(width: 8),
                                   InkWell(
-                                    onTap: _currentSearchIndex < _searchResults.length - 1 ? _navigateToNextResult : null,
+                                    onTap: _currentSearchIndex <
+                                            _searchResults.length - 1
+                                        ? _navigateToNextResult
+                                        : null,
                                     borderRadius: BorderRadius.circular(6),
                                     child: Padding(
                                       padding: const EdgeInsets.all(4),
                                       child: Icon(
                                         Icons.keyboard_arrow_down,
                                         size: 20,
-                                        color: _currentSearchIndex < _searchResults.length - 1 ? themeRed : Colors.grey,
+                                        color: _currentSearchIndex <
+                                                _searchResults.length - 1
+                                            ? themeRed
+                                            : Colors.grey,
                                       ),
                                     ),
                                   ),
@@ -471,15 +554,18 @@ class _PracticalPdfViewerScreenState extends State<PracticalPdfViewerScreen> {
                           const SizedBox(height: 8),
                           // Current search term and page indicator
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
                               color: Colors.yellow.withOpacity(0.2),
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                              border: Border.all(
+                                  color: Colors.orange.withOpacity(0.3)),
                             ),
                             child: Row(
                               children: [
-                                Icon(Icons.search, size: 16, color: Colors.orange.shade700),
+                                Icon(Icons.search,
+                                    size: 16, color: Colors.orange.shade700),
                                 const SizedBox(width: 6),
                                 Text(
                                   'Searching for: "${_searchController.text}"',
@@ -491,7 +577,8 @@ class _PracticalPdfViewerScreenState extends State<PracticalPdfViewerScreen> {
                                 ),
                                 const Spacer(),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 2),
                                   decoration: BoxDecoration(
                                     color: themeRed,
                                     borderRadius: BorderRadius.circular(12),
@@ -574,7 +661,8 @@ class _PracticalPdfViewerScreenState extends State<PracticalPdfViewerScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(10),
@@ -594,11 +682,13 @@ class _PracticalPdfViewerScreenState extends State<PracticalPdfViewerScreen> {
                     ),
                   ),
                 ),
-                
+
                 // Search Result Indicator
-                if (_searchResults.contains(_currentPage) && _searchController.text.isNotEmpty)
+                if (_searchResults.contains(_currentPage) &&
+                    _searchController.text.isNotEmpty)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: Colors.green,
                       borderRadius: BorderRadius.circular(20),
@@ -613,7 +703,8 @@ class _PracticalPdfViewerScreenState extends State<PracticalPdfViewerScreen> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.visibility, color: Colors.white, size: 16),
+                        const Icon(Icons.visibility,
+                            color: Colors.white, size: 16),
                         const SizedBox(width: 4),
                         Text(
                           'Match Found!',

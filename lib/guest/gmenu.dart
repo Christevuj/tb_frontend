@@ -26,7 +26,7 @@ class _GuestMainWrapperState extends State<GuestMainWrapper> {
   void initState() {
     super.initState();
     _selectedIndex = widget.initialIndex;
-    
+
     // Initialize pages with callback
     _pages = [
       GlandingPage(onSwitchTab: switchToTab),
@@ -59,7 +59,7 @@ class _GuestMainWrapperState extends State<GuestMainWrapper> {
   bool _shouldShowBottomNavBar() {
     final navigator = _navigatorKeys[_selectedIndex].currentState;
     if (navigator == null) return true;
-    
+
     // Only show bottom navbar when on the root pages of the 4 main tabs
     return !navigator.canPop();
   }
@@ -99,105 +99,110 @@ class _GuestMainWrapperState extends State<GuestMainWrapper> {
             );
           }),
         ),
-        bottomNavigationBar: _shouldShowBottomNavBar() ? Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.2),
-                spreadRadius: 1,
-                blurRadius: 10,
-                offset: const Offset(0, -2),
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: BottomNavigationBar(
-              currentIndex: _selectedIndex,
-              onTap: _onNavTap,
-              selectedItemColor: Colors.redAccent,
-              unselectedItemColor: Colors.grey.shade400,
-              selectedFontSize: 12,
-              unselectedFontSize: 12,
-              type: BottomNavigationBarType.fixed,
-              backgroundColor: Colors.white,
-              elevation: 0,
-              items: [
-                BottomNavigationBarItem(
-                  icon: Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      padding: EdgeInsets.all(_selectedIndex == 0 ? 8.0 : 5.0),
-                      decoration: BoxDecoration(
-                        color: _selectedIndex == 0 
-                            ? Colors.redAccent.withOpacity(0.1)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(Icons.home_rounded),
+        bottomNavigationBar: _shouldShowBottomNavBar()
+            ? Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.2),
+                      spreadRadius: 1,
+                      blurRadius: 10,
+                      offset: const Offset(0, -2),
                     ),
-                  ),
-                  label: "Home",
+                  ],
                 ),
-                BottomNavigationBarItem(
-                  icon: Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      padding: EdgeInsets.all(_selectedIndex == 1 ? 8.0 : 5.0),
-                      decoration: BoxDecoration(
-                        color: _selectedIndex == 1
-                            ? Colors.redAccent.withOpacity(0.1)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: BottomNavigationBar(
+                    currentIndex: _selectedIndex,
+                    onTap: _onNavTap,
+                    selectedItemColor: Colors.redAccent,
+                    unselectedItemColor: Colors.grey.shade400,
+                    selectedFontSize: 12,
+                    unselectedFontSize: 12,
+                    type: BottomNavigationBarType.fixed,
+                    backgroundColor: Colors.white,
+                    elevation: 0,
+                    items: [
+                      BottomNavigationBarItem(
+                        icon: Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding:
+                                EdgeInsets.all(_selectedIndex == 0 ? 8.0 : 5.0),
+                            decoration: BoxDecoration(
+                              color: _selectedIndex == 0
+                                  ? Colors.redAccent.withOpacity(0.1)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.home_rounded),
+                          ),
+                        ),
+                        label: "Home",
                       ),
-                      child: const Icon(Icons.calendar_month_rounded),
-                    ),
-                  ),
-                  label: "Appointments",
-                ),
-                BottomNavigationBarItem(
-                  icon: Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      padding: EdgeInsets.all(_selectedIndex == 2 ? 8.0 : 5.0),
-                      decoration: BoxDecoration(
-                        color: _selectedIndex == 2
-                            ? Colors.redAccent.withOpacity(0.1)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(12),
+                      BottomNavigationBarItem(
+                        icon: Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding:
+                                EdgeInsets.all(_selectedIndex == 1 ? 8.0 : 5.0),
+                            decoration: BoxDecoration(
+                              color: _selectedIndex == 1
+                                  ? Colors.redAccent.withOpacity(0.1)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.calendar_month_rounded),
+                          ),
+                        ),
+                        label: "Appointments",
                       ),
-                      child: const Icon(Icons.chat_rounded),
-                    ),
-                  ),
-                  label: "Messages",
-                ),
-                BottomNavigationBarItem(
-                  icon: Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      padding: EdgeInsets.all(_selectedIndex == 3 ? 8.0 : 5.0),
-                      decoration: BoxDecoration(
-                        color: _selectedIndex == 3
-                            ? Colors.redAccent.withOpacity(0.1)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(12),
+                      BottomNavigationBarItem(
+                        icon: Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding:
+                                EdgeInsets.all(_selectedIndex == 2 ? 8.0 : 5.0),
+                            decoration: BoxDecoration(
+                              color: _selectedIndex == 2
+                                  ? Colors.redAccent.withOpacity(0.1)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.chat_rounded),
+                          ),
+                        ),
+                        label: "Messages",
                       ),
-                      child: const Icon(Icons.person_rounded),
-                    ),
+                      BottomNavigationBarItem(
+                        icon: Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding:
+                                EdgeInsets.all(_selectedIndex == 3 ? 8.0 : 5.0),
+                            decoration: BoxDecoration(
+                              color: _selectedIndex == 3
+                                  ? Colors.redAccent.withOpacity(0.1)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.person_rounded),
+                          ),
+                        ),
+                        label: "Account",
+                      ),
+                    ],
                   ),
-                  label: "Account",
                 ),
-              ],
-            ),
-          ),
-        ) : null,
+              )
+            : null,
       ),
     );
-
   }
 }

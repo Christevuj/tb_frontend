@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'dart:typed_data';
 import 'certificate.dart';
+import 'dhistory.dart';
 
 class Viewpostappointment extends StatelessWidget {
   final Map<String, dynamic> appointment;
@@ -67,348 +68,219 @@ class Viewpostappointment extends StatelessWidget {
                 address = data["address"];
               }
             }
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SectionTitle(title: "Doctor"),
-                InfoField(icon: Icons.person, text: doctorName),
-                InfoField(icon: Icons.location_on, text: address),
-                InfoField(icon: Icons.badge, text: experience),
-              ],
+            return _buildModernSection(
+              title: "Healthcare Provider",
+              icon: Icons.local_hospital,
+              child: Column(
+                children: [
+                  ModernInfoCard(
+                    icon: Icons.person,
+                    title: "Doctor Name",
+                    value: doctorName,
+                    color: Colors.teal,
+                  ),
+                  const SizedBox(height: 8),
+                  ModernInfoCard(
+                    icon: Icons.location_on,
+                    title: "Facility Address",
+                    value: address,
+                    color: Colors.red,
+                  ),
+                  const SizedBox(height: 8),
+                  ModernInfoCard(
+                    icon: Icons.badge,
+                    title: "Experience",
+                    value: experience,
+                    color: Colors.amber,
+                  ),
+                ],
+              ),
             );
           },
         );
       } else {
         // If local address is present, show it
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SectionTitle(title: "Doctor"),
-            InfoField(icon: Icons.person, text: doctorName),
-            InfoField(icon: Icons.location_on, text: localAddress),
-            InfoField(icon: Icons.badge, text: experience),
-          ],
+        return _buildModernSection(
+          title: "Healthcare Provider",
+          icon: Icons.local_hospital,
+          child: Column(
+            children: [
+              ModernInfoCard(
+                icon: Icons.person,
+                title: "Doctor Name",
+                value: doctorName,
+                color: Colors.teal,
+              ),
+              const SizedBox(height: 8),
+              ModernInfoCard(
+                icon: Icons.location_on,
+                title: "Facility Address",
+                value: localAddress,
+                color: Colors.red,
+              ),
+              const SizedBox(height: 8),
+              ModernInfoCard(
+                icon: Icons.badge,
+                title: "Experience",
+                value: experience,
+                color: Colors.amber,
+              ),
+            ],
+          ),
         );
       }
     }
 
-    return SingleChildScrollView(
-      child: Material(
-        color: Colors.white, // ✅ Solid white background
-        borderRadius: BorderRadius.circular(20),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.teal.shade50,
+            Colors.white,
+          ],
+        ),
+      ),
+      child: SingleChildScrollView(
+        child: Container(
+          margin: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.1),
+                spreadRadius: 3,
+                blurRadius: 15,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
           child: Column(
-            mainAxisSize: MainAxisSize.min, // wrap content
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header with close button
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    "Post Appointment",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.teal,
+              // Modern Header
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.teal.shade600,
+                      Colors.teal.shade400,
+                    ],
+                  ),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(24),
+                    topRight: Radius.circular(24),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.medical_information,
+                        color: Colors.white,
+                        size: 10,
+                      ),
                     ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.grey),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-              const Divider(),
-
-              // Patient Details
-              const SectionTitle(title: "Patient Details"),
-              InfoField(
-                  icon: Icons.person,
-                  text: appointment["patientName"] ?? "Unknown Patient"),
-              InfoField(
-                  icon: Icons.email,
-                  text: appointment["patientEmail"] ?? "No email provided"),
-              InfoField(
-                  icon: Icons.phone,
-                  text: appointment["patientPhone"] ?? "No phone provided"),
-              InfoField(
-                  icon: Icons.person_outline,
-                  text: appointment["patientGender"] ?? "Not specified"),
-              InfoField(
-                  icon: Icons.calendar_today,
-                  text: appointment["patientAge"]?.toString() ??
-                      "Age not specified"),
-
-              const SizedBox(height: 20),
-
-              // Schedule (dynamic)
-              const SectionTitle(title: "Schedule"),
-              InfoField(
-                  icon: Icons.calendar_today,
-                  text: date != null
-                      ? date.toLocal().toString().split(" ")[0]
-                      : "-"),
-              InfoField(
-                  icon: Icons.access_time,
-                  text: appointment["appointmentTime"] ?? "No time set"),
-
-              const SizedBox(height: 20),
-
-              // Doctor Info (with address fetch)
-              doctorInfoSection(),
-
-              const SizedBox(height: 20),
-
-              // Meeting Link
-              const SectionTitle(title: "Meeting Link"),
-              InfoField(
-                  icon: Icons.link,
-                  text:
-                      appointment["meetingLink"] ?? "No meeting link provided"),
-
-              const SizedBox(height: 20),
-
-              // E-Prescription
-              const SectionTitle(title: "E-Prescription"),
-              if (appointment["prescriptionData"] != null) ...[
-                Container(
-                  margin: const EdgeInsets.symmetric(vertical: 8),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.green.shade200),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.check_circle,
-                              color: Colors.green.shade600),
-                          const SizedBox(width: 8),
-                          const Text(
-                            "Prescription Details",
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
+                          Text(
+                            "Post Appointment Details",
+                            style: const TextStyle(
                               fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
                             ),
+                            overflow: TextOverflow.visible,
+                            maxLines: 2,
+                            softWrap: true,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            "Comprehensive appointment summary",
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.white70,
+                            ),
+                            overflow: TextOverflow.visible,
+                            maxLines: 2,
+                            softWrap: true,
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
-                      if (appointment["prescriptionData"]["medicines"] != null)
-                        ...List.generate(
-                          (appointment["prescriptionData"]["medicines"] as List)
-                              .length,
-                          (index) {
-                            final medicine = appointment["prescriptionData"]
-                                ["medicines"][index];
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text("• ",
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold)),
-                                  Expanded(
-                                    child: Text(
-                                      "${medicine['name']} - ${medicine['dosage']} (${medicine['frequency']})",
-                                      style: const TextStyle(fontSize: 14),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                      if (appointment["prescriptionData"]["notes"] != null) ...[
-                        const SizedBox(height: 8),
-                        const Text(
-                          "Additional Notes:",
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        Text(
-                          appointment["prescriptionData"]["notes"],
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                // PDF Viewing Button
-                if (appointment["prescriptionData"]["pdfPath"] != null) ...[
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () =>
-                          _viewPrescriptionPdf(context, appointment),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        foregroundColor: Colors.white,
-                      ),
-                      icon: const Icon(Icons.picture_as_pdf),
-                      label: const Text('View Prescription PDF'),
                     ),
-                  ),
-                ],
-              ] else ...[
-                Container(
-                  margin: const EdgeInsets.symmetric(vertical: 8),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.orange.shade200),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.warning, color: Colors.orange.shade600),
-                      const SizedBox(width: 8),
-                      const Expanded(
-                        child: Text(
-                          "No prescription data available for this appointment",
-                          style: TextStyle(fontSize: 14),
-                        ),
-                      ),
-                    ],
-                  ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
                 ),
-              ],
+              ),
 
-              // Treatment Progress
-              const SectionTitle(title: "Treatment Progress"),
-              Container(
-                margin: const EdgeInsets.symmetric(vertical: 8),
+              // Content Container
+              Padding(
                 padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue.shade200),
-                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+
+              // Patient Details Section
+              _buildModernSection(
+                title: "Patient Information",
+                icon: Icons.person,
                 child: Column(
                   children: [
-                    // Step 1: Meeting Completed
+                    ModernInfoCard(
+                      icon: Icons.person,
+                      title: "Full Name",
+                      value: appointment["patientName"] ?? "Unknown Patient",
+                      color: Colors.blue,
+                    ),
+                    const SizedBox(height: 8),
+                    ModernInfoCard(
+                      icon: Icons.email,
+                      title: "Email Address",
+                      value: appointment["patientEmail"] ?? "No email provided",
+                      color: Colors.orange,
+                    ),
+                    const SizedBox(height: 8),
+                    ModernInfoCard(
+                      icon: Icons.phone,
+                      title: "Phone Number",
+                      value: appointment["patientPhone"] ?? "No phone provided",
+                      color: Colors.green,
+                    ),
+                    const SizedBox(height: 8),
                     Row(
                       children: [
-                        Icon(
-                          appointment["meetingCompleted"] == true
-                              ? Icons.check_circle
-                              : Icons.radio_button_unchecked,
-                          color: appointment["meetingCompleted"] == true
-                              ? Colors.green
-                              : Colors.grey,
-                        ),
-                        const SizedBox(width: 12),
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "Meeting Completed",
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: appointment["meetingCompleted"] == true
-                                      ? Colors.green
-                                      : Colors.grey,
-                                ),
-                              ),
-                              Text(
-                                "Doctor consultation and e-prescription provided",
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: appointment["meetingCompleted"] == true
-                                      ? Colors.green.shade700
-                                      : Colors.grey,
-                                ),
-                              ),
-                            ],
+                          child: ModernInfoCard(
+                            icon: Icons.person_outline,
+                            title: "Gender",
+                            value: appointment["patientGender"] ?? "Not specified",
+                            color: Colors.purple,
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    // Step 2: Certificate Sent
-                    Row(
-                      children: [
-                        Icon(
-                          appointment["certificateSent"] == true
-                              ? Icons.check_circle
-                              : Icons.radio_button_unchecked,
-                          color: appointment["certificateSent"] == true
-                              ? Colors.green
-                              : Colors.grey,
-                        ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 8),
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "Certificate Sent to Patient",
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: appointment["certificateSent"] == true
-                                      ? Colors.green
-                                      : Colors.grey,
-                                ),
-                              ),
-                              Text(
-                                "Treatment completion certificate delivered",
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: appointment["certificateSent"] == true
-                                      ? Colors.green.shade700
-                                      : Colors.grey,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    // Step 3: Treatment Completed
-                    Row(
-                      children: [
-                        Icon(
-                          appointment["treatmentCompleted"] == true
-                              ? Icons.check_circle
-                              : Icons.radio_button_unchecked,
-                          color: appointment["treatmentCompleted"] == true
-                              ? Colors.green
-                              : Colors.grey,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "Treatment Fully Completed",
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color:
-                                      appointment["treatmentCompleted"] == true
-                                          ? Colors.green
-                                          : Colors.grey,
-                                ),
-                              ),
-                              Text(
-                                "Patient has completed full TB treatment program",
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color:
-                                      appointment["treatmentCompleted"] == true
-                                          ? Colors.green.shade700
-                                          : Colors.grey,
-                                ),
-                              ),
-                            ],
+                          child: ModernInfoCard(
+                            icon: Icons.cake,
+                            title: "Age",
+                            value: appointment["patientAge"]?.toString() ?? "Not specified",
+                            color: Colors.pink,
                           ),
                         ),
                       ],
@@ -417,84 +289,711 @@ class Viewpostappointment extends StatelessWidget {
                 ),
               ),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
 
-              // Buttons Section
-              if (appointment["meetingCompleted"] == true &&
-                  appointment["certificateSent"] == true) ...[
-                // Certificate has been sent - show view button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () => _viewCertificatePdf(context, appointment),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+              // Schedule Section
+              _buildModernSection(
+                title: "Appointment Schedule",
+                icon: Icons.schedule,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: ModernInfoCard(
+                        icon: Icons.calendar_today,
+                        title: "Date",
+                        value: date != null
+                            ? date.toLocal().toString().split(" ")[0]
+                            : "Not specified",
+                        color: Colors.indigo,
                       ),
                     ),
-                    icon: const Icon(Icons.picture_as_pdf),
-                    label: const Text('View Certificate PDF',
-                        style: TextStyle(fontSize: 16)),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    decoration: BoxDecoration(
-                      color: Colors.green,
-                      borderRadius: BorderRadius.circular(8),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ModernInfoCard(
+                        icon: Icons.access_time,
+                        title: "Time",
+                        value: appointment["appointmentTime"] ?? "No time set",
+                        color: Colors.cyan,
+                      ),
                     ),
-                    child: const Text(
-                      "Certificate Sent to Patient ✓",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 16, color: Colors.white),
-                    ),
-                  ),
+                  ],
                 ),
-              ] else ...[
-                // Original single button for when certificate not sent
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: appointment["meetingCompleted"] == true &&
-                            appointment["certificateSent"] != true
-                        ? () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    Certificate(appointment: appointment),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Doctor Info (with address fetch)
+              doctorInfoSection(),
+
+              const SizedBox(height: 16),
+
+              // Meeting Link Section
+              _buildModernSection(
+                title: "Video Consultation",
+                icon: Icons.video_call,
+                child: ModernInfoCard(
+                  icon: Icons.link,
+                  title: "Meeting Link",
+                  value: appointment["meetingLink"] ?? "No meeting link provided",
+                  color: Colors.deepPurple,
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // E-Prescription Section
+              _buildModernSection(
+                title: "Electronic Prescription",
+                icon: Icons.medical_services,
+                child: appointment["prescriptionData"] != null
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (appointment["prescriptionData"]["medicines"] != null)
+                            ...List.generate(
+                              (appointment["prescriptionData"]["medicines"] as List)
+                                  .length,
+                              (index) {
+                                final medicine = appointment["prescriptionData"]
+                                    ["medicines"][index];
+                                return Container(
+                                  margin: const EdgeInsets.symmetric(vertical: 4),
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green.shade50,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.green.shade200),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.medication, 
+                                          color: Colors.green.shade600, size: 16),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          "${medicine['name']} - ${medicine['dosage']} (${medicine['frequency']})",
+                                          style: const TextStyle(fontSize: 14),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          if (appointment["prescriptionData"]["notes"] != null) ...[
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade50,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.blue.shade200),
                               ),
-                            )
-                        : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: appointment["meetingCompleted"] == true
-                          ? (appointment["certificateSent"] == true
-                              ? Colors.green
-                              : Colors.red)
-                          : Colors.grey,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(Icons.note_alt, 
+                                          color: Colors.blue.shade600, size: 16),
+                                      const SizedBox(width: 8),
+                                      const Text(
+                                        "Additional Notes:",
+                                        style: TextStyle(fontWeight: FontWeight.bold),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    appointment["prescriptionData"]["notes"],
+                                    style: const TextStyle(fontSize: 14),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 16),
+                          // PDF Viewing Button
+                          if (appointment["prescriptionData"]["pdfPath"] != null)
+                            Center(
+                              child: ElevatedButton.icon(
+                                onPressed: () =>
+                                    _viewPrescriptionPdf(context, appointment),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green.shade600,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.picture_as_pdf, size: 18),
+                                label: const Text('View Prescription PDF',
+                                    style: TextStyle(fontSize: 14)),
+                              ),
+                            ),
+                        ],
+                      )
+                    : Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.orange.shade200),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.warning, color: Colors.orange.shade600),
+                            const SizedBox(width: 8),
+                            const Expanded(
+                              child: Text(
+                                "No prescription data available for this appointment",
+                                style: TextStyle(fontSize: 14),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Treatment Progress Section
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.teal.shade50,
+                      Colors.blue.shade50,
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      spreadRadius: 2,
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
                     ),
-                    child: Text(
-                      appointment["meetingCompleted"] == true
-                          ? (appointment["certificateSent"] == true
-                              ? "Certificate Sent to Patient"
-                              : "Send Certificate to Patient")
-                          : "Complete Treatment First",
-                      style: const TextStyle(fontSize: 16, color: Colors.white),
-                    ),
+                  ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      // Progress Header
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.teal.shade100,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(
+                              Icons.timeline,
+                              color: Colors.teal.shade700,
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          const Text(
+                            "Patient Journey Timeline",
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.teal,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      
+                      // Step 1: Book Appointment
+                      _buildModernProgressStep(
+                        icon: Icons.calendar_month,
+                        title: "Book an Appointment",
+                        description: "Patient requested appointment with a Doctor",
+                        isCompleted: true,
+                        stepNumber: 1,
+                        isLastStep: false,
+                      ),
+                      
+                      // Step 2: Appointment Approved
+                      _buildModernProgressStep(
+                        icon: Icons.verified,
+                        title: "Appointment Approved",
+                        description: "Doctor confirmed and approved the appointment schedule",
+                        isCompleted: true,
+                        stepNumber: 2,
+                        isLastStep: false,
+                      ),
+                      
+                      // Step 3: Meeting Completed
+                      _buildModernProgressStep(
+                        icon: Icons.video_call,
+                        title: "Meeting Completed",
+                        description: "Doctor consultation and e-prescription provided",
+                        isCompleted: appointment["meetingCompleted"] == true,
+                        stepNumber: 3,
+                        isLastStep: false,
+                      ),
+                      
+                      // Step 4: Certificate Sent
+                      _buildModernProgressStep(
+                        icon: Icons.card_membership,
+                        title: "Certificate Sent to Patient",
+                        description: "Treatment completion certificate delivered",
+                        isCompleted: appointment["certificateSent"] == true,
+                        stepNumber: 4,
+                        isLastStep: false,
+                      ),
+                      
+                      // Step 5: Treatment Completed
+                      _buildModernProgressStep(
+                        icon: Icons.health_and_safety,
+                        title: "Treatment Fully Completed",
+                        description: "Patient has completed full TB treatment program",
+                        isCompleted: appointment["treatmentCompleted"] == true,
+                        stepNumber: 5,
+                        isLastStep: true,
+                      ),
+                    ],
                   ),
                 ),
-              ]
+              ),
+
+              const SizedBox(height: 32),
+
+              // Action Buttons Section
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.grey.shade50,
+                      Colors.white,
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.admin_panel_settings, 
+                             color: Colors.teal.shade600),
+                        const SizedBox(width: 8),
+                        const Text(
+                          "Certificate Management",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.teal,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    // Create/View Certificate Button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: appointment["meetingCompleted"] == true
+                            ? () {
+                                if (appointment["certificateSent"] == true) {
+                                  // View certificate if already created
+                                  _viewCertificatePdf(context, appointment);
+                                } else {
+                                  // Create certificate if not created yet
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          Certificate(appointment: appointment),
+                                    ),
+                                  );
+                                }
+                              }
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: appointment["meetingCompleted"] == true
+                              ? (appointment["certificateSent"] == true
+                                  ? Colors.blue
+                                  : Colors.teal)
+                              : Colors.grey,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        icon: Icon(
+                          appointment["meetingCompleted"] == true
+                              ? (appointment["certificateSent"] == true
+                                  ? Icons.visibility
+                                  : Icons.add_circle)
+                              : Icons.lock,
+                          color: Colors.white,
+                        ),
+                        label: Text(
+                          appointment["meetingCompleted"] == true
+                              ? (appointment["certificateSent"] == true
+                                  ? "View Certificate"
+                                  : "Create Certificate of Patient")
+                              : "Complete Treatment First",
+                          style: const TextStyle(fontSize: 16, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 10),
+                    
+                    // Certificate Status Container (when certificate is sent)
+                    if (appointment["certificateSent"] == true) ...[
+                      SizedBox(
+                        width: double.infinity,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade100,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.green.shade300),
+                          ),
+                          child: const Text(
+                            "Certificate Sent to Patient ✓",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 16, 
+                              color: Colors.green,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
+                    
+                    // Done/Confirmation Button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: appointment["certificateSent"] == true
+                            ? () {
+                                // Navigate to dhistory.dart with appointment data
+                                Navigator.of(context).pushReplacement(
+                                  MaterialPageRoute(
+                                    builder: (context) => const Dhistory(),
+                                  ),
+                                );
+                              }
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: appointment["certificateSent"] == true
+                              ? Colors.green
+                              : Colors.grey.shade300,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        icon: Icon(
+                          appointment["certificateSent"] == true
+                              ? Icons.check_circle
+                              : Icons.block,
+                          color: appointment["certificateSent"] == true
+                              ? Colors.white
+                              : Colors.grey,
+                        ),
+                        label: Text(
+                          "Done",
+                          style: TextStyle(
+                            fontSize: 16, 
+                            color: appointment["certificateSent"] == true
+                                ? Colors.white
+                                : Colors.grey,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildModernProgressStep({
+    required IconData icon,
+    required String title,
+    required String description,
+    required bool isCompleted,
+    required int stepNumber,
+    required bool isLastStep,
+  }) {
+    return Column(
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Step number and icon
+            Column(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: isCompleted 
+                        ? Colors.green.shade500
+                        : Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      if (isCompleted) 
+                        BoxShadow(
+                          color: Colors.green.withOpacity(0.3),
+                          spreadRadius: 1,
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                    ],
+                  ),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      if (isCompleted)
+                        const Icon(
+                          Icons.check,
+                          color: Colors.white,
+                          size: 20,
+                        )
+                      else
+                        Text(
+                          stepNumber.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                if (!isLastStep)
+                  Container(
+                    width: 2,
+                    height: 25,
+                    color: isCompleted 
+                        ? Colors.green.shade300
+                        : Colors.grey.shade300,
+                  ),
+              ],
+            ),
+            const SizedBox(width: 16),
+            // Content
+            Expanded(
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 15),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isCompleted 
+                      ? Colors.green.shade50
+                      : Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isCompleted 
+                        ? Colors.green.shade200
+                        : Colors.grey.shade200,
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      spreadRadius: 1,
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: isCompleted 
+                              ? Colors.green.shade800
+                              : Colors.grey.shade700,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 2,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        description,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isCompleted 
+                              ? Colors.green.shade600
+                              : Colors.grey.shade600,
+                          height: 1.3,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildModernSection({
+    required String title,
+    required IconData icon,
+    required Widget child,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 2,
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.teal.shade100,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: Colors.teal.shade700,
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.teal,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: child,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget ModernInfoCard({
+    required IconData icon,
+    required String title,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: color.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(
+              icon,
+              color: color,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey.shade600,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1120,27 +1619,58 @@ Certificate ID: $certificateId
   }
 }
 
-// 🔹 Section Title Widget
+// 🔹 Modern Section Title Widget
 class SectionTitle extends StatelessWidget {
   final String title;
   const SectionTitle({super.key, required this.title});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.bold,
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.teal.shade100,
+            Colors.teal.shade50,
+          ],
         ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.teal.shade200),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.teal.shade600,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.label,
+              color: Colors.white,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.teal.shade800,
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-// 🔹 Info Field Widget with thin black border and shadow
+// 🔹 Modern Info Field Widget
 class InfoField extends StatelessWidget {
   final IconData icon;
   final String text;
@@ -1149,28 +1679,51 @@ class InfoField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white, // ✅ Solid white background
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.black12, width: 0.8),
-        boxShadow: const [
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white,
+            Colors.grey.shade50,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200, width: 1),
+        boxShadow: [
           BoxShadow(
-            color: Colors.black12,
-            blurRadius: 4,
-            offset: Offset(0, 2),
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 2,
+            blurRadius: 8,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
       child: Row(
         children: [
-          Icon(icon, color: Colors.grey),
-          const SizedBox(width: 10),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.teal.shade100,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              icon, 
+              color: Colors.teal.shade700,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 16),
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(fontSize: 15),
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: Colors.black87,
+              ),
             ),
           ),
         ],

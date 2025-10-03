@@ -23,9 +23,7 @@ class _HealthMainWrapperState extends State<HealthMainWrapper> {
   @override
   void initState() {
     super.initState();
-    _selectedIndex = widget.initialIndex
-        .clamp(0, _pages.length - 1)
-        .toInt();
+    _selectedIndex = widget.initialIndex.clamp(0, _pages.length - 1).toInt();
   }
 
   void _onNavTap(int index) {
@@ -51,58 +49,58 @@ class _HealthMainWrapperState extends State<HealthMainWrapper> {
           backgroundColor: Colors.white,
           elevation: 8,
           items: [
-                BottomNavigationBarItem(
-                  icon: Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      padding: EdgeInsets.all(_selectedIndex == 0 ? 8.0 : 5.0),
-                      decoration: BoxDecoration(
-                        color: _selectedIndex == 0 
-                            ? Colors.redAccent.withOpacity(0.1)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(Icons.home_rounded),
-                    ),
+            BottomNavigationBarItem(
+              icon: Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: EdgeInsets.all(_selectedIndex == 0 ? 8.0 : 5.0),
+                  decoration: BoxDecoration(
+                    color: _selectedIndex == 0
+                        ? Colors.redAccent.withOpacity(0.1)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  label: "Home",
+                  child: const Icon(Icons.home_rounded),
                 ),
-                BottomNavigationBarItem(
-                  icon: Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      padding: EdgeInsets.all(_selectedIndex == 1 ? 8.0 : 5.0),
-                      decoration: BoxDecoration(
-                        color: _selectedIndex == 1
-                            ? Colors.redAccent.withOpacity(0.1)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(Icons.medical_services_rounded),
-                    ),
+              ),
+              label: "Home",
+            ),
+            BottomNavigationBarItem(
+              icon: Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: EdgeInsets.all(_selectedIndex == 1 ? 8.0 : 5.0),
+                  decoration: BoxDecoration(
+                    color: _selectedIndex == 1
+                        ? Colors.redAccent.withOpacity(0.1)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  label: "My Care",
+                  child: const Icon(Icons.medical_services_rounded),
                 ),
-                BottomNavigationBarItem(
-                  icon: Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      padding: EdgeInsets.all(_selectedIndex == 2 ? 8.0 : 5.0),
-                      decoration: BoxDecoration(
-                        color: _selectedIndex == 2
-                            ? Colors.redAccent.withOpacity(0.1)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(Icons.person_rounded),
-                    ),
+              ),
+              label: "My Care",
+            ),
+            BottomNavigationBarItem(
+              icon: Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: EdgeInsets.all(_selectedIndex == 2 ? 8.0 : 5.0),
+                  decoration: BoxDecoration(
+                    color: _selectedIndex == 2
+                        ? Colors.redAccent.withOpacity(0.1)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  label: "Account",
+                  child: const Icon(Icons.person_rounded),
                 ),
-              ],
+              ),
+              label: "Account",
+            ),
+          ],
         ),
       ),
     );

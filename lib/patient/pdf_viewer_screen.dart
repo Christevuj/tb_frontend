@@ -103,10 +103,11 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
         setState(() {
           _isSearching = false;
         });
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('No specific matches for "$text". Try terms like: tuberculosis, TB, DOTS, treatment, diagnosis'),
+            content: Text(
+                'No specific matches for "$text". Try terms like: tuberculosis, TB, DOTS, treatment, diagnosis'),
             duration: const Duration(seconds: 4),
           ),
         );
@@ -122,17 +123,18 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
           _currentSearchIndex = 0;
           _isSearching = false;
         });
-        
+
         // Navigate to first search result
         await _pdfController.animateToPage(
           _searchResults[0],
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
         );
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Found ${_searchResults.length} relevant page(s) for "$text"'),
+            content: Text(
+                'Found ${_searchResults.length} relevant page(s) for "$text"'),
             duration: const Duration(seconds: 3),
           ),
         );
@@ -158,12 +160,13 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
         ),
       );
     }
-    
+
     FocusScope.of(context).unfocus();
   }
 
   void _navigateToNextResult() {
-    if (_searchResults.isNotEmpty && _currentSearchIndex < _searchResults.length - 1) {
+    if (_searchResults.isNotEmpty &&
+        _currentSearchIndex < _searchResults.length - 1) {
       setState(() {
         _currentSearchIndex++;
       });
@@ -258,13 +261,14 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                         controller: _searchController,
                         decoration: InputDecoration(
                           hintText: "Search text in PDF...",
-                          prefixIcon: _isSearching 
+                          prefixIcon: _isSearching
                               ? const Padding(
                                   padding: EdgeInsets.all(12.0),
                                   child: SizedBox(
                                     width: 20,
                                     height: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
                                   ),
                                 )
                               : const Icon(Icons.search),
@@ -284,7 +288,8 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                           ),
                         ),
                         onSubmitted: (_) => _performSearch(),
-                        onChanged: (_) => setState(() {}), // To update clear button
+                        onChanged: (_) =>
+                            setState(() {}), // To update clear button
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -298,22 +303,21 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 12),
-                          child: Icon(
-                            Icons.search, 
-                            color: _isSearching ? Colors.grey : themeRed
-                          ),
+                          child: Icon(Icons.search,
+                              color: _isSearching ? Colors.grey : themeRed),
                         ),
                       ),
                     ),
                   ],
                 ),
-                
+
                 // Search Results Navigation
                 if (_searchResults.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
@@ -330,32 +334,43 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                         children: [
                           Text(
                             'Result ${_currentSearchIndex + 1} of ${_searchResults.length}',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                            style: const TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.w500),
                           ),
                           Row(
                             children: [
                               InkWell(
-                                onTap: _currentSearchIndex > 0 ? _navigateToPreviousResult : null,
+                                onTap: _currentSearchIndex > 0
+                                    ? _navigateToPreviousResult
+                                    : null,
                                 borderRadius: BorderRadius.circular(6),
                                 child: Padding(
                                   padding: const EdgeInsets.all(4),
                                   child: Icon(
                                     Icons.keyboard_arrow_up,
                                     size: 20,
-                                    color: _currentSearchIndex > 0 ? themeRed : Colors.grey,
+                                    color: _currentSearchIndex > 0
+                                        ? themeRed
+                                        : Colors.grey,
                                   ),
                                 ),
                               ),
                               const SizedBox(width: 8),
                               InkWell(
-                                onTap: _currentSearchIndex < _searchResults.length - 1 ? _navigateToNextResult : null,
+                                onTap: _currentSearchIndex <
+                                        _searchResults.length - 1
+                                    ? _navigateToNextResult
+                                    : null,
                                 borderRadius: BorderRadius.circular(6),
                                 child: Padding(
                                   padding: const EdgeInsets.all(4),
                                   child: Icon(
                                     Icons.keyboard_arrow_down,
                                     size: 20,
-                                    color: _currentSearchIndex < _searchResults.length - 1 ? themeRed : Colors.grey,
+                                    color: _currentSearchIndex <
+                                            _searchResults.length - 1
+                                        ? themeRed
+                                        : Colors.grey,
                                   ),
                                 ),
                               ),

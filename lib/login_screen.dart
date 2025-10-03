@@ -307,9 +307,10 @@ class TBisitaLoginScreen extends StatelessWidget {
                       debugPrint('Guest signed in anonymously');
                     } catch (e) {
                       // If anonymous auth is disabled, just proceed without auth
-                      debugPrint('Anonymous auth not available, proceeding as guest: $e');
+                      debugPrint(
+                          'Anonymous auth not available, proceeding as guest: $e');
                     }
-                    
+
                     // Navigate to guest mode regardless
                     if (context.mounted) {
                       Navigator.pushAndRemoveUntil(

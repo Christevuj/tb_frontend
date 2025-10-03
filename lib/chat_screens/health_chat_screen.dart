@@ -19,10 +19,12 @@ class PatientHealthWorkerChatScreen extends StatefulWidget {
   });
 
   @override
-  State<PatientHealthWorkerChatScreen> createState() => _PatientHealthWorkerChatScreenState();
+  State<PatientHealthWorkerChatScreen> createState() =>
+      _PatientHealthWorkerChatScreenState();
 }
 
-class _PatientHealthWorkerChatScreenState extends State<PatientHealthWorkerChatScreen> {
+class _PatientHealthWorkerChatScreenState
+    extends State<PatientHealthWorkerChatScreen> {
   final ChatService _chatService = ChatService();
   final TextEditingController _controller = TextEditingController();
   final PresenceService _presenceService = PresenceService();
@@ -30,14 +32,15 @@ class _PatientHealthWorkerChatScreenState extends State<PatientHealthWorkerChatS
   late final String _chatId;
   bool _isHealthWorkerOnline = false;
   String _healthWorkerStatus = 'Offline';
-  Map<String, bool> _expandedTimestamps = {};
+  final Map<String, bool> _expandedTimestamps = {};
 
   @override
   void initState() {
     super.initState();
-    _chatId = _chatService.generateChatId(widget.currentUserId, widget.healthWorkerId);
+    _chatId = _chatService.generateChatId(
+        widget.currentUserId, widget.healthWorkerId);
     _monitorHealthWorkerPresence();
-    
+
     debugPrint('Patient-HealthWorker Chat initialized:');
     debugPrint('Patient (Current User): ${widget.currentUserId}');
     debugPrint('Health Worker: ${widget.healthWorkerId}');
@@ -45,19 +48,22 @@ class _PatientHealthWorkerChatScreenState extends State<PatientHealthWorkerChatS
   }
 
   void _monitorHealthWorkerPresence() {
-    _presenceService.getUserPresenceStream(widget.healthWorkerId).listen((isOnline) {
+    _presenceService
+        .getUserPresenceStream(widget.healthWorkerId)
+        .listen((isOnline) {
       if (mounted) {
         setState(() {
           _isHealthWorkerOnline = isOnline;
         });
       }
     });
-    
+
     _updateHealthWorkerStatus();
   }
 
   void _updateHealthWorkerStatus() async {
-    final status = await _presenceService.getLastSeenText(widget.healthWorkerId);
+    final status =
+        await _presenceService.getLastSeenText(widget.healthWorkerId);
     if (mounted) {
       setState(() {
         _healthWorkerStatus = status;
@@ -67,16 +73,18 @@ class _PatientHealthWorkerChatScreenState extends State<PatientHealthWorkerChatS
 
   String _formatDetailedTime(DateTime timestamp) {
     final now = DateTime.now();
-    final messageDate = DateTime(timestamp.year, timestamp.month, timestamp.day);
+    final messageDate =
+        DateTime(timestamp.year, timestamp.month, timestamp.day);
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
-    
+
     final hour = timestamp.hour;
     final minute = timestamp.minute;
     final period = hour >= 12 ? 'pm' : 'am';
     final displayHour = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
-    final timeString = '$displayHour:${minute.toString().padLeft(2, '0')}$period';
-    
+    final timeString =
+        '$displayHour:${minute.toString().padLeft(2, '0')}$period';
+
     if (messageDate == today) {
       return timeString;
     } else if (messageDate == yesterday) {
@@ -91,16 +99,18 @@ class _PatientHealthWorkerChatScreenState extends State<PatientHealthWorkerChatS
 
   String _formatMessengerTimestamp(DateTime timestamp) {
     final now = DateTime.now();
-    final messageDate = DateTime(timestamp.year, timestamp.month, timestamp.day);
+    final messageDate =
+        DateTime(timestamp.year, timestamp.month, timestamp.day);
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
-    
+
     final hour = timestamp.hour;
     final minute = timestamp.minute;
     final period = hour >= 12 ? 'PM' : 'AM';
     final displayHour = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
-    final timeString = '$displayHour:${minute.toString().padLeft(2, '0')} $period';
-    
+    final timeString =
+        '$displayHour:${minute.toString().padLeft(2, '0')} $period';
+
     if (messageDate == today) {
       return 'TODAY';
     } else if (messageDate == yesterday) {
@@ -109,22 +119,46 @@ class _PatientHealthWorkerChatScreenState extends State<PatientHealthWorkerChatS
       const weekdays = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
       return '${weekdays[timestamp.weekday - 1]} AT $timeString';
     } else if (timestamp.year == now.year) {
-      const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 
-                     'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+      const months = [
+        'JAN',
+        'FEB',
+        'MAR',
+        'APR',
+        'MAY',
+        'JUN',
+        'JUL',
+        'AUG',
+        'SEP',
+        'OCT',
+        'NOV',
+        'DEC'
+      ];
       return '${months[timestamp.month - 1]} ${timestamp.day}';
     } else {
-      const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 
-                     'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+      const months = [
+        'JAN',
+        'FEB',
+        'MAR',
+        'APR',
+        'MAY',
+        'JUN',
+        'JUL',
+        'AUG',
+        'SEP',
+        'OCT',
+        'NOV',
+        'DEC'
+      ];
       return '${months[timestamp.month - 1]} ${timestamp.day}, ${timestamp.year}';
     }
   }
 
   bool _shouldShowDateSeparator(DateTime current, DateTime? previous) {
     if (previous == null) return true;
-    
+
     final currentDate = DateTime(current.year, current.month, current.day);
     final previousDate = DateTime(previous.year, previous.month, previous.day);
-    
+
     return currentDate != previousDate;
   }
 
@@ -216,7 +250,8 @@ class _PatientHealthWorkerChatScreenState extends State<PatientHealthWorkerChatS
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 ),
                 child: const Text(
                   'Delete',
@@ -261,7 +296,8 @@ class _PatientHealthWorkerChatScreenState extends State<PatientHealthWorkerChatS
         ),
       );
 
-      await _chatService.deleteConversation(widget.currentUserId, widget.healthWorkerId);
+      await _chatService.deleteConversation(
+          widget.currentUserId, widget.healthWorkerId);
 
       if (mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -315,14 +351,14 @@ class _PatientHealthWorkerChatScreenState extends State<PatientHealthWorkerChatS
 
     try {
       await _presenceService.markAsActive();
-      
+
       await _chatService.sendTextMessage(
         senderId: widget.currentUserId,
         receiverId: widget.healthWorkerId,
         text: text,
       );
       _controller.clear();
-      
+
       _updateHealthWorkerStatus();
     } catch (e) {
       debugPrint('Error sending message: $e');
@@ -396,7 +432,7 @@ class _PatientHealthWorkerChatScreenState extends State<PatientHealthWorkerChatS
                       ),
                     ),
                     const SizedBox(width: 16),
-                    
+
                     // Health Worker Avatar with Online Status
                     Stack(
                       children: [
@@ -410,8 +446,8 @@ class _PatientHealthWorkerChatScreenState extends State<PatientHealthWorkerChatS
                             borderRadius: BorderRadius.circular(24),
                             border: Border.all(color: Colors.white, width: 2),
                           ),
-                          child: widget.healthWorkerProfilePicture != null && 
-                                 widget.healthWorkerProfilePicture!.isNotEmpty
+                          child: widget.healthWorkerProfilePicture != null &&
+                                  widget.healthWorkerProfilePicture!.isNotEmpty
                               ? ClipRRect(
                                   borderRadius: BorderRadius.circular(22),
                                   child: Image.network(
@@ -420,8 +456,9 @@ class _PatientHealthWorkerChatScreenState extends State<PatientHealthWorkerChatS
                                     errorBuilder: (context, error, stackTrace) {
                                       return Center(
                                         child: Text(
-                                          widget.healthWorkerName.isNotEmpty 
-                                              ? widget.healthWorkerName[0].toUpperCase() 
+                                          widget.healthWorkerName.isNotEmpty
+                                              ? widget.healthWorkerName[0]
+                                                  .toUpperCase()
                                               : 'H',
                                           style: const TextStyle(
                                             color: Colors.white,
@@ -435,8 +472,9 @@ class _PatientHealthWorkerChatScreenState extends State<PatientHealthWorkerChatS
                                 )
                               : Center(
                                   child: Text(
-                                    widget.healthWorkerName.isNotEmpty 
-                                        ? widget.healthWorkerName[0].toUpperCase() 
+                                    widget.healthWorkerName.isNotEmpty
+                                        ? widget.healthWorkerName[0]
+                                            .toUpperCase()
                                         : 'H',
                                     style: const TextStyle(
                                       color: Colors.white,
@@ -454,7 +492,7 @@ class _PatientHealthWorkerChatScreenState extends State<PatientHealthWorkerChatS
                             width: 14,
                             height: 14,
                             decoration: BoxDecoration(
-                              color: _isHealthWorkerOnline 
+                              color: _isHealthWorkerOnline
                                   ? const Color(0xFF4CAF50)
                                   : Colors.grey,
                               borderRadius: BorderRadius.circular(7),
@@ -465,7 +503,7 @@ class _PatientHealthWorkerChatScreenState extends State<PatientHealthWorkerChatS
                       ],
                     ),
                     const SizedBox(width: 16),
-                    
+
                     // Health Worker Info
                     Expanded(
                       child: Column(
@@ -485,8 +523,8 @@ class _PatientHealthWorkerChatScreenState extends State<PatientHealthWorkerChatS
                           Text(
                             _healthWorkerStatus,
                             style: TextStyle(
-                              color: _isHealthWorkerOnline 
-                                  ? Colors.white70 
+                              color: _isHealthWorkerOnline
+                                  ? Colors.white70
                                   : Colors.white54,
                               fontSize: 13,
                               fontWeight: FontWeight.w400,
@@ -495,7 +533,7 @@ class _PatientHealthWorkerChatScreenState extends State<PatientHealthWorkerChatS
                         ],
                       ),
                     ),
-                    
+
                     // More Options Button
                     Container(
                       width: 40,
@@ -584,7 +622,7 @@ class _PatientHealthWorkerChatScreenState extends State<PatientHealthWorkerChatS
                     ),
                   );
                 }
-                
+
                 if (snapshot.hasError) {
                   return Center(
                     child: Column(
@@ -616,7 +654,7 @@ class _PatientHealthWorkerChatScreenState extends State<PatientHealthWorkerChatS
                     ),
                   );
                 }
-                
+
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
                   return Center(
                     child: Column(
@@ -667,25 +705,22 @@ class _PatientHealthWorkerChatScreenState extends State<PatientHealthWorkerChatS
                 final messages = snapshot.data!;
 
                 return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   itemCount: messages.length,
                   itemBuilder: (context, i) {
                     final m = messages[i];
                     final isMe = m.senderId == widget.currentUserId;
-                    final showAvatar = i == messages.length - 1 || 
+                    final showAvatar = i == messages.length - 1 ||
                         messages[i + 1].senderId != m.senderId;
-                    
+
                     final previousMessage = i > 0 ? messages[i - 1] : null;
                     final showDateSeparator = _shouldShowDateSeparator(
-                      m.timestamp, 
-                      previousMessage?.timestamp
-                    );
+                        m.timestamp, previousMessage?.timestamp);
 
                     return Column(
                       children: [
-                        if (showDateSeparator)
-                          _buildDateSeparator(m.timestamp),
-                        
+                        if (showDateSeparator) _buildDateSeparator(m.timestamp),
                         Container(
                           margin: EdgeInsets.only(
                             top: 2,
@@ -695,8 +730,9 @@ class _PatientHealthWorkerChatScreenState extends State<PatientHealthWorkerChatS
                           ),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.end,
-                            mainAxisAlignment:
-                                isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+                            mainAxisAlignment: isMe
+                                ? MainAxisAlignment.end
+                                : MainAxisAlignment.start,
                             children: [
                               if (!isMe && showAvatar) ...[
                                 Container(
@@ -704,23 +740,34 @@ class _PatientHealthWorkerChatScreenState extends State<PatientHealthWorkerChatS
                                   height: 32,
                                   decoration: BoxDecoration(
                                     gradient: const LinearGradient(
-                                      colors: [Color(0xFFFF5252), Color(0xFFE91E63)],
+                                      colors: [
+                                        Color(0xFFFF5252),
+                                        Color(0xFFE91E63)
+                                      ],
                                     ),
                                     borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(color: Colors.white, width: 1.5),
+                                    border: Border.all(
+                                        color: Colors.white, width: 1.5),
                                   ),
-                                  child: widget.healthWorkerProfilePicture != null && 
-                                         widget.healthWorkerProfilePicture!.isNotEmpty
+                                  child: widget.healthWorkerProfilePicture !=
+                                              null &&
+                                          widget.healthWorkerProfilePicture!
+                                              .isNotEmpty
                                       ? ClipRRect(
-                                          borderRadius: BorderRadius.circular(14.5),
+                                          borderRadius:
+                                              BorderRadius.circular(14.5),
                                           child: Image.network(
                                             widget.healthWorkerProfilePicture!,
                                             fit: BoxFit.cover,
-                                            errorBuilder: (context, error, stackTrace) {
+                                            errorBuilder:
+                                                (context, error, stackTrace) {
                                               return Center(
                                                 child: Text(
-                                                  widget.healthWorkerName.isNotEmpty 
-                                                      ? widget.healthWorkerName[0].toUpperCase() 
+                                                  widget.healthWorkerName
+                                                          .isNotEmpty
+                                                      ? widget
+                                                          .healthWorkerName[0]
+                                                          .toUpperCase()
                                                       : 'H',
                                                   style: const TextStyle(
                                                     color: Colors.white,
@@ -734,8 +781,9 @@ class _PatientHealthWorkerChatScreenState extends State<PatientHealthWorkerChatS
                                         )
                                       : Center(
                                           child: Text(
-                                            widget.healthWorkerName.isNotEmpty 
-                                                ? widget.healthWorkerName[0].toUpperCase() 
+                                            widget.healthWorkerName.isNotEmpty
+                                                ? widget.healthWorkerName[0]
+                                                    .toUpperCase()
                                                 : 'H',
                                             style: const TextStyle(
                                               color: Colors.white,
@@ -749,19 +797,19 @@ class _PatientHealthWorkerChatScreenState extends State<PatientHealthWorkerChatS
                               ] else if (!isMe) ...[
                                 const SizedBox(width: 40),
                               ],
-                              
                               Flexible(
                                 child: Column(
-                                  crossAxisAlignment: isMe 
-                                      ? CrossAxisAlignment.end 
+                                  crossAxisAlignment: isMe
+                                      ? CrossAxisAlignment.end
                                       : CrossAxisAlignment.start,
                                   children: [
                                     GestureDetector(
                                       onTap: () {
                                         HapticFeedback.lightImpact();
                                         setState(() {
-                                          _expandedTimestamps[m.id] = 
-                                              !(_expandedTimestamps[m.id] ?? false);
+                                          _expandedTimestamps[m.id] =
+                                              !(_expandedTimestamps[m.id] ??
+                                                  false);
                                         });
                                       },
                                       child: Container(
@@ -776,7 +824,8 @@ class _PatientHealthWorkerChatScreenState extends State<PatientHealthWorkerChatS
                                                   end: Alignment.bottomRight,
                                                   colors: [
                                                     Colors.redAccent,
-                                                    Colors.redAccent.withOpacity(0.8),
+                                                    Colors.redAccent
+                                                        .withOpacity(0.8),
                                                   ],
                                                 )
                                               : null,
@@ -784,16 +833,16 @@ class _PatientHealthWorkerChatScreenState extends State<PatientHealthWorkerChatS
                                           borderRadius: BorderRadius.only(
                                             topLeft: const Radius.circular(20),
                                             topRight: const Radius.circular(20),
-                                            bottomLeft: isMe 
-                                                ? const Radius.circular(20) 
+                                            bottomLeft: isMe
+                                                ? const Radius.circular(20)
                                                 : const Radius.circular(4),
-                                            bottomRight: isMe 
-                                                ? const Radius.circular(4) 
+                                            bottomRight: isMe
+                                                ? const Radius.circular(4)
                                                 : const Radius.circular(20),
                                           ),
                                           boxShadow: [
                                             BoxShadow(
-                                              color: isMe 
+                                              color: isMe
                                                   ? const Color(0x33FF5252)
                                                   : const Color(0x1A000000),
                                               blurRadius: 8,
@@ -804,7 +853,9 @@ class _PatientHealthWorkerChatScreenState extends State<PatientHealthWorkerChatS
                                         child: Text(
                                           m.text,
                                           style: TextStyle(
-                                            color: isMe ? Colors.white : const Color(0xFF2C2C2C),
+                                            color: isMe
+                                                ? Colors.white
+                                                : const Color(0xFF2C2C2C),
                                             fontSize: 16,
                                             fontWeight: FontWeight.w400,
                                             height: 1.4,
@@ -815,11 +866,14 @@ class _PatientHealthWorkerChatScreenState extends State<PatientHealthWorkerChatS
                                     if (_expandedTimestamps[m.id] ?? false) ...[
                                       const SizedBox(height: 4),
                                       AnimatedContainer(
-                                        duration: const Duration(milliseconds: 200),
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        duration:
+                                            const Duration(milliseconds: 200),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 4),
                                         decoration: BoxDecoration(
                                           color: Colors.grey.shade100,
-                                          borderRadius: BorderRadius.circular(12),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
                                         ),
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,
@@ -895,7 +949,7 @@ class _PatientHealthWorkerChatScreenState extends State<PatientHealthWorkerChatS
                     ),
                   ),
                   const SizedBox(width: 12),
-                  
+
                   // Input Field
                   Expanded(
                     child: Container(
@@ -930,7 +984,7 @@ class _PatientHealthWorkerChatScreenState extends State<PatientHealthWorkerChatS
                     ),
                   ),
                   const SizedBox(width: 12),
-                  
+
                   // Send Button
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 200),

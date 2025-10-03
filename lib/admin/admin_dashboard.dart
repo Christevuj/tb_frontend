@@ -1459,8 +1459,18 @@ class DashboardView extends StatelessWidget {
     required bool isMobile,
     Function(DashboardTab)? onNavigateToTab,
   }) {
+    // Build query based on collection type
+    Query<Map<String, dynamic>> query = FirebaseFirestore.instance.collection(collection);
+    
+    // Add filtering for patients
+    if (collection == 'users') {
+      query = query.where('role', isEqualTo: 'patient');
+    }
+    
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection(collection).snapshots(),
+      stream: query
+          .limit(50) // Limit for dashboard overview
+          .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return _buildLoadingCard(title, icon);
@@ -2043,6 +2053,10 @@ class _DoctorsViewState extends State<DoctorsView> {
   Set<String> selectedDoctorIds = {};
   bool _isSelectionMode = false;
 
+  // Cache for filtered results to avoid repeated filtering
+  List<DocumentSnapshot>? _cachedDocs;
+  String _lastSearchQuery = '';
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -2050,26 +2064,47 @@ class _DoctorsViewState extends State<DoctorsView> {
   }
 
   List<DocumentSnapshot> _filterDoctors(List<DocumentSnapshot> docs) {
-    if (_searchQuery.isEmpty) return docs;
+    // Use cached results if search query hasn't changed
+    if (_lastSearchQuery == _searchQuery && _cachedDocs != null) {
+      return _cachedDocs!;
+    }
 
-    return docs.where((doc) {
-      final data = doc.data() as Map<String, dynamic>;
-      final name =
-          (data['fullName'] ?? data['name'] ?? '').toString().toLowerCase();
-      final email = (data['email'] ?? '').toString().toLowerCase();
-      final specialization =
-          (data['specialization'] ?? '').toString().toLowerCase();
+    List<DocumentSnapshot> filtered;
+    if (_searchQuery.isEmpty) {
+      filtered = docs;
+    } else {
+      filtered = docs.where((doc) {
+        final data = doc.data() as Map<String, dynamic>?;
+        if (data == null) return false;
 
-      return name.contains(_searchQuery.toLowerCase()) ||
-          email.contains(_searchQuery.toLowerCase()) ||
-          specialization.contains(_searchQuery.toLowerCase());
-    }).toList();
+        final name =
+            (data['fullName'] ?? data['name'] ?? '').toString().toLowerCase();
+        final email = (data['email'] ?? '').toString().toLowerCase();
+        final specialization =
+            (data['specialization'] ?? '').toString().toLowerCase();
+
+        final query = _searchQuery.toLowerCase();
+
+        return name.contains(query) ||
+            email.contains(query) ||
+            specialization.contains(query);
+      }).toList();
+    }
+
+    // Cache the results
+    _cachedDocs = filtered;
+    _lastSearchQuery = _searchQuery;
+
+    return filtered;
   }
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('doctors').snapshots(),
+      stream: FirebaseFirestore.instance
+          .collection('doctors')
+          .limit(100) // Limit to 100 documents at a time
+          .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(
@@ -2761,6 +2796,31 @@ class _PatientsViewState extends State<PatientsView> {
   bool _isSelectionMode = false;
   Set<String> selectedPatientIds = <String>{};
 
+  // Cache for filtered results to avoid repeated filtering
+  List<DocumentSnapshot>? _cachedDocs;
+  String _lastSearchQuery = '';
+
+  // Future for data loading
+  Future<QuerySnapshot>? _patientsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPatients();
+  }
+
+  void _loadPatients() {
+    print('Loading patients...'); // Debug
+    setState(() {
+      _patientsFuture = FirebaseFirestore.instance
+          .collection('users')
+          .where('role', isEqualTo: 'patient') // Filter for patients only
+          .limit(100)
+          .get()
+          .timeout(const Duration(seconds: 10)); // Add timeout
+    });
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -2768,52 +2828,90 @@ class _PatientsViewState extends State<PatientsView> {
   }
 
   List<DocumentSnapshot> _filterPatients(List<DocumentSnapshot> docs) {
-    if (_searchQuery.isEmpty) return docs;
+    print(
+        'Filtering ${docs.length} documents with query: "$_searchQuery"'); // Debug
 
-    return docs.where((doc) {
-      final data = doc.data() as Map<String, dynamic>;
-      final firstName = (data['firstName'] ?? '').toString().toLowerCase();
-      final lastName = (data['lastName'] ?? '').toString().toLowerCase();
-      final name = (data['name'] ?? '').toString().toLowerCase();
-      final email = (data['email'] ?? '').toString().toLowerCase();
-      final status = _getPatientStatus(data).toLowerCase();
+    try {
+      // Use cached results if search query hasn't changed
+      if (_lastSearchQuery == _searchQuery && _cachedDocs != null) {
+        print('Using cached results: ${_cachedDocs!.length} docs'); // Debug
+        return _cachedDocs!;
+      }
 
-      final fullName = '$firstName $lastName'.trim();
+      List<DocumentSnapshot> filtered;
+      if (_searchQuery.isEmpty) {
+        filtered = docs;
+      } else {
+        filtered = docs.where((doc) {
+          try {
+            final data = doc.data() as Map<String, dynamic>?;
+            if (data == null) return false;
 
-      return firstName.contains(_searchQuery.toLowerCase()) ||
-          lastName.contains(_searchQuery.toLowerCase()) ||
-          name.contains(_searchQuery.toLowerCase()) ||
-          fullName.contains(_searchQuery.toLowerCase()) ||
-          email.contains(_searchQuery.toLowerCase()) ||
-          status.contains(_searchQuery.toLowerCase());
-    }).toList();
+            final firstName =
+                (data['firstName'] ?? '').toString().toLowerCase();
+            final lastName = (data['lastName'] ?? '').toString().toLowerCase();
+            final name = (data['name'] ?? '').toString().toLowerCase();
+            final email = (data['email'] ?? '').toString().toLowerCase();
+            final status = _getPatientStatus(data).toLowerCase();
+
+            final fullName = '$firstName $lastName'.trim();
+            final query = _searchQuery.toLowerCase();
+
+            return firstName.contains(query) ||
+                lastName.contains(query) ||
+                name.contains(query) ||
+                fullName.contains(query) ||
+                email.contains(query) ||
+                status.contains(query);
+          } catch (e) {
+            print('Error filtering document: $e'); // Debug
+            return false;
+          }
+        }).toList();
+      }
+
+      // Cache the results
+      _cachedDocs = filtered;
+      _lastSearchQuery = _searchQuery;
+
+      print('Filtered to ${filtered.length} documents'); // Debug
+      return filtered;
+    } catch (e) {
+      print('Error in _filterPatients: $e'); // Debug
+      return docs; // Return original docs if filtering fails
+    }
   }
 
   String _getPatientStatus(Map<String, dynamic> data) {
-    final status = data['status'] ?? 'Pending';
-    final isApproved = data['isApproved'] ?? false;
-    final consultationCompleted = data['consultationCompleted'] ?? false;
-    final treatmentCompleted = data['treatmentCompleted'] ?? false;
+    try {
+      final status = data['status'] ?? 'Pending';
+      final isApproved = data['isApproved'] ?? false;
+      final consultationCompleted = data['consultationCompleted'] ?? false;
+      final treatmentCompleted = data['treatmentCompleted'] ?? false;
 
-    // Check for treatment completion first (highest priority)
-    if (treatmentCompleted == true || status == 'Treatment Completed') {
-      return 'Treatment Completed';
-    }
-    // Check for consultation completion
-    else if (consultationCompleted == true ||
-        status == 'Consultation Completed') {
-      return 'Consultation Completed';
-    }
-    // Check for approval status
-    else if (isApproved == true || status == 'Approved') {
-      return 'Approved';
-    }
-    // Check for rejection
-    else if (status == 'Rejected') {
-      return 'Rejected';
-    }
-    // Default to pending
-    else {
+      // Check for treatment completion first (highest priority)
+      if (treatmentCompleted == true || status == 'Treatment Completed') {
+        return 'Treatment Completed';
+      }
+      // Check for consultation completion
+      else if (consultationCompleted == true ||
+          status == 'Consultation Completed') {
+        return 'Consultation Completed';
+      }
+      // Check for approval status
+      else if (isApproved == true || status == 'Approved') {
+        return 'Approved';
+      }
+      // Check for rejection
+      else if (status == 'Rejected') {
+        return 'Rejected';
+      }
+      // Default to pending
+      else {
+        return 'Pending';
+      }
+    } catch (e) {
+      // Return default status if there's an error
       return 'Pending';
     }
   }
@@ -2852,8 +2950,8 @@ class _PatientsViewState extends State<PatientsView> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('users').snapshots(),
+    return FutureBuilder<QuerySnapshot>(
+      future: _patientsFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(
@@ -2868,6 +2966,7 @@ class _PatientsViewState extends State<PatientsView> {
         }
 
         final allDocs = snapshot.data?.docs ?? [];
+        print('Loaded ${allDocs.length} patient documents'); // Debug
         final filteredDocs = _filterPatients(allDocs);
 
         return LayoutBuilder(
@@ -2902,6 +3001,12 @@ class _PatientsViewState extends State<PatientsView> {
                               color: const Color(0xFF1F2937),
                             ),
                           ),
+                          const Spacer(),
+                          IconButton(
+                            onPressed: _loadPatients,
+                            icon: const Icon(Icons.refresh),
+                            tooltip: 'Refresh',
+                          ),
                         ],
                       ),
                       const SizedBox(height: 16),
@@ -2915,6 +3020,8 @@ class _PatientsViewState extends State<PatientsView> {
                         child: TextField(
                           controller: _searchController,
                           onChanged: (value) {
+                            // Clear cache when search changes
+                            _cachedDocs = null;
                             setState(() {
                               _searchQuery = value;
                             });
@@ -2973,12 +3080,11 @@ class _PatientsViewState extends State<PatientsView> {
 
   Widget _buildTable(List<DocumentSnapshot> docs, bool isMobile) {
     if (docs.isEmpty) {
-      return Center(
+      return const Center(
         child: Padding(
-          padding: const EdgeInsets.all(32.0),
+          padding: EdgeInsets.all(32.0),
           child: Text('No patients found',
-              style: GoogleFonts.poppins(
-                  color: const Color(0xFF6B7280), fontSize: 16)),
+              style: TextStyle(color: Color(0xFF6B7280), fontSize: 16)),
         ),
       );
     }
@@ -3432,6 +3538,30 @@ class _HealthWorkersViewState extends State<HealthWorkersView> {
   bool _isSelectionMode = false;
   Set<String> selectedHealthWorkerIds = <String>{};
 
+  // Cache for filtered results to avoid repeated filtering
+  List<DocumentSnapshot>? _cachedDocs;
+  String _lastSearchQuery = '';
+
+  // Future for data loading
+  Future<QuerySnapshot>? _healthWorkersFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHealthWorkers();
+  }
+
+  void _loadHealthWorkers() {
+    print('Loading health workers...'); // Debug
+    setState(() {
+      _healthWorkersFuture = FirebaseFirestore.instance
+          .collection('healthcare')
+          .limit(100)
+          .get()
+          .timeout(const Duration(seconds: 10)); // Add timeout
+    });
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -3439,30 +3569,48 @@ class _HealthWorkersViewState extends State<HealthWorkersView> {
   }
 
   List<DocumentSnapshot> _filterHealthWorkers(List<DocumentSnapshot> docs) {
-    if (_searchQuery.isEmpty) return docs;
+    // Use cached results if search query hasn't changed
+    if (_lastSearchQuery == _searchQuery && _cachedDocs != null) {
+      return _cachedDocs!;
+    }
 
-    return docs.where((doc) {
-      final data = doc.data() as Map<String, dynamic>;
-      final name =
-          (data['fullName'] ?? data['name'] ?? '').toString().toLowerCase();
-      final email = (data['email'] ?? '').toString().toLowerCase();
-      final specialization =
-          (data['specialization'] ?? '').toString().toLowerCase();
-      final facilityName = data['facility'] != null && data['facility'] is Map
-          ? (data['facility']['name'] ?? '').toString().toLowerCase()
-          : '';
+    List<DocumentSnapshot> filtered;
+    if (_searchQuery.isEmpty) {
+      filtered = docs;
+    } else {
+      filtered = docs.where((doc) {
+        final data = doc.data() as Map<String, dynamic>?;
+        if (data == null) return false;
 
-      return name.contains(_searchQuery.toLowerCase()) ||
-          email.contains(_searchQuery.toLowerCase()) ||
-          specialization.contains(_searchQuery.toLowerCase()) ||
-          facilityName.contains(_searchQuery.toLowerCase());
-    }).toList();
+        final name =
+            (data['fullName'] ?? data['name'] ?? '').toString().toLowerCase();
+        final email = (data['email'] ?? '').toString().toLowerCase();
+        final specialization =
+            (data['specialization'] ?? '').toString().toLowerCase();
+        final facilityName = data['facility'] != null && data['facility'] is Map
+            ? (data['facility']['name'] ?? '').toString().toLowerCase()
+            : '';
+
+        final query = _searchQuery.toLowerCase();
+
+        return name.contains(query) ||
+            email.contains(query) ||
+            specialization.contains(query) ||
+            facilityName.contains(query);
+      }).toList();
+    }
+
+    // Cache the results
+    _cachedDocs = filtered;
+    _lastSearchQuery = _searchQuery;
+
+    return filtered;
   }
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('healthcare').snapshots(),
+    return FutureBuilder<QuerySnapshot>(
+      future: _healthWorkersFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(

@@ -19,6 +19,77 @@ class _DmessagesState extends State<Dmessages> {
   String? _currentUserId;
   String _searchQuery = '';
 
+  // Method to get conversation state (archived, muted, deleted)
+  Future<Map<String, dynamic>?> _getConversationState(String patientId) async {
+    try {
+      final chatId = _getChatId(_currentUserId!, patientId);
+      final stateDoc = await FirebaseFirestore.instance
+          .collection('conversation_states')
+          .doc(chatId)
+          .get();
+      
+      if (stateDoc.exists) {
+        return stateDoc.data();
+      }
+      return null;
+    } catch (e) {
+      print('Error getting conversation state: $e');
+      return null;
+    }
+  }
+
+  // Method to set conversation state
+  Future<void> _setConversationState(String patientId, String state) async {
+    try {
+      final chatId = _getChatId(_currentUserId!, patientId);
+      await FirebaseFirestore.instance
+          .collection('conversation_states')
+          .doc(chatId)
+          .set({
+        'state': state, // 'archived', 'muted', 'deleted', or 'active'
+        'timestamp': Timestamp.now(),
+        'doctorId': _currentUserId,
+        'patientId': patientId,
+      });
+    } catch (e) {
+      print('Error setting conversation state: $e');
+    }
+  }
+
+  // Generate consistent chat ID
+  String _getChatId(String userId1, String userId2) {
+    final sortedIds = [userId1, userId2]..sort();
+    return '${sortedIds[0]}_${sortedIds[1]}';
+  }
+
+  // Method to restore conversation when USER sends a message (for archive only)
+  Future<void> _restoreConversationOnUserReply(String patientId) async {
+    try {
+      final conversationState = await _getConversationState(patientId);
+      if (conversationState != null && conversationState['state'] == 'archived') {
+        // Only restore archived conversations when user replies, NOT muted ones
+        await _setConversationState(patientId, 'active');
+        print('Archived conversation restored for patient: $patientId');
+      }
+    } catch (e) {
+      print('Error restoring conversation on user reply: $e');
+    }
+  }
+
+  // Method to restore conversation when PATIENT sends a message (for archive only)
+  Future<void> _restoreConversationOnPatientMessage(String patientId) async {
+    try {
+      final conversationState = await _getConversationState(patientId);
+      if (conversationState != null && conversationState['state'] == 'archived') {
+        // Only restore archived conversations when patient messages, NOT muted ones
+        await _setConversationState(patientId, 'active');
+        print('Archived conversation restored by patient message: $patientId');
+      }
+    } catch (e) {
+      print('Error restoring conversation on patient message: $e');
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -133,6 +204,66 @@ class _DmessagesState extends State<Dmessages> {
         throw Exception('No authenticated user found');
       }
 
+      // Restore conversation if it was archived when user opens chat to reply
+      await _restoreConversationOnUserReply(patientId);
+
+      // Create or update user docs for chat - ensure both users exist in users collection
+      await _chatService.createUserDoc(
+        userId: currentUser.uid,
+        name: 'Dr. ${currentUser.displayName ?? 'Doctor'}',
+        role: 'doctor',
+      );
+
+      await _chatService.createUserDoc(
+        userId: patientId,
+        name: patientName,
+        role: 'patient',
+      );
+
+      // Navigate to chat screen
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChatScreen(
+              currentUserId: currentUser.uid,
+              otherUserId: patientId,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error opening chat: $e'),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            action: SnackBarAction(
+              label: 'Dismiss',
+              textColor: Colors.white,
+              onPressed: () {},
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  // Open chat without restoring conversation state (used in archived messages modal)
+  Future<void> _openChatWithoutRestore(String patientId, String patientName) async {
+    try {
+      // Get current doctor's ID
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        throw Exception('No authenticated user found');
+      }
+
+      // DO NOT restore conversation state - just open chat
+
       // Create or update user docs for chat - ensure both users exist in users collection
       await _chatService.createUserDoc(
         userId: currentUser.uid,
@@ -236,16 +367,25 @@ class _DmessagesState extends State<Dmessages> {
         );
 
         if (patientId.isNotEmpty) {
-          print('Found patient ID: $patientId');
-          final patientName = await _getPatientName(patientId);
-          print('Patient name: $patientName');
+          // Check conversation state - exclude archived, muted, or deleted
+          final conversationState = await _getConversationState(patientId);
+          final state = conversationState?['state'] ?? 'active';
+          
+          // Only include active conversations in main chat list
+          if (state == 'active') {
+            print('Found patient ID: $patientId');
+            final patientName = await _getPatientName(patientId);
+            print('Patient name: $patientName');
 
-          messagedPatients.add({
-            'id': patientId,
-            'name': patientName,
-            'lastMessage': chatData['lastMessage'] ?? 'No messages yet',
-            'lastTimestamp': chatData['lastTimestamp'],
-          });
+            messagedPatients.add({
+              'id': patientId,
+              'name': patientName,
+              'lastMessage': chatData['lastMessage'] ?? 'No messages yet',
+              'lastTimestamp': chatData['lastTimestamp'],
+            });
+          } else {
+            print('Skipping patient $patientId - conversation state: $state');
+          }
         }
       }
 
@@ -288,7 +428,7 @@ class _DmessagesState extends State<Dmessages> {
         slivers: [
           // Modern Header with sliver app bar
           SliverAppBar(
-            expandedHeight: 120,
+            expandedHeight: 90,
             floating: false,
             pinned: true,
             elevation: 0,
@@ -322,7 +462,7 @@ class _DmessagesState extends State<Dmessages> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Chats',
+                                    'Messages',
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontSize: 32,
@@ -330,33 +470,27 @@ class _DmessagesState extends State<Dmessages> {
                                       letterSpacing: -0.5,
                                     ),
                                   ),
-                                  SizedBox(height: 4),
-                                  Text(
-                                    'Recent conversations',
-                                    style: TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w400,
-                                    ),
-                                  ),
                                 ],
                               ),
                             ),
-                            Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(22),
-                                border: Border.all(
-                                  color: Colors.white.withOpacity(0.2),
-                                  width: 1,
+                            GestureDetector(
+                              onTap: () => _showArchivedMessages(),
+                              child: Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(22),
+                                  border: Border.all(
+                                    color: Colors.white.withOpacity(0.2),
+                                    width: 1,
+                                  ),
                                 ),
-                              ),
-                              child: const Icon(
-                                Icons.chat_bubble_rounded,
-                                color: Colors.white,
-                                size: 22,
+                                child: const Icon(
+                                  Icons.archive_rounded,
+                                  color: Colors.white,
+                                  size: 22,
+                                ),
                               ),
                             ),
                           ],
@@ -505,26 +639,7 @@ class _DmessagesState extends State<Dmessages> {
                             ),
                           ),
                           const SizedBox(height: 12),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 40),
-                            child: Text(
-                              'Start messaging with patients by visiting them in the "View Pending" appointments section and begin a conversation.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Colors.grey.shade600,
-                                fontSize: 16,
-                                height: 1.5,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          Text(
-                            'Current User: ${_currentUserId ?? "Not logged in"}',
-                            style: TextStyle(
-                              color: Colors.grey.shade500,
-                              fontSize: 12,
-                            ),
-                          ),
+                          
                         ],
                       ),
                     ),
@@ -576,6 +691,10 @@ class _DmessagesState extends State<Dmessages> {
                             onTap: () {
                               HapticFeedback.lightImpact();
                               _openChat(patientId, patientName);
+                            },
+                            onLongPress: () {
+                              HapticFeedback.mediumImpact();
+                              _showMessageOptions(patientId, patientName);
                             },
                             child: Padding(
                               padding: const EdgeInsets.all(14),
@@ -725,26 +844,431 @@ class _DmessagesState extends State<Dmessages> {
     );
   }
 
-  void _testStreamManually() {
-    print('🧪 Testing stream manually...');
-    _streamMessagedPatients().listen(
-      (conversations) {
-        print(
-            '🧪 Manual stream test - Got ${conversations.length} conversations');
-        for (var conv in conversations) {
-          print('🧪 Manual stream test - Conversation: $conv');
+
+
+  // Get archived conversations
+  Stream<List<Map<String, dynamic>>> _streamArchivedConversations() {
+    if (_currentUserId == null) {
+      return Stream.value([]);
+    }
+
+    return FirebaseFirestore.instance
+        .collection('chats')
+        .where('participants', arrayContains: _currentUserId)
+        .snapshots()
+        .asyncMap((chatsSnapshot) async {
+      final archivedConversations = <Map<String, dynamic>>[];
+
+      for (var chatDoc in chatsSnapshot.docs) {
+        final chatData = chatDoc.data();
+        final participants = List<String>.from(chatData['participants'] ?? []);
+
+        final patientId = participants.firstWhere(
+          (id) => id != _currentUserId,
+          orElse: () => '',
+        );
+
+        if (patientId.isNotEmpty) {
+          final conversationState = await _getConversationState(patientId);
+          final state = conversationState?['state'] ?? 'active';
+          
+          // Only include archived and muted conversations (NOT deleted)
+          if (state == 'archived' || state == 'muted') {
+            final patientName = await _getPatientName(patientId);
+            archivedConversations.add({
+              'id': patientId,
+              'name': patientName,
+              'lastMessage': chatData['lastMessage'] ?? 'No messages yet',
+              'lastTimestamp': chatData['lastTimestamp'],
+              'state': state,
+              'archivedAt': conversationState?['timestamp'],
+            });
+          }
         }
-      },
-      onError: (error) {
-        print('🧪 Manual stream test - Error: $error');
-      },
+      }
+
+      // Sort by archived timestamp
+      archivedConversations.sort((a, b) {
+        final aTime = a['archivedAt'] as Timestamp?;
+        final bTime = b['archivedAt'] as Timestamp?;
+
+        if (aTime == null && bTime == null) return 0;
+        if (aTime == null) return 1;
+        if (bTime == null) return -1;
+
+        return bTime.compareTo(aTime);
+      });
+
+      return archivedConversations;
+    });
+  }
+
+  // Show archived messages
+  void _showArchivedMessages() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.8,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                children: [
+                  const Text(
+                    'Archived Messages',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: StreamBuilder<List<Map<String, dynamic>>>(
+                stream: _streamArchivedConversations(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(),
+                    );
+                  }
+
+                  if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                    return const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.archive_outlined,
+                            size: 64,
+                            color: Colors.grey,
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            'No archived messages yet',
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  final archivedConversations = snapshot.data!;
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    itemCount: archivedConversations.length,
+                    itemBuilder: (context, index) {
+                      final conversation = archivedConversations[index];
+                      final state = conversation['state'];
+                      
+                      Color stateColor;
+                      IconData stateIcon;
+                      
+                      switch (state) {
+                        case 'archived':
+                          stateColor = Colors.blue;
+                          stateIcon = Icons.archive_rounded;
+                          break;
+                        default:
+                          stateColor = Colors.grey;
+                          stateIcon = Icons.chat_bubble_outline;
+                      }
+
+                      return Container(
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: stateColor.withOpacity(0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: ListTile(
+                          leading: Stack(
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade300,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    conversation['name'].isNotEmpty
+                                        ? conversation['name'][0].toUpperCase()
+                                        : 'P',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                bottom: 0,
+                                right: 0,
+                                child: Container(
+                                  width: 16,
+                                  height: 16,
+                                  decoration: BoxDecoration(
+                                    color: stateColor,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    stateIcon,
+                                    size: 8,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          title: Text(
+                            conversation['name'],
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          subtitle: Text(
+                            conversation['lastMessage'],
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          trailing: TextButton(
+                            onPressed: () {
+                              _setConversationState(conversation['id'], 'active');
+                              Navigator.pop(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Conversation restored'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            },
+                            child: const Text('Restore'),
+                          ),
+                          onTap: () {
+                            // For archived conversations: only open chat, don't auto-restore
+                            // For muted conversations: only open chat, don't auto-restore
+                            Navigator.pop(context);
+                            
+                            // Open chat without restoring the conversation state
+                            _openChatWithoutRestore(conversation['id'], conversation['name']);
+                          },
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  void _debugShowCurrentState() {
-    print('📊 Current widget state:');
-    print('📊 _currentUserId: $_currentUserId');
-    print('📊 Widget mounted: $mounted');
-    print('📊 Context: ${context.mounted}');
+  // Show message options (archive, mute, delete)
+  void _showMessageOptions(String patientId, String patientName) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 10),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  Text(
+                    patientName,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  _buildOptionTile(
+                    icon: Icons.archive_rounded,
+                    title: 'Archive',
+                    subtitle: 'Hide this conversation',
+                    color: Colors.blue,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _archiveMessage(patientId);
+                    },
+                  ),
+                  _buildOptionTile(
+                    icon: Icons.delete_rounded,
+                    title: 'Delete',
+                    subtitle: 'Remove this conversation',
+                    color: Colors.red,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _deleteMessage(patientId);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOptionTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      leading: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, color: color, size: 22),
+      ),
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: 16,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(
+          color: Colors.grey.shade600,
+          fontSize: 14,
+        ),
+      ),
+      onTap: onTap,
+    );
+  }
+
+  // Archive message functionality
+  void _archiveMessage(String patientId) async {
+    try {
+      await _setConversationState(patientId, 'archived');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Conversation archived'),
+            duration: const Duration(seconds: 2),
+            backgroundColor: Colors.blue,
+            action: SnackBarAction(
+              label: 'Undo',
+              textColor: Colors.white,
+              onPressed: () => _setConversationState(patientId, 'active'),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error archiving conversation: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+
+  // Delete message functionality - permanently remove
+  void _deleteMessage(String patientId) async {
+    try {
+      final chatId = _getChatId(_currentUserId!, patientId);
+      
+      // Show confirmation dialog
+      bool? confirmDelete = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Delete Conversation'),
+          content: const Text('This conversation will be permanently deleted. This action cannot be undone.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Delete'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmDelete == true) {
+        // Permanently delete the chat document and conversation state
+        await FirebaseFirestore.instance.collection('chats').doc(chatId).delete();
+        await FirebaseFirestore.instance.collection('conversation_states').doc(chatId).delete();
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Conversation permanently deleted'),
+              duration: Duration(seconds: 2),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error deleting conversation: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }

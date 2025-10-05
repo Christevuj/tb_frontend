@@ -17,6 +17,11 @@ class Viewpending extends StatefulWidget {
 }
 
 class _ViewpendingState extends State<Viewpending> {
+  // State variables for collapsible sections
+  bool _isPatientInfoExpanded = true;
+  bool _isUploadedIdExpanded = false;
+  bool _isScheduleExpanded = false;
+
   Future<void> _launchUrl(String url) async {
     final Uri uri = Uri.parse(url);
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
@@ -50,125 +55,60 @@ class _ViewpendingState extends State<Viewpending> {
   Future<void> _rejectAppointment(String reason) async {
     try {
       final firestore = FirebaseFirestore.instance;
+      final appointmentId = widget.appointment['id'] ?? widget.appointment['appointmentId'];
 
-      // Move to rejected collection with reason
-      await firestore.collection('rejected_appointments').add({
+      // Prepare the appointment data with rejection details
+      final rejectedAppointmentData = {
         ...widget.appointment,
-        'status': 'rejected',
         'rejectionReason': reason,
         'rejectedAt': FieldValue.serverTimestamp(),
-      });
-
-      // Also save to history (you might want to create a separate history collection)
-      await firestore.collection('appointment_history').add({
-        ...widget.appointment,
         'status': 'rejected',
-        'rejectionReason': reason,
-        'rejectedAt': FieldValue.serverTimestamp(),
-      });
+      };
+
+      // Add to rejected collection with reason
+      await firestore.collection('rejected_appointments').add(rejectedAppointmentData);
+
+      // Also add to appointment history for proper tracking in dhistory.dart
+      await firestore.collection('appointment_history').add(rejectedAppointmentData);
+
+      // Also update the patient's profile with this rejected appointment
+      if (widget.appointment['patientUid'] != null) {
+        await firestore
+            .collection('users')
+            .doc(widget.appointment['patientUid'])
+            .collection('appointments')
+            .add(rejectedAppointmentData);
+      }
 
       // Delete from pending collection
-      if (widget.appointment['id'] != null) {
-        await firestore
-            .collection('pending_patient_data')
-            .doc(widget.appointment['id'])
-            .delete();
+      if (appointmentId != null) {
+        await firestore.collection('pending_patient_data').doc(appointmentId).delete();
       }
 
-      if (mounted) {
-        Navigator.pop(context, 'rejected');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Appointment rejected successfully'),
-            backgroundColor: Colors.orange.shade600,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        );
-      }
+      Navigator.pop(context, 'rejected');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Appointment rejected and moved to history'),
+          backgroundColor: Colors.red.shade600,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error rejecting appointment: $e'),
-            backgroundColor: Colors.red.shade600,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _generateJitsiLink(Map<String, dynamic> appointment) async {
-    try {
-      // Generate a unique Whereby room name using appointment ID and timestamp
-      final roomName =
-          'tbisita${appointment['id']}${DateTime.now().millisecondsSinceEpoch}';
-      // Whereby free plan: public room, up to 2 participants, no login required for guests
-      final meetingLink = 'https://whereby.com/$roomName';
-
-      // Update the appointment in pending_patient_data collection
-      await FirebaseFirestore.instance
-          .collection('pending_patient_data')
-          .doc(appointment['id'])
-          .update({
-        'meetingLink': meetingLink,
-        'meetingPlatform': 'Whereby',
-        'linkGeneratedAt': FieldValue.serverTimestamp(),
-      });
-
-      // Update the local appointment data to reflect the change immediately
-      setState(() {
-        widget.appointment['meetingLink'] = meetingLink;
-        widget.appointment['meetingPlatform'] = 'Whereby';
-      });
-
-      // Show success message with direct link access
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text(
-                'Whereby video call link generated! No login required for guests.'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 4),
-            action: SnackBarAction(
-              label: 'Copy Link',
-              textColor: Colors.white,
-              onPressed: () {
-                Clipboard.setData(ClipboardData(text: meetingLink));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content:
-                        Text('Link copied! Anyone with the link can join.'),
-                    duration: Duration(seconds: 3),
-                  ),
-                );
-              },
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      // Show error message
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error generating video call link: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error rejecting appointment: $e'),
+          backgroundColor: Colors.red.shade600,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
     }
   }
 
   Future<void> _showScheduleEditDialog() async {
     final appointment = widget.appointment;
-    DateTime? currentDate;
+    DateTime currentDate = DateTime.now();
     String currentTime = appointment["appointmentTime"] ?? "09:00 AM";
 
     try {
@@ -180,14 +120,12 @@ class _ViewpendingState extends State<Viewpending> {
       debugPrint('Error converting appointmentDate: $e');
     }
 
-    currentDate ??= DateTime.now();
-
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
         return _ScheduleEditDialog(
-          initialDate: currentDate!,
+          initialDate: currentDate,
           initialTime: currentTime,
         );
       },
@@ -208,36 +146,75 @@ class _ViewpendingState extends State<Viewpending> {
           'appointmentTime': newTime,
           'lastScheduleUpdatedAt': FieldValue.serverTimestamp(),
         });
-      }
 
-      if (mounted) {
+        setState(() {
+          widget.appointment['appointmentDate'] = Timestamp.fromDate(newDate);
+          widget.appointment['appointmentTime'] = newTime;
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('Schedule updated successfully'),
-            backgroundColor: Colors.green,
+            backgroundColor: Colors.green.shade600,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
         );
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error updating schedule: $e'),
-            backgroundColor: Colors.red.shade600,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error updating schedule: $e'),
+          backgroundColor: Colors.red.shade600,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
     }
   }
 
+  Future<void> _generateJitsiLink(Map<String, dynamic> appointment) async {
+    try {
+      // Generate a unique room name
+      final String roomName = 'TBisita-${appointment['patientUid']}-${DateTime.now().millisecondsSinceEpoch}';
+      final String jitsiLink = 'https://meet.jit.si/$roomName';
+
+      // Update appointment with meeting link
+      final firestore = FirebaseFirestore.instance;
+      final appointmentId = appointment['id'] ?? appointment['appointmentId'];
+      
+      if (appointmentId != null) {
+        await firestore.collection('pending_patient_data').doc(appointmentId).update({
+          'meetingLink': jitsiLink,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+
+        setState(() {
+          appointment['meetingLink'] = jitsiLink;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Meeting link generated successfully'),
+            backgroundColor: Colors.green.shade600,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error generating meeting link: $e'),
+          backgroundColor: Colors.red.shade600,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    }
+  }
+
+  // Method to open chat with patient
   Future<void> _openChat() async {
     try {
       final ChatService chatService = ChatService();
@@ -247,8 +224,7 @@ class _ViewpendingState extends State<Viewpending> {
       }
 
       final patientId = widget.appointment['patientUid'];
-      final patientName =
-          widget.appointment['patientName'] ?? 'Unknown Patient';
+      final patientName = widget.appointment['patientName'] ?? 'Unknown Patient';
 
       if (patientId == null) {
         throw Exception('Patient ID not found');
@@ -313,37 +289,321 @@ class _ViewpendingState extends State<Viewpending> {
       debugPrint('Error converting appointmentDate: $e');
     }
 
-    // Validate required fields
-    final requiredFields = [
-      'patientName',
-      'patientEmail',
-      'patientPhone',
-      'patientAge',
-      'patientGender',
-      'idType',
-      'idImageUrl',
-      'appointmentDate',
-      'appointmentTime',
-      'facility'
-    ];
-
-    for (final field in requiredFields) {
-      if (!appointment.containsKey(field) || appointment[field] == null) {
-        debugPrint('Missing required field: $field');
-      }
-    }
-
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            Colors.grey.shade50,
+            Colors.teal.shade50,
             Colors.white,
           ],
         ),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      child: SingleChildScrollView(
+        child: Container(
+          margin: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.1),
+                spreadRadius: 3,
+                blurRadius: 15,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Modern Header
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.teal.shade600,
+                      Colors.teal.shade400,
+                    ],
+                  ),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(24),
+                    topRight: Radius.circular(24),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.pending_actions,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Pending Appointment Details",
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                            overflow: TextOverflow.visible,
+                            maxLines: 2,
+                            softWrap: true,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            "Review and manage appointment request",
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.white70,
+                            ),
+                            overflow: TextOverflow.visible,
+                            maxLines: 2,
+                            softWrap: true,
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Content Container
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Patient Details Section - Collapsible Card
+                    _buildCollapsibleCard(
+                      title: "Patient Information",
+                      subtitle: "Complete patient details available",
+                      isExpanded: _isPatientInfoExpanded,
+                      onToggle: () {
+                        setState(() {
+                          _isPatientInfoExpanded = !_isPatientInfoExpanded;
+                        });
+                      },
+                      bullets: [
+                        'Full Name: ${appointment["patientName"] ?? "Unknown Patient"}',
+                        'Email: ${appointment["patientEmail"] ?? "No email provided"}',
+                        'Phone: ${appointment["patientPhone"] ?? "No phone provided"}',
+                        'Gender: ${appointment["patientGender"] ?? "Not specified"} | Age: ${appointment["patientAge"]?.toString() ?? "Not specified"}',
+                      ],
+                      buttonText: 'MESSAGE PATIENT',
+                      onPressed: _openChat,
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Uploaded ID Section - Collapsible Card
+                    _buildUploadedIdCard(
+                      title: "Uploaded ID",
+                      subtitle: "Patient identification document",
+                      isExpanded: _isUploadedIdExpanded,
+                      onToggle: () {
+                        setState(() {
+                          _isUploadedIdExpanded = !_isUploadedIdExpanded;
+                        });
+                      },
+                      appointment: appointment,
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Schedule Section with Edit Button - Collapsible Card
+                    _buildScheduleCard(
+                      title: "Appointment Schedule",
+                      subtitle: "Scheduled appointment details (editable)",
+                      isExpanded: _isScheduleExpanded,
+                      onToggle: () {
+                        setState(() {
+                          _isScheduleExpanded = !_isScheduleExpanded;
+                        });
+                      },
+                      date: date,
+                      appointment: appointment,
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Meeting Link Section - Non-collapsible Card  
+                    _buildMeetingLinkCard(
+                      title: "Meeting Link",
+                      subtitle: "Generate or view meeting link",
+                      appointment: appointment,
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Patient Journey Timeline Section - Card Design
+                    Card(
+                      margin: const EdgeInsets.symmetric(vertical: 8),
+                      elevation: 3,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(color: Colors.grey.shade200, width: 1),
+                      ),
+                      color: Colors.white,
+                      child: Column(
+                        children: [
+                          // Card Header with Blue Accent Strip
+                          Container(
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF0A84FF),
+                              borderRadius: BorderRadius.only(
+                                topLeft: Radius.circular(12),
+                                topRight: Radius.circular(12),
+                              ),
+                            ),
+                            child: Container(
+                              width: double.infinity,
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.only(
+                                  topLeft: Radius.circular(12),
+                                  topRight: Radius.circular(12),
+                                ),
+                              ),
+                              margin: const EdgeInsets.only(left: 4),
+                              padding: const EdgeInsets.all(16),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF0A84FF).withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Icon(
+                                      Icons.timeline,
+                                      color: Color(0xFF0A84FF),
+                                      size: 20,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  const Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Patient Journey Timeline',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                      SizedBox(height: 2),
+                                      Text(
+                                        'Treatment progress tracking',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          // Timeline Content
+                          Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Step-by-step Instructions Container
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.shade50,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.blue.shade200),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      _buildStepInstruction(
+                                        stepNumber: '1',
+                                        instruction: 'Patient requested appointment with a Doctor',
+                                        isCompleted: true,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      _buildStepInstruction(
+                                        stepNumber: '2',
+                                        instruction: 'Doctor confirmed and approved the appointment schedule',
+                                        isCompleted: false, // This should be false for pending appointments
+                                      ),
+                                      const SizedBox(height: 8),
+                                      _buildStepInstruction(
+                                        stepNumber: '3',
+                                        instruction: 'Consultation completed with prescription issued',
+                                        isCompleted: false,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      _buildStepInstruction(
+                                        stepNumber: '4',
+                                        instruction: 'Treatment completion certificate delivered',
+                                        isCompleted: false,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      _buildStepInstruction(
+                                        stepNumber: '5',
+                                        instruction: 'Full TB treatment program completed',
+                                        isCompleted: false,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 32),
+
+                    // Bottom Action Buttons Section
+                    _buildActionButtons(appointment),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Build action buttons for Accept/Reject
+  Widget _buildActionButtons(Map<String, dynamic> appointment) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
@@ -352,160 +612,922 @@ class _ViewpendingState extends State<Viewpending> {
           ),
         ],
       ),
-      child: Stack(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          SingleChildScrollView(
-            padding: const EdgeInsets.only(
-                bottom: 180), // To avoid overlap with buttons
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Handle bar
-                Container(
-                  margin: const EdgeInsets.only(top: 16, bottom: 12),
-                  height: 5,
-                  width: 50,
+          // Helpful message when no meeting link exists
+          if (appointment['meetingLink'] == null ||
+              appointment['meetingLink'].toString().isEmpty)
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.orange.shade50,
+                    Colors.orange.shade100
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.orange.shade200),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade200,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.info_rounded,
+                      color: Colors.orange.shade700,
+                      size: 16,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Generate a meeting link before accepting the appointment',
+                      style: TextStyle(
+                        color: Colors.orange.shade700,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          // Message Patient Button
+         
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  height: 50,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [Colors.grey.shade300, Colors.grey.shade400],
-                    ),
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Header
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "Pending Appointment",
-                                style: TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.grey.shade800,
-                                  letterSpacing: -0.5,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                "Review appointment details",
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w400,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: (appointment['meetingLink'] != null &&
+                              appointment['meetingLink']
+                                  .toString()
+                                  .isNotEmpty)
+                          ? [
+                              Colors.green.shade400,
+                              Colors.green.shade600
+                            ]
+                          : [
+                              Colors.grey.shade400,
+                              Colors.grey.shade500
                             ],
-                          ),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade100,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: IconButton(
-                              icon: Icon(
-                                Icons.close,
-                                color: Colors.grey.shade700,
-                                size: 22,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: (appointment['meetingLink'] != null &&
+                                appointment['meetingLink']
+                                    .toString()
+                                    .isNotEmpty)
+                            ? Colors.green.withOpacity(0.3)
+                            : Colors.grey.withOpacity(0.2),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () async {
+                        // Check if meeting link exists before allowing approval
+                        if (appointment['meetingLink'] == null ||
+                            appointment['meetingLink']
+                                .toString()
+                                .isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Text(
+                                  'Please generate a meeting link before accepting the appointment'),
+                              backgroundColor: Colors.orange.shade600,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
                               ),
-                              onPressed: () => Navigator.pop(context),
+                              duration: const Duration(seconds: 3),
+                            ),
+                          );
+                          return; // Prevent approval
+                        }
+
+                        try {
+                          final firestore = FirebaseFirestore.instance;
+
+                          // First, create a copy in approved_appointments
+                          final approvedRef = await firestore
+                              .collection('approved_appointments')
+                              .add({
+                            ...appointment,
+                            'status': 'approved',
+                            'approvedAt': FieldValue.serverTimestamp(),
+                          });
+
+                          debugPrint(
+                              'Created approved appointment: ${approvedRef.id}');
+
+                          // Also save to history
+                          await firestore
+                              .collection('appointment_history')
+                              .add({
+                            ...appointment,
+                            'status': 'approved',
+                            'approvedAt': FieldValue.serverTimestamp(),
+                          });
+
+                          // Also update the patient's profile with this appointment
+                          if (appointment['patientUid'] != null) {
+                            await firestore
+                                .collection('users')
+                                .doc(appointment['patientUid'])
+                                .collection('appointments')
+                                .add({
+                              ...appointment,
+                              'status': 'approved',
+                              'approvedAt':
+                                  FieldValue.serverTimestamp(),
+                            });
+                          }
+
+                          // Delete from pending collection
+                          if (appointment['id'] != null) {
+                            await firestore
+                                .collection('pending_patient_data')
+                                .doc(appointment['id'])
+                                .delete();
+                          }
+
+                          Navigator.pop(context,
+                              'approved'); // Return 'approved' status
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Text(
+                                  'Appointment approved successfully'),
+                              backgroundColor: Colors.green.shade600,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          );
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                  'Error approving appointment: $e'),
+                              backgroundColor: Colors.red.shade600,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (appointment['meetingLink'] == null ||
+                              appointment['meetingLink']
+                                  .toString()
+                                  .isEmpty)
+                            const Icon(Icons.warning_rounded,
+                                size: 18, color: Colors.white),
+                          if (appointment['meetingLink'] == null ||
+                              appointment['meetingLink']
+                                  .toString()
+                                  .isEmpty)
+                            const SizedBox(width: 8),
+                          if (appointment['meetingLink'] != null &&
+                              appointment['meetingLink']
+                                  .toString()
+                                  .isNotEmpty)
+                            const Icon(Icons.check_circle_rounded,
+                                size: 18, color: Colors.white),
+                          if (appointment['meetingLink'] != null &&
+                              appointment['meetingLink']
+                                  .toString()
+                                  .isNotEmpty)
+                            const SizedBox(width: 8),
+                          Text(
+                            (appointment['meetingLink'] != null &&
+                                    appointment['meetingLink']
+                                        .toString()
+                                        .isNotEmpty)
+                                ? "Accept"
+                                : "Accept",
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 24),
-
-                      // Patient Details
-                      const SectionTitle(title: "Patient Details"),
-                      InfoField(
-                          icon: Icons.person,
-                          text: appointment["patientName"] ?? "-"),
-                      InfoField(
-                          icon: Icons.email,
-                          text: appointment["patientEmail"] ?? "-"),
-                      InfoField(
-                          icon: Icons.phone,
-                          text: appointment["patientPhone"] ?? "-"),
-                      InfoField(
-                          icon: Icons.person_outline,
-                          text: appointment["patientGender"] ?? "-"),
-                      InfoField(
-                          icon: Icons.cake,
-                          text: appointment["patientAge"]?.toString() ?? "-"),
-                      InfoField(
-                          icon: Icons.badge,
-                          text: appointment["idType"] ?? "-"),
-
-                      // ID Image Section
-                      const SectionTitle(title: "ID Image"),
-                      if (appointment["idImageUrl"] != null)
-                        Container(
-                          width: double.infinity,
-                          height: 220,
-                          margin: const EdgeInsets.only(bottom: 20),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(20),
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Colors.grey.shade100,
-                                Colors.grey.shade50,
-                              ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Container(
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.red.shade400,
+                      width: 2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.red.withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () async {
+                        await _showRejectDialog();
+                      },
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.close_rounded,
+                            size: 18,
+                            color: Colors.red.shade600,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            "Reject",
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.red.shade600,
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.08),
-                                blurRadius: 15,
-                                offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Helper method to build step instruction
+  Widget _buildStepInstruction({
+    required String stepNumber,
+    required String instruction,
+    required bool isCompleted,
+  }) {
+    return Row(
+      children: [
+        Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            color: isCompleted ? Colors.green.shade600 : Colors.grey.shade300,
+            shape: BoxShape.circle,
+          ),
+          child: Center(
+            child: isCompleted
+                ? const Icon(Icons.check, color: Colors.white, size: 16)
+                : Text(
+                    stepNumber,
+                    style: TextStyle(
+                      color: Colors.grey.shade600,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            instruction,
+            style: TextStyle(
+              fontSize: 13,
+              color: isCompleted ? Colors.green.shade800 : Colors.grey.shade700,
+              fontWeight: isCompleted ? FontWeight.w500 : FontWeight.normal,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Helper method to get icon for bullet points
+  static IconData _iconForBullet(String text) {
+    if (text.toLowerCase().contains('phone')) return Icons.phone;
+    if (text.toLowerCase().contains('email')) return Icons.email;
+    if (text.toLowerCase().contains('name')) return Icons.person;
+    if (text.toLowerCase().contains('date')) return Icons.calendar_today;
+    if (text.toLowerCase().contains('time')) return Icons.access_time;
+    if (text.toLowerCase().contains('facility')) return Icons.location_on;
+    if (text.toLowerCase().contains('id type')) return Icons.badge;
+    if (text.toLowerCase().contains('gender')) return Icons.people;
+    return Icons.info;
+  }
+
+  // Helper method to build styled text with bold labels
+  Widget _buildStyledBulletText(String text) {
+    final colonIndex = text.indexOf(':');
+    if (colonIndex != -1 && colonIndex < text.length - 1) {
+      final label = text.substring(0, colonIndex + 1);
+      final value = text.substring(colonIndex + 1);
+      return RichText(
+        text: TextSpan(
+          style: const TextStyle(fontSize: 14, color: Colors.black87),
+          children: [
+            TextSpan(
+              text: label,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            TextSpan(text: value),
+          ],
+        ),
+      );
+    }
+    return Text(
+      text,
+      style: const TextStyle(fontSize: 14),
+    );
+  }
+
+  // Helper method to build collapsible detailed card
+  Widget _buildCollapsibleCard({
+    required String title,
+    required String subtitle,
+    required bool isExpanded,
+    required VoidCallback onToggle,
+    required List<String> bullets,
+    required String buttonText,
+    required VoidCallback onPressed,
+  }) {
+    return Card(
+      elevation: 2,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: Column(
+        children: [
+          // Header - Always visible
+          InkWell(
+            onTap: onToggle,
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 6,
+                    height: 40,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF0A84FF),
+                      borderRadius: BorderRadius.all(Radius.circular(3)),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle,
+                          style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    color: const Color(0xFF0A84FF),
+                    size: 24,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Expandable content
+          if (isExpanded) ...[
+            const Divider(height: 1),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Column(
+                    children: bullets
+                        .map((b) => Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 6.0),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    _iconForBullet(b),
+                                    size: 18,
+                                    color: const Color(0xFF0A84FF),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: _buildStyledBulletText(b),
+                                  ),
+                                ],
+                              ),
+                            ))
+                        .toList(),
+                  ),
+                  const SizedBox(height: 16),
+                  // Consistent button styling for all actions
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: OutlinedButton.icon(
+                      onPressed: onPressed,
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFF0A84FF)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(28),
+                        ),
+                      ),
+                      icon: buttonText.contains('MESSAGE')
+                          ? const Icon(Icons.message, color: Color(0xFF0A84FF), size: 16)
+                          : const SizedBox.shrink(),
+                      label: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10),
+                        child: Text(
+                          buttonText,
+                          style: const TextStyle(color: Color(0xFF0A84FF)),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // Helper method to build schedule card with edit functionality
+  Widget _buildScheduleCard({
+    required String title,
+    required String subtitle,
+    required bool isExpanded,
+    required VoidCallback onToggle,
+    required DateTime? date,
+    required Map<String, dynamic> appointment,
+  }) {
+    return Card(
+      elevation: 2,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: Column(
+        children: [
+          // Header - Always visible
+          InkWell(
+            onTap: onToggle,
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 6,
+                    height: 40,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF0A84FF),
+                      borderRadius: BorderRadius.all(Radius.circular(3)),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle,
+                          style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.edit,
+                        color: Colors.blue.shade600,
+                        size: 20,
+                      ),
+                      onPressed: () {
+                        _showScheduleEditDialog();
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    color: const Color(0xFF0A84FF),
+                    size: 24,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Expandable content
+          if (isExpanded) ...[
+            const Divider(height: 1),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+              ),
+              child: Column(
+                children: [
+                  'Date: ${date != null ? date.toLocal().toString().split(" ")[0] : "Not specified"}',
+                  'Time: ${appointment["appointmentTime"] ?? "No time set"}',
+                ]
+                    .map((b) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6.0),
+                          child: Row(
+                            children: [
+                              Icon(
+                                _iconForBullet(b),
+                                size: 18,
+                                color: const Color(0xFF0A84FF),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: _buildStyledBulletText(b),
                               ),
                             ],
                           ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(20),
+                        ))
+                    .toList(),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // Helper method to build meeting link card
+  Widget _buildMeetingLinkCard({
+    required String title,
+    required String subtitle,
+    required Map<String, dynamic> appointment,
+  }) {
+    return Card(
+      elevation: 2,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+        ),
+        child: Column(
+          children: [
+            // Header section
+            Row(
+              children: [
+                Container(
+                  width: 6,
+                  height: 40,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF0A84FF),
+                    borderRadius: BorderRadius.all(Radius.circular(3)),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // Content section (always visible now)
+            Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: appointment["meetingLink"] != null &&
+                        appointment["meetingLink"]
+                            .toString()
+                            .isNotEmpty
+                    ? Colors.blue.shade50
+                    : Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: appointment["meetingLink"] != null &&
+                          appointment["meetingLink"]
+                              .toString()
+                              .isNotEmpty
+                      ? Colors.blue.shade200
+                      : Colors.grey.shade200,
+                  width: 1,
+                ),
+              ),
+              child: GestureDetector(
+                onTap: appointment["meetingLink"] != null &&
+                        appointment["meetingLink"]
+                            .toString()
+                            .isNotEmpty
+                    ? () async {
+                        await _launchUrl(
+                            appointment["meetingLink"]);
+                      }
+                    : null,
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: appointment["meetingLink"] != null &&
+                                appointment["meetingLink"]
+                                    .toString()
+                                    .isNotEmpty
+                            ? Colors.blue.shade100
+                            : Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        appointment["meetingLink"] != null &&
+                                appointment["meetingLink"]
+                                    .toString()
+                                    .isNotEmpty
+                            ? Icons.video_call
+                            : Icons.link_off,
+                        color: appointment["meetingLink"] != null &&
+                                appointment["meetingLink"]
+                                    .toString()
+                                    .isNotEmpty
+                            ? Colors.blue.shade600
+                            : Colors.grey.shade600,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        appointment["meetingLink"] != null &&
+                                appointment["meetingLink"]
+                                    .toString()
+                                    .isNotEmpty
+                            ? appointment["meetingLink"]
+                            : "No meeting link generated yet",
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: appointment["meetingLink"] != null &&
+                                  appointment["meetingLink"]
+                                      .toString()
+                                      .isNotEmpty
+                              ? Colors.blue.shade700
+                              : Colors.grey.shade600,
+                          decoration: appointment["meetingLink"] != null &&
+                                  appointment["meetingLink"]
+                                      .toString()
+                                      .isNotEmpty
+                              ? TextDecoration.underline
+                              : null,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (appointment["meetingLink"] != null &&
+                        appointment["meetingLink"]
+                            .toString()
+                            .isNotEmpty)
+                      IconButton(
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(
+                              text: appointment["meetingLink"]));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Text('Link copied to clipboard'),
+                              backgroundColor: Colors.green.shade600,
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        },
+                        icon: Icon(Icons.copy,
+                            color: Colors.blue.shade600, size: 20),
+                        tooltip: 'Copy link',
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  await _generateJitsiLink(appointment);
+                },
+                icon: const Icon(Icons.video_call, size: 20),
+                label: Text(
+                  appointment["meetingLink"] != null &&
+                          appointment["meetingLink"]
+                              .toString()
+                              .isNotEmpty
+                      ? "Regenerate Link"
+                      : "Generate Link",
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue.shade600,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Helper method to build uploaded ID card
+  Widget _buildUploadedIdCard({
+    required String title,
+    required String subtitle,
+    required bool isExpanded,
+    required VoidCallback onToggle,
+    required Map<String, dynamic> appointment,
+  }) {
+    return Card(
+      elevation: 2,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: Column(
+        children: [
+          // Header - Always visible
+          InkWell(
+            onTap: onToggle,
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 6,
+                    height: 40,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF0A84FF),
+                      borderRadius: BorderRadius.all(Radius.circular(3)),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle,
+                          style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    color: const Color(0xFF0A84FF),
+                    size: 24,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Expandable content
+          if (isExpanded) ...[
+            const Divider(height: 1),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ID Type information
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6.0),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.badge,
+                          size: 18,
+                          color: const Color(0xFF0A84FF),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _buildStyledBulletText(
+                            'ID Type: ${appointment["idType"] ?? "Not specified"}',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // ID Image container
+                  Container(
+                    width: double.infinity,
+                    height: 200,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: appointment["idImageUrl"] != null && 
+                           appointment["idImageUrl"].toString().isNotEmpty
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
                             child: Image.network(
                               appointment["idImageUrl"],
-                              fit: BoxFit.cover,
-                              loadingBuilder:
-                                  (context, child, loadingProgress) {
+                              fit: BoxFit.contain,
+                              loadingBuilder: (context, child, loadingProgress) {
                                 if (loadingProgress == null) return child;
                                 return Center(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      CircularProgressIndicator(
-                                        value: loadingProgress
-                                                    .expectedTotalBytes !=
-                                                null
-                                            ? loadingProgress
-                                                    .cumulativeBytesLoaded /
-                                                loadingProgress
-                                                    .expectedTotalBytes!
-                                            : null,
-                                        strokeWidth: 3,
-                                        valueColor:
-                                            AlwaysStoppedAnimation<Color>(
-                                          Colors.blue.shade600,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      Text(
-                                        'Loading image...',
-                                        style: TextStyle(
-                                          color: Colors.grey.shade600,
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ],
+                                  child: CircularProgressIndicator(
+                                    value: loadingProgress.expectedTotalBytes != null
+                                        ? loadingProgress.cumulativeBytesLoaded /
+                                          loadingProgress.expectedTotalBytes!
+                                        : null,
                                   ),
                                 );
                               },
@@ -514,26 +1536,17 @@ class _ViewpendingState extends State<Viewpending> {
                                   child: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(16),
-                                        decoration: BoxDecoration(
-                                          color: Colors.red.shade50,
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                        ),
-                                        child: Icon(
-                                          Icons.error_outline,
-                                          color: Colors.red.shade400,
-                                          size: 32,
-                                        ),
+                                      Icon(
+                                        Icons.error_outline,
+                                        color: Colors.red.shade400,
+                                        size: 48,
                                       ),
-                                      const SizedBox(height: 12),
+                                      const SizedBox(height: 8),
                                       Text(
-                                        'Error loading image',
+                                        'Failed to load ID image',
                                         style: TextStyle(
                                           color: Colors.red.shade600,
                                           fontSize: 14,
-                                          fontWeight: FontWeight.w500,
                                         ),
                                       ),
                                     ],
@@ -541,1087 +1554,225 @@ class _ViewpendingState extends State<Viewpending> {
                                 );
                               },
                             ),
-                          ),
-                        ),
-
-                      const SizedBox(height: 20),
-
-                      // Schedule with edit
-                      const SectionTitle(title: "Schedule"),
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border:
-                              Border.all(color: Colors.grey.shade200, width: 1),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.04),
-                              blurRadius: 10,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.orange.shade50,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Icon(
-                                Icons.calendar_today,
-                                color: Colors.orange.shade600,
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Text(
-                                date != null
-                                    ? "${date.toLocal().toString().split(" ")[0]} at ${appointment["appointmentTime"] ?? "-"}"
-                                    : "-",
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.grey.shade800,
-                                  height: 1.3,
+                          )
+                        : Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.image_not_supported_outlined,
+                                  color: Colors.grey.shade400,
+                                  size: 48,
                                 ),
-                              ),
-                            ),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.blue.shade50,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: IconButton(
-                                icon: Icon(
-                                  Icons.edit,
-                                  color: Colors.blue.shade600,
-                                  size: 20,
-                                ),
-                                onPressed: () {
-                                  _showScheduleEditDialog();
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // Meeting Link with Generate Button
-                      const SectionTitle(title: "Meeting Link"),
-                      Container(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: appointment["meetingLink"] != null &&
-                                  appointment["meetingLink"]
-                                      .toString()
-                                      .isNotEmpty
-                              ? Colors.blue.shade50
-                              : Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: appointment["meetingLink"] != null &&
-                                    appointment["meetingLink"]
-                                        .toString()
-                                        .isNotEmpty
-                                ? Colors.blue.shade200
-                                : Colors.grey.shade200,
-                            width: 1,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.04),
-                              blurRadius: 10,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            GestureDetector(
-                              onTap: appointment["meetingLink"] != null &&
-                                      appointment["meetingLink"]
-                                          .toString()
-                                          .isNotEmpty
-                                  ? () async {
-                                      await _launchUrl(
-                                          appointment["meetingLink"]);
-                                    }
-                                  : null,
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color:
-                                          appointment["meetingLink"] != null &&
-                                                  appointment["meetingLink"]
-                                                      .toString()
-                                                      .isNotEmpty
-                                              ? Colors.blue.shade100
-                                              : Colors.grey.shade100,
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Icon(
-                                      appointment["meetingLink"] != null &&
-                                              appointment["meetingLink"]
-                                                  .toString()
-                                                  .isNotEmpty
-                                          ? Icons.videocam
-                                          : Icons.link_off,
-                                      color:
-                                          appointment["meetingLink"] != null &&
-                                                  appointment["meetingLink"]
-                                                      .toString()
-                                                      .isNotEmpty
-                                              ? Colors.blue.shade600
-                                              : Colors.grey.shade500,
-                                      size: 20,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          appointment["meetingLink"] != null &&
-                                                  appointment["meetingLink"]
-                                                      .toString()
-                                                      .isNotEmpty
-                                              ? "Meeting link ready"
-                                              : "No meeting link generated",
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w600,
-                                            color: appointment["meetingLink"] !=
-                                                        null &&
-                                                    appointment["meetingLink"]
-                                                        .toString()
-                                                        .isNotEmpty
-                                                ? Colors.blue.shade700
-                                                : Colors.grey.shade600,
-                                          ),
-                                        ),
-                                        if (appointment["meetingLink"] !=
-                                                null &&
-                                            appointment["meetingLink"]
-                                                .toString()
-                                                .isNotEmpty)
-                                          Padding(
-                                            padding:
-                                                const EdgeInsets.only(top: 4),
-                                            child: Text(
-                                              appointment["meetingLink"],
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                color: Colors.blue.shade600,
-                                                decoration:
-                                                    TextDecoration.underline,
-                                              ),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                  if (appointment["meetingLink"] != null &&
-                                      appointment["meetingLink"]
-                                          .toString()
-                                          .isNotEmpty)
-                                    Icon(
-                                      Icons.open_in_new,
-                                      color: Colors.blue.shade600,
-                                      size: 16,
-                                    ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton.icon(
-                                onPressed: () async {
-                                  await _generateJitsiLink(widget.appointment);
-                                },
-                                icon: const Icon(Icons.video_call, size: 20),
-                                label: Text(
-                                  appointment["meetingLink"] != null &&
-                                          appointment["meetingLink"]
-                                              .toString()
-                                              .isNotEmpty
-                                      ? "Regenerate"
-                                      : "Generate Link",
-                                  style: const TextStyle(
+                                const SizedBox(height: 8),
+                                Text(
+                                  'No ID image provided',
+                                  style: TextStyle(
+                                    color: Colors.grey.shade600,
                                     fontSize: 14,
-                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.blue.shade600,
-                                  foregroundColor: Colors.white,
-                                  elevation: 0,
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 12),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
+                              ],
+                            ),
+                          ),
+                  ),
+                  if (appointment["idImageUrl"] != null && 
+                      appointment["idImageUrl"].toString().isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          // Open image in full screen or show in dialog
+                          showDialog(
+                            context: context,
+                            builder: (context) => Dialog(
+                              backgroundColor: Colors.black,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  AppBar(
+                                    backgroundColor: Colors.black,
+                                    foregroundColor: Colors.white,
+                                    title: const Text('ID Document'),
+                                    leading: IconButton(
+                                      icon: const Icon(Icons.close),
+                                      onPressed: () => Navigator.of(context).pop(),
+                                    ),
                                   ),
-                                ),
+                                  Expanded(
+                                    child: InteractiveViewer(
+                                      child: Image.network(
+                                        appointment["idImageUrl"],
+                                        fit: BoxFit.contain,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ],
+                          );
+                        },
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFF0A84FF)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(28),
+                          ),
+                        ),
+                        icon: const Icon(Icons.zoom_in, color: Color(0xFF0A84FF), size: 16),
+                        label: const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 10),
+                          child: Text(
+                            'VIEW FULL SIZE',
+                            style: TextStyle(color: Color(0xFF0A84FF)),
+                          ),
                         ),
                       ),
-
-                      const SizedBox(height: 100),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Floating message button
-          Positioned(
-            bottom: 120,
-            right: 20,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Colors.orange.shade400,
-                    Colors.orange.shade600,
+                    ),
                   ],
-                ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.orange.withOpacity(0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: () {
-                    _openChat();
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    child: const Icon(
-                      Icons.message_rounded,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          // Accept/Reject buttons
-          Positioned(
-            bottom: 20,
-            left: 20,
-            right: 20,
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 20,
-                    offset: const Offset(0, -5),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Helpful message when no meeting link exists
-                  if (appointment['meetingLink'] == null ||
-                      appointment['meetingLink'].toString().isEmpty)
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            Colors.orange.shade50,
-                            Colors.orange.shade100
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.orange.shade200),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: Colors.orange.shade200,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(
-                              Icons.info_rounded,
-                              color: Colors.orange.shade700,
-                              size: 16,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'Generate a meeting link before accepting the appointment',
-                              style: TextStyle(
-                                color: Colors.orange.shade700,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                height: 1.3,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  // Message Patient Button
-                  Container(
-                    width: double.infinity,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    child: ElevatedButton.icon(
-                      onPressed: _openChat,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue.shade600,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 2,
-                      ),
-                      icon: const Icon(Icons.message, size: 20),
-                      label: const Text(
-                        'MESSAGE PATIENT',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Container(
-                          height: 50,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: (appointment['meetingLink'] != null &&
-                                      appointment['meetingLink']
-                                          .toString()
-                                          .isNotEmpty)
-                                  ? [
-                                      Colors.green.shade400,
-                                      Colors.green.shade600
-                                    ]
-                                  : [
-                                      Colors.grey.shade400,
-                                      Colors.grey.shade500
-                                    ],
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: (appointment['meetingLink'] != null &&
-                                        appointment['meetingLink']
-                                            .toString()
-                                            .isNotEmpty)
-                                    ? Colors.green.withOpacity(0.3)
-                                    : Colors.grey.withOpacity(0.2),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(12),
-                              onTap: () async {
-                                // Check if meeting link exists before allowing approval
-                                if (appointment['meetingLink'] == null ||
-                                    appointment['meetingLink']
-                                        .toString()
-                                        .isEmpty) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: const Text(
-                                          'Please generate a meeting link before accepting the appointment'),
-                                      backgroundColor: Colors.orange.shade600,
-                                      behavior: SnackBarBehavior.floating,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      duration: const Duration(seconds: 3),
-                                    ),
-                                  );
-                                  return; // Prevent approval
-                                }
-
-                                try {
-                                  final firestore = FirebaseFirestore.instance;
-
-                                  // First, create a copy in approved_appointments
-                                  final approvedRef = await firestore
-                                      .collection('approved_appointments')
-                                      .add({
-                                    ...appointment,
-                                    'status': 'approved',
-                                    'approvedAt': FieldValue.serverTimestamp(),
-                                  });
-
-                                  debugPrint(
-                                      'Created approved appointment: ${approvedRef.id}');
-
-                                  // Also save to history
-                                  await firestore
-                                      .collection('appointment_history')
-                                      .add({
-                                    ...appointment,
-                                    'status': 'approved',
-                                    'approvedAt': FieldValue.serverTimestamp(),
-                                  });
-
-                                  // Also update the patient's profile with this appointment
-                                  if (appointment['patientUid'] != null) {
-                                    await firestore
-                                        .collection('users')
-                                        .doc(appointment['patientUid'])
-                                        .collection('appointments')
-                                        .add({
-                                      ...appointment,
-                                      'status': 'approved',
-                                      'approvedAt':
-                                          FieldValue.serverTimestamp(),
-                                    });
-                                  }
-
-                                  // Delete from pending collection
-                                  if (appointment['id'] != null) {
-                                    await firestore
-                                        .collection('pending_patient_data')
-                                        .doc(appointment['id'])
-                                        .delete();
-                                  }
-
-                                  Navigator.pop(context,
-                                      'approved'); // Return 'approved' status
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: const Text(
-                                          'Appointment approved successfully'),
-                                      backgroundColor: Colors.green.shade600,
-                                      behavior: SnackBarBehavior.floating,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                    ),
-                                  );
-                                } catch (e) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                          'Error approving appointment: $e'),
-                                      backgroundColor: Colors.red.shade600,
-                                      behavior: SnackBarBehavior.floating,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                    ),
-                                  );
-                                }
-                              },
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  if (appointment['meetingLink'] == null ||
-                                      appointment['meetingLink']
-                                          .toString()
-                                          .isEmpty)
-                                    const Icon(Icons.warning_rounded,
-                                        size: 18, color: Colors.white),
-                                  if (appointment['meetingLink'] == null ||
-                                      appointment['meetingLink']
-                                          .toString()
-                                          .isEmpty)
-                                    const SizedBox(width: 8),
-                                  if (appointment['meetingLink'] != null &&
-                                      appointment['meetingLink']
-                                          .toString()
-                                          .isNotEmpty)
-                                    const Icon(Icons.check_circle_rounded,
-                                        size: 18, color: Colors.white),
-                                  if (appointment['meetingLink'] != null &&
-                                      appointment['meetingLink']
-                                          .toString()
-                                          .isNotEmpty)
-                                    const SizedBox(width: 8),
-                                  Text(
-                                    (appointment['meetingLink'] != null &&
-                                            appointment['meetingLink']
-                                                .toString()
-                                                .isNotEmpty)
-                                        ? "Accept"
-                                        : "Generate Link First",
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Container(
-                          height: 50,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Colors.red.shade400,
-                              width: 2,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.red.withOpacity(0.1),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(12),
-                              onTap: () async {
-                                await _showRejectDialog();
-                              },
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.close_rounded,
-                                    size: 18,
-                                    color: Colors.red.shade600,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    "Reject",
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.red.shade600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
                 ],
               ),
             ),
-          ),
+          ],
         ],
       ),
     );
   }
 }
 
-// Modern Reject Dialog
-class _ModernRejectDialog extends StatefulWidget {
+// Dialog for rejecting appointments
+class _ModernRejectDialog extends StatelessWidget {
   final TextEditingController reasonController;
 
-  const _ModernRejectDialog({
-    required this.reasonController,
-  });
-
-  @override
-  State<_ModernRejectDialog> createState() => _ModernRejectDialogState();
-}
-
-class _ModernRejectDialogState extends State<_ModernRejectDialog>
-    with TickerProviderStateMixin {
-  late AnimationController _animationController;
-  late Animation<double> _scaleAnimation;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
-
-  final List<String> commonReasons = [
-    'Patient requested cancellation',
-    'Scheduling conflict',
-    'Medical emergency',
-    'Insufficient information provided',
-    'Patient did not meet requirements',
-    'System maintenance',
-  ];
-
-  String? selectedReason;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 400),
-      vsync: this,
-    );
-
-    _scaleAnimation = Tween<double>(
-      begin: 0.8,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.elasticOut,
-    ));
-
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeIn,
-    ));
-
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.1),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeOut,
-    ));
-
-    _animationController.forward();
-  }
-
-  @override
-  void dispose() {
-    _animationController.dispose();
-    super.dispose();
-  }
-
-  void _selectReason(String reason) {
-    setState(() {
-      selectedReason = reason;
-      widget.reasonController.text = reason;
-    });
-  }
+  const _ModernRejectDialog({required this.reasonController});
 
   @override
   Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _fadeAnimation,
-      child: Dialog(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        child: SlideTransition(
-          position: _slideAnimation,
-          child: ScaleTransition(
-            scale: _scaleAnimation,
-            child: Container(
-              width: MediaQuery.of(context).size.width * 0.9,
-              constraints: const BoxConstraints(maxWidth: 420),
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(28),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.15),
-                    blurRadius: 30,
-                    offset: const Offset(0, 15),
-                  ),
-                  BoxShadow(
-                    color: Colors.red.withOpacity(0.1),
-                    blurRadius: 60,
-                    offset: const Offset(0, 30),
-                  ),
-                ],
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Header
-                  Container(
-                    padding: const EdgeInsets.all(28),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Colors.red.shade400,
-                          Colors.red.shade600,
-                        ],
-                      ),
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(28),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: const Icon(
-                            Icons.cancel_presentation_rounded,
-                            color: Colors.white,
-                            size: 28,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Reject Appointment',
-                                style: TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Please provide a reason',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.white.withOpacity(0.9),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          icon: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(
-                              Icons.close_rounded,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Content
-                  Padding(
-                    padding: const EdgeInsets.all(28),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Quick reasons
-                        Text(
-                          'Quick Reasons',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey.shade800,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: commonReasons.map((reason) {
-                            final isSelected = selectedReason == reason;
-                            return GestureDetector(
-                              onTap: () => _selectReason(reason),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 10,
-                                ),
-                                decoration: BoxDecoration(
-                                  gradient: isSelected
-                                      ? LinearGradient(
-                                          colors: [
-                                            Colors.red.shade400,
-                                            Colors.red.shade500
-                                          ],
-                                        )
-                                      : null,
-                                  color:
-                                      isSelected ? null : Colors.grey.shade100,
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: isSelected
-                                        ? Colors.red.shade500
-                                        : Colors.grey.shade300,
-                                    width: isSelected ? 2 : 1,
-                                  ),
-                                  boxShadow: isSelected
-                                      ? [
-                                          BoxShadow(
-                                            color: Colors.red.withOpacity(0.3),
-                                            blurRadius: 8,
-                                            offset: const Offset(0, 2),
-                                          ),
-                                        ]
-                                      : null,
-                                ),
-                                child: Text(
-                                  reason,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: isSelected
-                                        ? FontWeight.w600
-                                        : FontWeight.w500,
-                                    color: isSelected
-                                        ? Colors.white
-                                        : Colors.grey.shade700,
-                                  ),
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                        ),
-
-                        const SizedBox(height: 24),
-
-                        // Custom reason
-                        Text(
-                          'Custom Reason',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey.shade800,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
-                                blurRadius: 10,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: TextField(
-                            controller: widget.reasonController,
-                            decoration: InputDecoration(
-                              hintText:
-                                  'Enter specific reason for rejection...',
-                              hintStyle: TextStyle(
-                                color: Colors.grey.shade500,
-                                fontSize: 14,
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                borderSide:
-                                    BorderSide(color: Colors.grey.shade300),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                borderSide:
-                                    BorderSide(color: Colors.grey.shade300),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                borderSide: BorderSide(
-                                    color: Colors.red.shade400, width: 2),
-                              ),
-                              filled: true,
-                              fillColor: Colors.grey.shade50,
-                              contentPadding: const EdgeInsets.all(16),
-                              prefixIcon: Container(
-                                margin: const EdgeInsets.all(12),
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.red.shade50,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Icon(
-                                  Icons.edit_note_rounded,
-                                  color: Colors.red.shade600,
-                                  size: 20,
-                                ),
-                              ),
-                            ),
-                            maxLines: 3,
-                            textCapitalization: TextCapitalization.sentences,
-                            onChanged: (value) {
-                              if (value != selectedReason) {
-                                setState(() {
-                                  selectedReason = null;
-                                });
-                              }
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Actions
-                  Container(
-                    padding: const EdgeInsets.all(28),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
-                      borderRadius: const BorderRadius.vertical(
-                        bottom: Radius.circular(28),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            height: 52,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                  color: Colors.grey.shade300, width: 2),
-                            ),
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(14),
-                                onTap: () => Navigator.of(context).pop(),
-                                child: Center(
-                                  child: Text(
-                                    'Cancel',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.grey.shade600,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          flex: 2,
-                          child: Container(
-                            height: 52,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  Colors.red.shade500,
-                                  Colors.red.shade600
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(14),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.red.withOpacity(0.4),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(14),
-                                onTap: () {
-                                  if (widget.reasonController.text
-                                      .trim()
-                                      .isEmpty) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: const Text(
-                                            'Please provide a reason for rejection'),
-                                        backgroundColor: Colors.red.shade600,
-                                        behavior: SnackBarBehavior.floating,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                        ),
-                                      ),
-                                    );
-                                    return;
-                                  }
-                                  Navigator.of(context)
-                                      .pop(widget.reasonController.text.trim());
-                                },
-                                child: const Center(
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.block_rounded,
-                                        color: Colors.white,
-                                        size: 20,
-                                      ),
-                                      SizedBox(width: 8),
-                                      Text(
-                                        'Confirm Reject',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w700,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+              child: Icon(
+                Icons.warning_rounded,
+                color: Colors.red.shade600,
+                size: 32,
               ),
             ),
-          ),
+            const SizedBox(height: 16),
+            Text(
+              'Reject Appointment',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Please provide a reason for rejecting this appointment',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: reasonController,
+              maxLines: 3,
+              decoration: InputDecoration(
+                hintText: 'Enter rejection reason...',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.red.shade400, width: 2),
+                ),
+                filled: true,
+                fillColor: Colors.grey.shade50,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      side: BorderSide(color: Colors.grey.shade400),
+                    ),
+                    child: Text(
+                      'Cancel',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      if (reasonController.text.trim().isNotEmpty) {
+                        Navigator.of(context).pop(reasonController.text.trim());
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red.shade600,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Reject',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-// Modern Schedule Edit Dialog
+// Dialog for editing schedule
 class _ScheduleEditDialog extends StatefulWidget {
   final DateTime initialDate;
   final String initialTime;
@@ -2221,103 +2372,6 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-// Section Title
-class SectionTitle extends StatelessWidget {
-  final String title;
-  const SectionTitle({super.key, required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(top: 24, bottom: 16),
-      child: Row(
-        children: [
-          Container(
-            width: 4,
-            height: 20,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.blue.shade400,
-                  Colors.blue.shade600,
-                ],
-              ),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey.shade800,
-              letterSpacing: -0.3,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// Info Field
-class InfoField extends StatelessWidget {
-  final IconData icon;
-  final String text;
-  const InfoField({super.key, required this.icon, required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200, width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              icon,
-              color: Colors.blue.shade600,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                color: Colors.grey.shade800,
-                height: 1.3,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

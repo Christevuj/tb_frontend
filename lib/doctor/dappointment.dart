@@ -327,6 +327,22 @@ class _DappointmentState extends State<Dappointment> {
                                   (route) => false,
                                 );
                               }
+                            } else if (result == 'rejected') {
+                              // Appointment was rejected and moved to history
+                              // The StreamBuilder will automatically refresh and hide this appointment
+                              if (context.mounted) {
+                                setState(() {
+                                  // Trigger a rebuild to refresh the appointments list
+                                });
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Appointment has been rejected and moved to history'),
+                                    backgroundColor: Colors.orange.shade600,
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  ),
+                                );
+                              }
                             }
                           },
                         ),

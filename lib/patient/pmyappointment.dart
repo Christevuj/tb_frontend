@@ -59,34 +59,16 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
       'color': Colors.blue,
     },
     {
-      'key': 'Pending',
-      'label': 'Pending',
-      'icon': Icons.pending,
-      'color': Colors.amber,
-    },
-    {
-      'key': 'Approved',
-      'label': 'Approved',
-      'icon': Icons.check_circle,
-      'color': Colors.green,
-    },
-    {
-      'key': 'Consultation Completed',
-      'label': 'Consultation\nCompleted',
-      'icon': Icons.medical_services,
-      'color': Colors.orange,
-    },
-    {
       'key': 'Treatment Completed',
       'label': 'Treatment\nCompleted',
       'icon': Icons.verified,
       'color': Colors.purple,
     },
     {
-      'key': 'Rejected',
-      'label': 'Rejected',
-      'icon': Icons.cancel,
-      'color': Colors.red,
+      'key': 'History',
+      'label': 'History',
+      'icon': Icons.history,
+      'color': Colors.grey,
     },
   ];
 
@@ -95,6 +77,120 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
     super.initState();
     _selectedMonth = _months[DateTime.now().month - 1];
     _getCurrentPatientId();
+  }
+
+  // Helper method to get status color based on appointment status
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'pending':
+        return Colors.orange;
+      case 'approved':
+        return Colors.green;
+      case 'rejected':
+        return Colors.redAccent;
+      case 'completed':
+        return Colors.green;
+      case 'consultation_finished':
+        return Colors.blue;
+      case 'treatment_completed':
+        return Colors.purple;
+      case 'with_prescription':
+        return Colors.teal;
+      case 'with_certificate':
+        return Colors.indigo;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  // Helper method to get status display text (Simplified for 30-50 year olds)
+  String _getStatusDisplayText(String status) {
+    switch (status.toLowerCase()) {
+      case 'pending':
+        return 'Waiting';
+      case 'approved':
+        return 'Ready';
+      case 'rejected':
+        return 'Not Approved';
+      case 'completed':
+        return 'Done';
+      case 'consultation_finished':
+        return 'Consultation Done';
+      case 'treatment_completed':
+        return 'Treatment Done';
+      case 'with_prescription':
+        return 'Medicine Ready';
+      case 'with_certificate':
+        return 'Certificate Ready';
+      default:
+        return status.toUpperCase();
+    }
+  }
+
+  // Helper method to format appointment date/time
+  String _formatAppointmentDateTime(Map<String, dynamic> appointment) {
+    String status =
+        appointment['status']?.toString().toLowerCase() ?? 'unknown';
+    DateTime? displayDate;
+    String? displayTime;
+
+    // For approved appointments, use the appointment schedule
+    if (status == 'approved') {
+      try {
+        final dynamic appointmentDate = appointment["date"] ??
+            appointment["appointmentDate"] ??
+            appointment["appointment_date"];
+        if (appointmentDate is Timestamp) {
+          displayDate = appointmentDate.toDate();
+        } else if (appointmentDate is DateTime) {
+          displayDate = appointmentDate;
+        } else if (appointmentDate is String) {
+          displayDate = DateTime.parse(appointmentDate);
+        }
+        displayTime = appointment["appointmentTime"] ??
+            appointment["appointment_time"] ??
+            appointment["time"];
+      } catch (e) {
+        debugPrint('Error parsing appointment date: $e');
+      }
+    } else {
+      // For other statuses, use the timestamp when the status was updated
+      var approvedAt = appointment['approvedAt'];
+      var rejectedAt = appointment['rejectedAt'];
+      var updatedAt = appointment['updatedAt'];
+      var completedAt = appointment['completedAt'];
+      var timestamp = approvedAt ?? rejectedAt ?? updatedAt ?? completedAt;
+
+      if (timestamp is Timestamp) {
+        displayDate = timestamp.toDate();
+        // Format time in AM/PM format
+        int hour = displayDate.hour;
+        int minute = displayDate.minute;
+        String period = hour >= 12 ? 'PM' : 'AM';
+        if (hour > 12) hour -= 12;
+        if (hour == 0) hour = 12;
+        displayTime =
+            "${hour.toString()}:${minute.toString().padLeft(2, '0')} $period";
+      } else if (timestamp is String) {
+        try {
+          displayDate = DateTime.parse(timestamp);
+          int hour = displayDate.hour;
+          int minute = displayDate.minute;
+          String period = hour >= 12 ? 'PM' : 'AM';
+          if (hour > 12) hour -= 12;
+          if (hour == 0) hour = 12;
+          displayTime =
+              "${hour.toString()}:${minute.toString().padLeft(2, '0')} $period";
+        } catch (e) {
+          displayDate = null;
+          displayTime = null;
+        }
+      }
+    }
+
+    return displayDate != null
+        ? "${displayDate.day}/${displayDate.month}/${displayDate.year}${displayTime != null ? " at $displayTime" : ""}"
+        : "Date not set";
   }
 
   Future<void> _getCurrentPatientId() async {
@@ -277,8 +373,6 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
     });
   }
 
-  String _monthName(int month) => _months[month - 1];
-
   String _formatDate(dynamic dateValue) {
     try {
       DateTime date;
@@ -295,24 +389,6 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
     } catch (e) {
       debugPrint('Error formatting date: $e');
       return 'Invalid date';
-    }
-  }
-
-  String _getDoctorName(Map<String, dynamic>? doctorData) {
-    if (doctorData == null) return 'Doctor Name';
-
-    // Try different possible field combinations
-    if (doctorData['fullName'] != null) {
-      return 'Dr. ${doctorData['fullName']}';
-    } else if (doctorData['firstName'] != null &&
-        doctorData['lastName'] != null) {
-      return 'Dr. ${doctorData['firstName']} ${doctorData['lastName']}';
-    } else if (doctorData['firstName'] != null) {
-      return 'Dr. ${doctorData['firstName']}';
-    } else if (doctorData['doctorName'] != null) {
-      return '${doctorData['doctorName']}';
-    } else {
-      return 'Dr. Doctor';
     }
   }
 
@@ -442,540 +518,845 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
         maxChildSize: 0.95,
         minChildSize: 0.5,
         builder: (_, controller) => Container(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.teal.shade50,
+                Colors.white,
+              ],
+            ),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
-          child: SingleChildScrollView(
-            controller: controller,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Drag handle
-                Center(
-                  child: Container(
-                    height: 5,
-                    width: 50,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Drag handle
+              Container(
+                height: 5,
+                width: 50,
+                margin: const EdgeInsets.only(top: 12, bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(12),
                 ),
+              ),
 
-                Center(
-                  child: const Text(
-                    "Appointment Details",
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              // Expandable Content with Header
+              Flexible(
+                child: Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius:
+                        BorderRadius.vertical(top: Radius.circular(24)),
                   ),
-                ),
-                const SizedBox(height: 20),
-
-                // Status first - most important info
-                _statusCard(appointment["status"]?.toString() ?? "N/A"),
-
-                // Rejection reason for rejected appointments
-                if (appointment["status"]?.toString() == "rejected" &&
-                    appointment['rejectionReason'] != null) ...[
-                  const SizedBox(height: 16),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.red.shade50,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.red.shade200, width: 1),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Appointment Details Section Header (No space above)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Colors.teal.shade600,
+                              Colors.teal.shade400,
+                            ],
+                          ),
+                          borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(24)),
+                        ),
+                        child: Row(
                           children: [
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: Colors.red.shade100,
-                                borderRadius: BorderRadius.circular(10),
+                                color: Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(8),
                               ),
-                              child: Icon(
-                                Icons.info_outline,
-                                color: Colors.red.shade600,
+                              child: const Icon(
+                                Icons.medical_information,
+                                color: Colors.white,
                                 size: 20,
                               ),
                             ),
                             const SizedBox(width: 12),
-                            Text(
-                              "Rejection Reason",
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.red.shade700,
+                            const Expanded(
+                              child: Text(
+                                "Appointment Details",
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
                               ),
+                            ),
+                            IconButton(
+                              icon:
+                                  const Icon(Icons.close, color: Colors.white),
+                              onPressed: () => Navigator.pop(context),
                             ),
                           ],
                         ),
+                      ),
+
+                      // Scrollable Content
+                      Expanded(
+                        child: Container(
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.only(
+                              bottomLeft: Radius.circular(24),
+                              bottomRight: Radius.circular(24),
+                            ),
+                          ),
+                          child: SingleChildScrollView(
+                            controller: controller,
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Status-based content rendering
+                                  _buildStatusBasedContent(appointment,
+                                      prescriptionData, doctorData),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Status Card - shows above doctor information (Simplified for 30-50 year olds)
+  Widget _buildStatusCard(Map<String, dynamic> appointment) {
+    String status = appointment['status']?.toString().toLowerCase() ?? 'unknown';
+    Color statusColor;
+    String statusTitle;
+    String statusDescription;
+    IconData statusIcon;
+
+    switch (status) {
+      case 'pending':
+        statusColor = Colors.amber.shade600;
+        statusTitle = 'Waiting for Doctor';
+        statusDescription = 'Your appointment is being reviewed';
+        statusIcon = Icons.schedule;
+        break;
+      case 'approved':
+        statusColor = Colors.green.shade600;
+        statusTitle = 'Ready for Consultation';
+        statusDescription = 'You can now join your appointment';
+        statusIcon = Icons.videocam;
+        break;
+      case 'consultation_finished':
+        statusColor = Colors.blue.shade600;
+        statusTitle = 'Consultation Done';
+        statusDescription = 'Your medicine prescription is ready';
+        statusIcon = Icons.medical_services;
+        break;
+      case 'treatment_completed':
+        statusColor = Colors.purple.shade600;
+        statusTitle = 'Treatment Finished';
+        statusDescription = 'All done! Your treatment is complete';
+        statusIcon = Icons.check_circle;
+        break;
+      case 'rejected':
+        statusColor = Colors.red.shade600;
+        statusTitle = 'Appointment Not Approved';
+        statusDescription = 'Please book another appointment';
+        statusIcon = Icons.info;
+        break;
+      default:
+        statusColor = Colors.grey.shade600;
+        statusTitle = 'Status Unknown';
+        statusDescription = 'Please check back later';
+        statusIcon = Icons.help_outline;
+        break;
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: statusColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: statusColor.withOpacity(0.3), width: 1),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: statusColor,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              statusIcon,
+              color: Colors.white,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  statusTitle,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: statusColor,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  statusDescription,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade700,
+                    height: 1.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Helper method to build status-based content
+  Widget _buildStatusBasedContent(
+      Map<String, dynamic> appointment,
+      Map<String, dynamic>? prescriptionData,
+      Map<String, dynamic>? doctorData) {
+    String status =
+        appointment['status']?.toString().toLowerCase() ?? 'unknown';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Status card appears above doctor information for all statuses
+        _buildStatusCard(appointment),
+        const SizedBox(height: 12),
+        
+        if (status == 'pending') ...[
+          // For pending: Show Doctor Info and Schedule only
+          _buildPatientInfoCard(appointment), // Now shows doctor info
+          const SizedBox(height: 12),
+          _buildScheduleCard(appointment),
+          const SizedBox(height: 12),
+          _buildPendingStatusCard(),
+        ] else if (status == 'approved') ...[
+          // For approved: Show basic info and meeting link
+          _buildPatientInfoCard(appointment), // Now shows doctor info
+          const SizedBox(height: 12),
+          _buildScheduleCard(appointment),
+          const SizedBox(height: 12),
+          _buildMeetingLinkCard(appointment),
+        ] else if (status == 'with_prescription' ||
+            status == 'consultation_finished') ...[
+          // For with prescription: Show prescription info
+          _buildPatientInfoCard(appointment), // Now shows doctor info
+          const SizedBox(height: 12),
+          _buildScheduleCard(appointment),
+          const SizedBox(height: 12),
+          _buildPrescriptionCard(appointment, prescriptionData),
+        ] else if (status == 'with_certificate' ||
+            status == 'treatment_completed' ||
+            status == 'completed') ...[
+          // For with certificate: Show full timeline
+          _buildPatientInfoCard(appointment), // Now shows doctor info
+          const SizedBox(height: 12),
+          _buildScheduleCard(appointment),
+          const SizedBox(height: 12),
+          _buildPrescriptionCard(appointment, prescriptionData),
+          const SizedBox(height: 12),
+          _buildCertificateCard(appointment),
+        ] else if (status == 'rejected') ...[
+          // For rejected: Show rejection information
+          _buildPatientInfoCard(appointment), // Now shows doctor info
+          const SizedBox(height: 12),
+          _buildScheduleCard(appointment),
+          const SizedBox(height: 12),
+          _buildRejectionCard(appointment),
+        ] else ...[
+          // Default: Show basic info
+          _buildPatientInfoCard(appointment), // Now shows doctor info
+          const SizedBox(height: 12),
+          _buildScheduleCard(appointment),
+        ],
+        
+        // Timeline card appears for all statuses except rejected
+        if (status != 'rejected') ...[
+          const SizedBox(height: 16),
+          _buildTimelineCard(appointment),
+        ],
+      ],
+    );
+  }
+
+  // Doctor Information Card (replacing Patient Information)
+  Widget _buildPatientInfoCard(Map<String, dynamic> appointment) {
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance
+          .collection('doctors')
+          .doc(appointment["doctorId"] ?? appointment["doctor_id"])
+          .get(),
+      builder: (context, snapshot) {
+        String doctorName = "Dr. Not assigned";
+        String clinicAddress = "No clinic address available";
+        
+        if (snapshot.hasData && snapshot.data!.exists) {
+          final doctorData = snapshot.data!.data() as Map<String, dynamic>;
+          doctorName = "Dr. ${doctorData["fullName"] ?? appointment["doctorName"] ?? "Not assigned"}";
+          
+          if (doctorData["affiliations"] != null &&
+              (doctorData["affiliations"] as List).isNotEmpty) {
+            clinicAddress = (doctorData["affiliations"][0]["address"] ??
+                    "No address")
+                .toString();
+          }
+        } else if (appointment["doctorName"] != null) {
+          doctorName = "Dr. ${appointment["doctorName"]}";
+        }
+
+        return Card(
+          elevation: 2,
+          color: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  width: 6,
+                  height: 40,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF0A84FF),
+                    borderRadius: BorderRadius.all(Radius.circular(3)),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "Doctor Information",
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "Your assigned healthcare provider",
+                        style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildBoldInfoRow(Icons.person, 'Doctor Name:', doctorName),
+                      _buildBoldInfoRow(Icons.location_on, 'Clinic:', clinicAddress),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+
+
+  // Schedule Card
+  Widget _buildScheduleCard(Map<String, dynamic> appointment) {
+    return Card(
+      elevation: 2,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Container(
+              width: 6,
+              height: 40,
+              decoration: const BoxDecoration(
+                color: Color(0xFF0A84FF),
+                borderRadius: BorderRadius.all(Radius.circular(3)),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Appointment Schedule",
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "Scheduled appointment details",
+                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildBoldInfoRow(Icons.calendar_today, 'Date:', 
+                      _formatDate(appointment['date'] ?? appointment['appointmentDate'] ?? appointment['appointment_date'])),
+                  _buildBoldInfoRow(Icons.access_time, 'Time:', 
+                      appointment["appointmentTime"] ?? appointment["appointment_time"] ?? appointment["time"] ?? "No time set"),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Pending Status Card
+  Widget _buildPendingStatusCard() {
+    return Card(
+      elevation: 2,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Container(
+              width: 6,
+              height: 40,
+              decoration: const BoxDecoration(
+                color: Colors.orange,
+                borderRadius: BorderRadius.all(Radius.circular(3)),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Status",
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "Meeting availability information",
+                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildInfoRow(Icons.schedule,
+                      'Meeting will be available once approved'),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Meeting Link Card
+  Widget _buildMeetingLinkCard(Map<String, dynamic> appointment) {
+    final meetingLink = appointment['meetingLink'] ??
+        appointment['jitsi_link'] ??
+        appointment['meeting_link'];
+
+    if (meetingLink == null || meetingLink.toString().isEmpty) {
+      return Card(
+        elevation: 2,
+        color: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 6,
+                height: 40,
+                decoration: const BoxDecoration(
+                  color: Colors.grey,
+                  borderRadius: BorderRadius.all(Radius.circular(3)),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Meeting Link",
+                      style:
+                          TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "Meeting link not available yet",
+                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Card(
+      elevation: 2,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Container(
+              width: 6,
+              height: 40,
+              decoration: const BoxDecoration(
+                color: Colors.green,
+                borderRadius: BorderRadius.all(Radius.circular(3)),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Meeting Link",
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "Join your online consultation",
+                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        final Uri uri = Uri.parse(meetingLink.toString());
+                        try {
+                          if (await canLaunchUrl(uri)) {
+                            await launchUrl(uri,
+                                mode: LaunchMode.externalApplication);
+                          }
+                        } catch (e) {
+                          // Handle error
+                        }
+                      },
+                      icon: const Icon(Icons.video_call),
+                      label: const Text('Join Meeting'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Prescription Card
+  Widget _buildPrescriptionCard(Map<String, dynamic> appointment,
+      Map<String, dynamic>? prescriptionData) {
+    return Card(
+      elevation: 2,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Container(
+              width: 6,
+              height: 40,
+              decoration: const BoxDecoration(
+                color: Colors.teal,
+                borderRadius: BorderRadius.all(Radius.circular(3)),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Electronic Prescription",
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    prescriptionData != null
+                        ? "Prescription available"
+                        : "No prescription data",
+                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                  ),
+                  if (prescriptionData != null) ...[
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () => _viewPrescriptionPdf(prescriptionData),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Colors.teal),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        icon: const Icon(Icons.visibility,
+                            color: Colors.teal, size: 16),
+                        label: const Text(
+                          'View Prescription PDF',
+                          style: TextStyle(color: Colors.teal),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Certificate Card
+  Widget _buildCertificateCard(Map<String, dynamic> appointment) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('certificates')
+          .where('appointmentId', isEqualTo: appointment['appointmentId'])
+          .snapshots(),
+      builder: (context, snapshot) {
+        bool hasCertificate =
+            snapshot.hasData && snapshot.data!.docs.isNotEmpty;
+
+        return Card(
+          elevation: 2,
+          color: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  width: 6,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: hasCertificate ? Colors.purple : Colors.grey,
+                    borderRadius: const BorderRadius.all(Radius.circular(3)),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "Certificate of Completion",
+                        style: TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 16),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        hasCertificate
+                            ? "Certificate available for viewing"
+                            : "Certificate not available yet",
+                        style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                      ),
+                      if (hasCertificate) ...[
                         const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () => _viewCertificatePdf(appointment),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Colors.purple),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            icon: const Icon(Icons.verified,
+                                color: Colors.purple, size: 16),
+                            label: const Text(
+                              'View Certificate PDF',
+                              style: TextStyle(color: Colors.purple),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // Rejection Card
+  Widget _buildRejectionCard(Map<String, dynamic> appointment) {
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade200, width: 1),
+      ),
+      color: Colors.white,
+      child: Column(
+        children: [
+          // Card Header with Red Accent Strip and Delete Button
+          Container(
+            decoration: const BoxDecoration(
+              color: Colors.red,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
+            ),
+            child: Container(
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(12),
+                ),
+              ),
+              margin: const EdgeInsets.only(left: 4),
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.cancel,
+                      color: Colors.red,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          appointment['rejectionReason'],
+                          'Appointment Rejected',
                           style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.red.shade600,
-                            height: 1.4,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Reason for rejection',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey,
                           ),
                         ),
                       ],
                     ),
                   ),
-                ],
-
-                // Patient Details (for completed appointments, show more details)
-                if (appointment['appointmentSource'] == 'completed') ...[
-                  const SizedBox(height: 16),
-                  const Text(
-                    "Patient Information",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  _infoCard(
-                    icon: Icons.person,
-                    iconBg: Colors.blue,
-                    cardBg: Colors.blue.shade50,
-                    value: appointment['patientName'] ?? 'Not available',
-                    label: "Patient Name",
-                  ),
-                  _infoCard(
-                    icon: Icons.email,
-                    iconBg: Colors.teal,
-                    cardBg: Colors.teal.shade50,
-                    value: appointment['patientEmail'] ?? 'Not available',
-                    label: "Email",
-                  ),
-                  _infoCard(
-                    icon: Icons.phone,
-                    iconBg: Colors.green,
-                    cardBg: Colors.green.shade50,
-                    value: appointment['patientPhone'] ?? 'Not available',
-                    label: "Phone Number",
-                  ),
-                  if (appointment['patientAge'] != null)
-                    _infoCard(
-                      icon: Icons.calendar_today,
-                      iconBg: Colors.orange,
-                      cardBg: Colors.orange.shade50,
-                      value: '${appointment['patientAge']} years',
-                      label: "Age",
-                    ),
-                  if (appointment['patientGender'] != null)
-                    _infoCard(
-                      icon: Icons.person_outline,
-                      iconBg: Colors.purple,
-                      cardBg: Colors.purple.shade50,
-                      value: appointment['patientGender'],
-                      label: "Gender",
-                    ),
-                ],
-
-                // Doctor Information
-                const SizedBox(height: 16),
-                const Text(
-                  "Doctor Information",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-
-                _infoCard(
-                  icon: Icons.medical_services,
-                  iconBg: Colors.teal,
-                  cardBg: Colors.teal.shade50,
-                  value: appointment['appointmentSource'] == 'completed' &&
-                          doctorData != null
-                      ? _getDoctorName(doctorData)
-                      : (appointment['doctorName'] ??
-                          appointment['doctor_name'] ??
-                          'Not available'),
-                  label: "Doctor Name",
-                ),
-
-                // Doctor address and experience (for completed appointments)
-                if (appointment['appointmentSource'] == 'completed' &&
-                    doctorData != null) ...[
-                  if (doctorData['address'] != null)
-                    _infoCard(
-                      icon: Icons.location_on,
-                      iconBg: Colors.red,
-                      cardBg: Colors.red.shade50,
-                      value: doctorData['address'],
-                      label: "Doctor's Address",
-                    ),
-                  if (doctorData['experience'] != null)
-                    _infoCard(
-                      icon: Icons.badge,
-                      iconBg: Colors.indigo,
-                      cardBg: Colors.indigo.shade50,
-                      value: '${doctorData['experience']} years experience',
-                      label: "Experience",
-                    ),
-                ] else
-                  // Fetch Doctor's Clinic Address for other appointments
-                  FutureBuilder<DocumentSnapshot>(
-                    future: FirebaseFirestore.instance
-                        .collection('doctors')
-                        .doc(
-                            appointment["doctorId"] ?? appointment["doctor_id"])
-                        .get(),
-                    builder: (context, snapshot) {
-                      String address = "Loading...";
-
-                      if (snapshot.hasData && snapshot.data!.exists) {
-                        final doctorData =
-                            snapshot.data!.data() as Map<String, dynamic>;
-                        if (doctorData["affiliations"] != null &&
-                            (doctorData["affiliations"] as List).isNotEmpty) {
-                          address = (doctorData["affiliations"][0]["address"] ??
-                                  "No address")
-                              .toString();
-                        } else {
-                          address = "No address available";
-                        }
-                      } else if (snapshot.hasError) {
-                        address = "Error loading data";
-                      }
-
-                      return _infoCard(
-                        icon: Icons.location_on,
-                        iconBg: Colors.red,
-                        cardBg: Colors.red.shade50,
-                        value: address,
-                        label: "Clinic Address",
-                      );
+                  // Delete Button
+                  GestureDetector(
+                    onTap: () {
+                      _deleteRejectedAppointment(appointment['id']);
                     },
-                  ),
-
-                // Appointment Schedule
-                const SizedBox(height: 16),
-                const Text(
-                  "Schedule",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-
-                _infoCard(
-                  icon: Icons.calendar_today,
-                  iconBg: Colors.indigo,
-                  cardBg: Colors.indigo.shade50,
-                  value: appointment['date'] != null
-                      ? '${appointment['date'].day}/${appointment['date'].month}/${appointment['date'].year}'
-                      : (appointment['appointmentDate'] != null
-                          ? _formatDate(appointment['appointmentDate'])
-                          : (appointment['appointment_date'] != null
-                              ? _formatDate(appointment['appointment_date'])
-                              : 'Not set')),
-                  label: "Appointment Date",
-                ),
-
-                _infoCard(
-                  icon: Icons.access_time,
-                  iconBg: Colors.amber,
-                  cardBg: Colors.amber.shade50,
-                  value: appointment['appointment_time'] ??
-                      appointment['appointmentTime'] ??
-                      appointment['time'] ??
-                      'Not set',
-                  label: "Appointment Time",
-                ),
-
-                // Meeting Information
-                if (appointment["status"]?.toString().toLowerCase() ==
-                    "approved")
-                  if ((appointment['meetingLink'] ??
-                              appointment['jitsi_link'] ??
-                              appointment['meeting_link']) !=
-                          null &&
-                      (appointment['meetingLink'] ??
-                              appointment['jitsi_link'] ??
-                              appointment['meeting_link'])
-                          .toString()
-                          .isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    const Text(
-                      "Meeting",
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.delete_outline,
+                        color: Colors.red,
+                        size: 20,
+                      ),
                     ),
-                    const SizedBox(height: 8),
-                    _meetingCard(
-                      url: (appointment['meetingLink'] ??
-                              appointment['jitsi_link'] ??
-                              appointment['meeting_link'])
-                          .toString(),
-                      onJoin: () async {
-                        final Uri uri = Uri.parse((appointment['meetingLink'] ??
-                                appointment['jitsi_link'] ??
-                                appointment['meeting_link'])
-                            .toString());
-                        try {
-                          if (await canLaunchUrl(uri)) {
-                            await launchUrl(uri,
-                                mode: LaunchMode.externalApplication);
-                          } else {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content:
-                                        Text("Could not launch meeting link")),
-                              );
-                            }
-                          }
-                        } catch (e) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text("Error: $e")),
-                            );
-                          }
-                        }
-                      },
-                    ),
-                  ] else ...[
-                    const SizedBox(height: 16),
-                    _infoCard(
-                      icon: Icons.link_off,
-                      iconBg: Colors.grey,
-                      cardBg: Colors.grey.shade200,
-                      value: "No meeting link available yet",
-                      label: "Meeting Link",
-                    ),
-                  ]
-                else if (appointment["status"]?.toString().toLowerCase() ==
-                    "pending") ...[
-                  const SizedBox(height: 16),
-                  _infoCard(
-                    icon: Icons.schedule,
-                    iconBg: Colors.orange,
-                    cardBg: Colors.orange.shade50,
-                    value: "Meeting will be available once approved",
-                    label: "Meeting Status",
                   ),
                 ],
+              ),
+            ),
+          ),
 
-                // Prescription Information (for completed appointments)
-                if (appointment['appointmentSource'] == 'completed') ...[
-                  const SizedBox(height: 16),
-                  const Text(
-                    "Treatment Information",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-
-                  if (prescriptionData != null) ...[
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.green.shade50,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.green.shade200),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(Icons.medical_services,
-                                  color: Colors.green, size: 24),
-                              const SizedBox(width: 8),
-                              const Text(
-                                'Prescription Available',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.green,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-
-                          // Check if it's the new prescription format with prescriptionDetails
-                          if (prescriptionData['prescriptionDetails'] !=
-                              null) ...[
-                            // New prescription format
-                            const Text(
-                              'Prescription Details:',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.grey.shade300),
-                              ),
-                              child: Text(
-                                prescriptionData['prescriptionDetails']
-                                    .toString(),
-                                style: const TextStyle(fontSize: 14),
-                              ),
-                            ),
-
-                            // PDF viewing button
-                            if (prescriptionData['pdfPath'] != null ||
-                                (prescriptionData['pdfUrl'] != null &&
-                                    prescriptionData['pdfUrl']
-                                        .toString()
-                                        .isNotEmpty)) ...[
-                              const SizedBox(height: 12),
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton.icon(
-                                  onPressed: () =>
-                                      _viewPrescriptionPdf(prescriptionData!),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.blue,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 12),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                  icon: const Icon(Icons.picture_as_pdf,
-                                      size: 20),
-                                  label: const Text('View Prescription PDF'),
-                                ),
-                              ),
-                            ],
-                          ] else ...[
-                            // Old prescription format (medicines and notes)
-                            _buildMedicinesSection(prescriptionData),
-
-                            // Notes section
-                            if (prescriptionData['notes'] != null) ...[
-                              const SizedBox(height: 12),
-                              const Text(
-                                'Additional Instructions:',
-                                style: TextStyle(fontWeight: FontWeight.w600),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(prescriptionData['notes'].toString()),
-                            ],
-                          ],
-                        ],
-                      ),
-                    ),
-                  ] else ...[
-                    _infoCard(
-                      icon: Icons.info,
-                      iconBg: Colors.grey,
-                      cardBg: Colors.grey.shade50,
-                      value: "No prescription data available",
-                      label: "Prescription Status",
-                    ),
-                  ],
-
-                  // Certificate Status
-                  const SizedBox(height: 12),
-                  if (appointment['certificateSent'] == true) ...[
-                    _infoCard(
-                      icon: Icons.verified,
-                      iconBg: Colors.purple,
-                      cardBg: Colors.purple.shade50,
-                      value: "Treatment completion certificate available",
-                      label: "Certificate Status",
-                    ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: () => _viewCertificatePdf(appointment),
-                        icon: const Icon(Icons.verified),
-                        label: const Text('View Certificate PDF'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.purple,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+          // Rejection Content
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.red.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.info_outline,
+                          color: Colors.red.shade600, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Rejection Reason:",
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.red.shade800,
                         ),
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    appointment["rejectionReason"] ??
+                        "No specific reason provided",
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.red.shade700,
+                      height: 1.4,
                     ),
-                  ] else ...[
-                    _infoCard(
-                      icon: Icons.pending,
-                      iconBg: Colors.orange,
-                      cardBg: Colors.orange.shade50,
-                      value:
-                          "Certificate will be available once issued by doctor",
-                      label: "Certificate Status",
-                    ),
-                  ],
+                  ),
                 ],
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // Styled info card (matches screenshot style)
-  Widget _infoCard({
-    required IconData icon,
-    required Color iconBg,
-    required Color cardBg,
-    required String value,
-    required String label,
-  }) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center, // <-- Center vertically
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: iconBg,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Center(
-              // <-- Center the icon
-              child: Icon(icon, color: Colors.white, size: 24),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.black,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey.shade600,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ],
@@ -983,162 +1364,143 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
     );
   }
 
-  // Status card with custom styling based on status
-  Widget _statusCard(String status) {
-    Color statusColor;
-    Color bgColor;
-    IconData icon;
-
-    switch (status.toLowerCase()) {
-      case 'approved':
-        statusColor = Colors.green;
-        bgColor = Colors.green.shade50;
-        icon = Icons.check_circle;
-        break;
+  // Timeline Card - Dynamic progress based on appointment status
+  Widget _buildTimelineCard(Map<String, dynamic> appointment) {
+    String status = appointment['status']?.toString().toLowerCase() ?? 'unknown';
+    
+    // Determine which steps should be completed based on status
+    bool step1Completed = false; // Patient requested appointment
+    bool step2Completed = false; // Doctor approved appointment
+    bool step3Completed = false; // Consultation completed with prescription
+    bool step4Completed = false; // Treatment completion certificate delivered
+    
+    switch (status) {
       case 'pending':
-        statusColor = Colors.orange;
-        bgColor = Colors.orange.shade50;
-        icon = Icons.pending;
+        step1Completed = true; // Only step 1 is green
+        break;
+      case 'approved':
+        step1Completed = true;
+        step2Completed = true; // Steps 1 and 2 are green
         break;
       case 'consultation_finished':
-        statusColor = Colors.blue;
-        bgColor = Colors.blue.shade50;
-        icon = Icons.medical_services;
+      case 'with_prescription':
+        step1Completed = true;
+        step2Completed = true;
+        step3Completed = true; // Steps 1, 2, and 3 are green
         break;
       case 'treatment_completed':
-        statusColor = Colors.purple;
-        bgColor = Colors.purple.shade50;
-        icon = Icons.verified;
+      case 'with_certificate':
+        step1Completed = true;
+        step2Completed = true;
+        step3Completed = true;
+        step4Completed = true; // All steps are green
         break;
-      case 'cancelled':
-        statusColor = Colors.red;
-        bgColor = Colors.red.shade50;
-        icon = Icons.cancel;
+      case 'rejected':
+        // For rejected, only show step 1 as completed since they did request
+        step1Completed = true;
         break;
       default:
-        statusColor = Colors.grey;
-        bgColor = Colors.grey.shade50;
-        icon = Icons.help;
+        // For unknown status, show step 1 only
+        step1Completed = true;
+        break;
     }
 
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(16),
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade200, width: 1),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      color: Colors.white,
+      child: Column(
         children: [
+          // Card Header with Blue Accent Strip
           Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: statusColor,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Center(
-              child: Icon(icon, color: Colors.white, size: 24),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  status.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: statusColor,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  "Appointment Status",
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey.shade600,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Meeting card with join button
-  Widget _meetingCard({required String url, required VoidCallback onJoin}) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.green.shade50,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.green.shade200),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: Colors.green,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Center(
-              child: Icon(Icons.videocam, color: Colors.white, size: 24),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "Meeting Available",
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.black,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  "Tap to join the virtual appointment",
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey.shade600,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton(
-            onPressed: onJoin,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+            decoration: const BoxDecoration(
+              color: Color(0xFF0A84FF),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             ),
-            child: const Text(
-              "Join",
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
+            child: Container(
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(12),
+                ),
+              ),
+              margin: const EdgeInsets.only(left: 4),
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0A84FF).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.timeline,
+                      color: Color(0xFF0A84FF),
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Patient Journey Timeline',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Your treatment progress',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Timeline Content
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.green.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildStepInstruction(
+                      '1', 'Patient requested appointment with a Doctor', step1Completed),
+                  const SizedBox(height: 8),
+                  _buildStepInstruction(
+                      '2',
+                      'Doctor confirmed and approved the appointment schedule',
+                      step2Completed),
+                  const SizedBox(height: 8),
+                  _buildStepInstruction('3',
+                      'Consultation completed with prescription issued', step3Completed),
+                  const SizedBox(height: 8),
+                  _buildStepInstruction(
+                      '4', 'Treatment completion certificate delivered', step4Completed),
+                ],
               ),
             ),
           ),
@@ -1147,53 +1509,87 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
     );
   }
 
-  // Helper method to build medicines section safely
-  Widget _buildMedicinesSection(Map<String, dynamic> prescriptionData) {
-    if (prescriptionData['medicines'] == null ||
-        prescriptionData['medicines'] is! List) {
-      return const SizedBox.shrink();
-    }
-
-    final medicinesList = prescriptionData['medicines'] as List;
-    if (medicinesList.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  // Helper method to build step instruction
+  Widget _buildStepInstruction(
+      String stepNumber, String instruction, bool isCompleted) {
+    return Row(
       children: [
-        const Text(
-          'Prescribed Medicines:',
-          style: TextStyle(fontWeight: FontWeight.w600),
+        Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            color: isCompleted ? Colors.green.shade600 : Colors.grey.shade300,
+            shape: BoxShape.circle,
+          ),
+          child: Center(
+            child: isCompleted
+                ? const Icon(Icons.check, color: Colors.white, size: 16)
+                : Text(
+                    stepNumber,
+                    style: TextStyle(
+                      color: Colors.grey.shade600,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+          ),
         ),
-        const SizedBox(height: 8),
-        ...medicinesList.asMap().entries.map((entry) {
-          final index = entry.key;
-          final medicine = entry.value as Map<String, dynamic>;
-
-          return Container(
-            margin: const EdgeInsets.only(bottom: 6),
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            instruction,
+            style: TextStyle(
+              fontSize: 13,
+              color: isCompleted ? Colors.green.shade800 : Colors.grey.shade700,
+              fontWeight: isCompleted ? FontWeight.w500 : FontWeight.normal,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  medicine['name']?.toString() ?? 'Medicine ${index + 1}',
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-                if (medicine['dosage'] != null)
-                  Text('Dosage: ${medicine['dosage']}'),
-                if (medicine['frequency'] != null)
-                  Text('Frequency: ${medicine['frequency']}'),
-              ],
-            ),
-          );
-        }),
+          ),
+        ),
       ],
+    );
+  }
+
+  // Helper method to build info row
+  Widget _buildInfoRow(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: const Color(0xFF0A84FF)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(fontSize: 14),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Helper method to build info row with bold values
+  Widget _buildBoldInfoRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: const Color(0xFF0A84FF)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: RichText(
+              text: TextSpan(
+                style: const TextStyle(fontSize: 14, color: Colors.black87),
+                children: [
+                  TextSpan(text: label, style: const TextStyle(fontWeight: FontWeight.normal)),
+                  const TextSpan(text: ' '),
+                  TextSpan(text: value, style: const TextStyle(fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1290,12 +1686,21 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
 
               const SizedBox(height: 8),
 
-              // Calendar
+              // Modern Calendar with Enhanced UI
               Container(
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(16),
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      spreadRadius: 1,
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
+                padding: const EdgeInsets.all(16),
                 child: TableCalendar(
                   firstDay: DateTime.utc(2020, 1, 1),
                   lastDay: DateTime.utc(2030, 12, 31),
@@ -1320,34 +1725,114 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                     });
                   },
                   headerVisible: false,
-                  calendarStyle: const CalendarStyle(
+                  calendarStyle: CalendarStyle(
+                    // Today's date styling
                     todayDecoration: BoxDecoration(
-                        color: Colors.green, shape: BoxShape.circle),
+                      color: Colors.teal.shade400,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.teal.withOpacity(0.3),
+                          spreadRadius: 1,
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    todayTextStyle: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                    // Selected date styling
                     selectedDecoration: BoxDecoration(
-                        color: Colors.blueAccent, shape: BoxShape.circle),
-                    outsideTextStyle: TextStyle(color: Colors.grey),
-                    weekendTextStyle: TextStyle(color: Colors.redAccent),
-                    defaultTextStyle: TextStyle(color: Colors.black),
+                      color: Colors.blue.shade500,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.blue.withOpacity(0.3),
+                          spreadRadius: 1,
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    selectedTextStyle: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                    // Default text styling
+                    defaultTextStyle: const TextStyle(
+                      color: Colors.black87,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    // Weekend styling
+                    weekendTextStyle: TextStyle(
+                      color: Colors.red.shade400,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    // Outside month styling
+                    outsideTextStyle: TextStyle(
+                      color: Colors.grey.shade400,
+                      fontSize: 14,
+                    ),
+                    // Disable default markers
                     markersMaxCount: 0,
                     canMarkersOverflow: false,
+                    // Cell styling
+                    cellMargin: const EdgeInsets.all(4),
+                    cellPadding: const EdgeInsets.all(0),
                   ),
                   calendarBuilders: CalendarBuilders(
                     // Custom builder for days with appointments
                     defaultBuilder: (context, day, focusedDay) {
                       if (_getEventsForDay(day).isNotEmpty) {
                         return Container(
-                          margin: const EdgeInsets.all(4.0),
-                          decoration: const BoxDecoration(
-                            color: Colors.redAccent,
+                          margin: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.red.shade400,
+                                Colors.red.shade600,
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
                             shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.red.withOpacity(0.3),
+                                spreadRadius: 1,
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
                           child: Center(
-                            child: Text(
-                              '${day.day}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  '${day.day}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                Container(
+                                  width: 4,
+                                  height: 4,
+                                  margin: const EdgeInsets.only(top: 1),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         );
@@ -1355,11 +1840,21 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                       return null;
                     },
                   ),
-                  daysOfWeekStyle: const DaysOfWeekStyle(
+                  daysOfWeekStyle: DaysOfWeekStyle(
                     weekendStyle: TextStyle(
-                        color: Colors.redAccent, fontWeight: FontWeight.bold),
-                    weekdayStyle: TextStyle(
-                        color: Colors.black, fontWeight: FontWeight.bold),
+                      color: Colors.red.shade500,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                    weekdayStyle: const TextStyle(
+                      color: Colors.black87,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
               ),
@@ -1447,38 +1942,32 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                     // Filter appointments based on selected filter
                     List<Map<String, dynamic>> filteredAppointments;
                     switch (_selectedFilter) {
-                      case 'Pending':
+                      case 'All':
+                        // All: pending, approved, consultation_finished
                         filteredAppointments = allAppointments
                             .where((appointment) =>
-                                appointment['status'] == 'pending')
-                            .toList();
-                        break;
-                      case 'Approved':
-                        filteredAppointments = allAppointments
-                            .where((appointment) =>
-                                appointment['status'] == 'approved')
-                            .toList();
-                        break;
-                      case 'Consultation Completed':
-                        filteredAppointments = allAppointments
-                            .where((appointment) =>
-                                appointment['status'] ==
-                                'consultation_finished')
+                                appointment['status'] == 'pending' ||
+                                appointment['status'] == 'approved' ||
+                                appointment['status'] == 'consultation_finished')
                             .toList();
                         break;
                       case 'Treatment Completed':
+                        // Only treatment completed appointments
                         filteredAppointments = allAppointments
                             .where((appointment) =>
                                 appointment['status'] == 'treatment_completed')
                             .toList();
                         break;
-                      case 'Rejected':
+                      case 'History':
+                        // Pending, approved, consultation_finished, rejected (excludes treatment_completed)
                         filteredAppointments = allAppointments
                             .where((appointment) =>
+                                appointment['status'] == 'pending' ||
+                                appointment['status'] == 'approved' ||
+                                appointment['status'] == 'consultation_finished' ||
                                 appointment['status'] == 'rejected')
                             .toList();
                         break;
-                      case 'All':
                       default:
                         filteredAppointments = allAppointments;
                         break;
@@ -1487,22 +1976,14 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                     if (filteredAppointments.isEmpty) {
                       String emptyMessage;
                       switch (_selectedFilter) {
-                        case 'Pending':
-                          emptyMessage = 'No pending appointments found';
-                          break;
-                        case 'Approved':
-                          emptyMessage = 'No approved appointments found';
-                          break;
-                        case 'Consultation Completed':
-                          emptyMessage =
-                              'No consultation completed appointments found';
+                        case 'All':
+                          emptyMessage = 'No current appointments found';
                           break;
                         case 'Treatment Completed':
-                          emptyMessage =
-                              'No treatment completed appointments found';
+                          emptyMessage = 'No completed treatments found';
                           break;
-                        case 'Rejected':
-                          emptyMessage = 'No rejected appointments found';
+                        case 'History':
+                          emptyMessage = 'No appointment history found';
                           break;
                         default:
                           emptyMessage = 'No appointments found';
@@ -1520,199 +2001,148 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                       );
                     }
 
-                    return Column(
-                      children: filteredAppointments.map((appointment) {
-                        // Determine status and colors based on appointment source and state
-                        String status;
-                        Color statusColor;
+                    return ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: filteredAppointments.length,
+                      itemBuilder: (context, index) {
+                        final appointment = filteredAppointments[index];
+                        String status =
+                            appointment['status']?.toString().toLowerCase() ??
+                                'unknown';
 
-                        switch (appointment['status']) {
-                          case 'pending':
-                            status = 'Pending';
-                            statusColor = Colors.orange;
-                            break;
-                          case 'approved':
-                            status = 'Approved';
-                            statusColor = Colors.green;
-                            break;
-                          case 'consultation_finished':
-                            status = 'Consultation Finished';
-                            statusColor = Colors.blue;
-                            break;
-                          case 'treatment_completed':
-                            status = 'Treatment Completed';
-                            statusColor = Colors.purple;
-                            break;
-                          case 'rejected':
-                            status = 'Rejected';
-                            statusColor = Colors.red;
-                            break;
-                          default:
-                            status = 'Unknown';
-                            statusColor = Colors.grey;
-                        }
-
-                        DateTime? date;
-                        try {
-                          final appointmentDate =
-                              appointment['appointmentDate'] ??
-                                  appointment['appointment_date'];
-                          if (appointmentDate is Timestamp) {
-                            date = appointmentDate.toDate();
-                          } else if (appointmentDate != null) {
-                            date = DateTime.parse(appointmentDate.toString());
-                          }
-                        } catch (e) {
-                          debugPrint('Error parsing date: $e');
-                        }
-
-                        return Container(
-                            margin: const EdgeInsets.symmetric(vertical: 8),
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(14),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.grey.shade200,
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 4),
-                                )
+                        return Card(
+                          color: Colors.white,
+                          margin: const EdgeInsets.symmetric(vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 2,
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: _getStatusColor(status),
+                              child: Text(
+                                appointment["patientName"]
+                                        ?.substring(0, 1)
+                                        .toUpperCase() ??
+                                    "P",
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            title: Text(
+                              appointment['doctorName'] ??
+                                  appointment['doctor_name'] ??
+                                  'Doctor Not Available',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 4),
+                                Text(
+                                  _formatAppointmentDateTime(appointment),
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: _getStatusColor(status)
+                                            .withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: _getStatusColor(status)
+                                              .withOpacity(0.3),
+                                          width: 1,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        _getStatusDisplayText(status),
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: _getStatusColor(status),
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                    // Meeting link indicator for approved appointments
+                                    if (status == 'approved' &&
+                                        ((appointment['meetingLink'] ??
+                                                    appointment['jitsi_link'] ??
+                                                    appointment[
+                                                        'meeting_link']) !=
+                                                null &&
+                                            (appointment['meetingLink'] ??
+                                                    appointment['jitsi_link'] ??
+                                                    appointment['meeting_link'])
+                                                .toString()
+                                                .isNotEmpty)) ...[
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.green.shade50,
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          border: Border.all(
+                                            color: Colors.green.shade200,
+                                            width: 1,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.videocam,
+                                              size: 12,
+                                              color: Colors.green.shade600,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              'Meeting',
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                color: Colors.green.shade600,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
                               ],
                             ),
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(14),
-                              onTap: () => _showAppointmentDetails({
-                                ...appointment,
-                                'status': status,
-                                'date': date,
-                              }),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 60,
-                                    height: 60,
-                                    decoration: BoxDecoration(
-                                      color: statusColor,
-                                      borderRadius: BorderRadius.circular(8),
+                            trailing: appointment['status'] == 'rejected'
+                                ? IconButton(
+                                    icon: const Icon(
+                                      Icons.delete,
+                                      color: Colors.red,
+                                      size: 24,
                                     ),
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Text("${date?.day ?? '?'}",
-                                            style: const TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 20,
-                                                fontWeight: FontWeight.bold)),
-                                        Text(
-                                            date != null
-                                                ? _monthName(date.month)
-                                                : '',
-                                            style: const TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 12)),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        // Doctor name - use doctorName field directly
-                                        Text(
-                                          appointment['doctorName'] ??
-                                              appointment['doctor_name'] ??
-                                              'Not available',
-                                          style: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.blue),
-                                        ),
-                                        Text(
-                                            "Time: ${appointment['appointment_time'] ?? appointment['appointmentTime'] ?? appointment['time'] ?? 'Not set'}",
-                                            style: const TextStyle(
-                                                color: Colors.grey)),
-                                        Text(status,
-                                            style: TextStyle(
-                                                color: statusColor,
-                                                fontWeight: FontWeight.bold)),
-
-                                        // Meeting link indicator for approved appointments
-                                        if (appointment['status'] ==
-                                                'approved' &&
-                                            ((appointment['meetingLink'] ??
-                                                        appointment[
-                                                            'jitsi_link'] ??
-                                                        appointment[
-                                                            'meeting_link']) !=
-                                                    null &&
-                                                (appointment['meetingLink'] ??
-                                                        appointment[
-                                                            'jitsi_link'] ??
-                                                        appointment[
-                                                            'meeting_link'])
-                                                    .toString()
-                                                    .isNotEmpty))
-                                          Container(
-                                            margin:
-                                                const EdgeInsets.only(top: 4),
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color: Colors.blue.shade50,
-                                              borderRadius:
-                                                  BorderRadius.circular(4),
-                                              border: Border.all(
-                                                  color: Colors.blue.shade200),
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Icon(
-                                                  Icons.videocam,
-                                                  size: 12,
-                                                  color: Colors.blue.shade600,
-                                                ),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  'Meeting Available',
-                                                  style: TextStyle(
-                                                    fontSize: 10,
-                                                    color: Colors.blue.shade600,
-                                                    fontWeight: FontWeight.w500,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                  // Show delete button for rejected appointments, otherwise show arrow
-                                  if (appointment['status'] == 'rejected')
-                                    IconButton(
-                                      icon: const Icon(
-                                        Icons.delete,
-                                        color: Colors.red,
-                                        size: 24,
-                                      ),
-                                      onPressed: () =>
-                                          _deleteRejectedAppointment(
-                                              appointment),
-                                    )
-                                  else
-                                    const Icon(
-                                      Icons.arrow_forward_ios,
-                                      color: Colors.grey,
-                                      size: 18,
-                                    ),
-                                ],
-                              ),
-                            ));
-                      }).toList(),
+                                    onPressed: () =>
+                                        _deleteRejectedAppointment(appointment),
+                                  )
+                                : const Icon(Icons.chevron_right,
+                                    color: Colors.grey),
+                            onTap: () => _showAppointmentDetails(appointment),
+                          ),
+                        );
+                      },
                     );
                   },
                 )
@@ -1723,6 +2153,9 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                     child: CircularProgressIndicator(),
                   ),
                 ),
+              
+              // Bottom padding to ensure content isn't cut off
+              const SizedBox(height: 32),
             ],
           ),
         ),
@@ -2022,38 +2455,236 @@ class _PdfViewerFromUrlScreenState extends State<_PdfViewerFromUrlScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-        backgroundColor: widget.backgroundColor ?? Colors.red,
-        foregroundColor: Colors.white,
-        actions: [
-          // Share/Download button
-          IconButton(
-            icon: const Icon(Icons.share),
-            onPressed: _downloadAndSharePdf,
-            tooltip: 'Share PDF',
+      backgroundColor: const Color(0xFFF2F3F5),
+      body: Column(
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 40, 16, 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Back Button
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.shade300,
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back_ios,
+                        color: Color.fromARGB(223, 107, 107, 107), size: 20),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+                const Text(
+                  "E-Prescription",
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xE0F44336),
+                  ),
+                ),
+                const SizedBox(width: 48), // spacing balance
+              ],
+            ),
           ),
-          // Print button
-          IconButton(
-            icon: const Icon(Icons.print),
-            onPressed: _printPdf,
-            tooltip: 'Print PDF',
+          
+          // PDF Content with Integrated Action Buttons
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              decoration: const BoxDecoration(
+                color: Colors.transparent, // Remove white background
+                borderRadius: BorderRadius.all(Radius.circular(20)),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Column(
+                  children: [
+                    // PDF Content Area
+                    Expanded(
+                      child: _buildBody(),
+                    ),
+                    
+                    // Integrated Action Buttons Inside Container
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: const BoxDecoration(
+                        color: Colors.transparent, // Remove background color
+                        borderRadius: BorderRadius.only(
+                          bottomLeft: Radius.circular(20),
+                          bottomRight: Radius.circular(20),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          // Compact Share Button
+                          Expanded(
+                            child: Container(
+                              height: 48,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    const Color(0xFF4A90E2),
+                                    const Color(0xFF357ABD),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF4A90E2).withOpacity(0.3),
+                                    spreadRadius: 0,
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: _downloadAndSharePdf,
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    child: const Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.share_rounded,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'Share',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 0.3,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // Compact Print Button
+                          Expanded(
+                            child: Container(
+                              height: 48,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    const Color(0xFF27AE60),
+                                    const Color(0xFF219A52),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF27AE60).withOpacity(0.3),
+                                    spreadRadius: 0,
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: _printPdf,
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    child: const Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.print_rounded,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'Print',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 0.3,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ],
       ),
-      body: _buildBody(),
     );
   }
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('Loading PDF...'),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue.shade600),
+                strokeWidth: 3,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Loading PDF...',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey.shade700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Please wait while we prepare your prescription',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade500,
+              ),
+            ),
           ],
         ),
       );
@@ -2061,61 +2692,152 @@ class _PdfViewerFromUrlScreenState extends State<_PdfViewerFromUrlScreen> {
 
     if (_errorMessage != null) {
       return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Icon(
+                  Icons.description_outlined,
+                  size: 64,
+                  color: Colors.red.shade400,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Unable to Load PDF',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey.shade800,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Text(
+                  _errorMessage!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey.shade600,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.blue.shade500, Colors.blue.shade600],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.blue.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      _isLoading = true;
+                      _errorMessage = null;
+                    });
+                    _initializePdf();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.refresh, color: Colors.white),
+                      SizedBox(width: 8),
+                      Text(
+                        'Try Again',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_pdfController == null) {
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.error_outline,
-              size: 64,
-              color: Colors.red[300],
+              Icons.warning_amber_rounded,
+              size: 48,
+              color: Colors.orange.shade400,
             ),
             const SizedBox(height: 16),
             Text(
-              'Failed to load PDF',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Text(
-                _errorMessage!,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium,
+              'PDF Controller Not Available',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey.shade700,
               ),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  _isLoading = true;
-                  _errorMessage = null;
-                });
-                _initializePdf();
-              },
-              child: const Text('Retry'),
             ),
           ],
         ),
       );
     }
 
-    if (_pdfController == null) {
-      return const Center(
-        child: Text('PDF controller not initialized'),
-      );
-    }
-
-    return pdfx.PdfView(
-      controller: _pdfController!,
-      scrollDirection: Axis.vertical,
-      backgroundDecoration: const BoxDecoration(
-        color: Colors.grey,
+    return InteractiveViewer(
+      minScale: 0.5,
+      maxScale: 4.0,
+      child: Container(
+        width: double.infinity,
+        height: double.infinity,
+        padding: const EdgeInsets.all(8), // Small margins around PDF pages
+        child: pdfx.PdfView(
+          controller: _pdfController!,
+          scrollDirection: Axis.vertical,
+          backgroundDecoration: const BoxDecoration(
+            color: Colors.transparent, // Remove background
+          ),
+          // Enable smooth scrolling and zoom
+          pageSnapping: false,
+          physics: const BouncingScrollPhysics(),
+        ),
       ),
     );
   }
 }
 
-// In-app PDF Viewer Screen
+// In-app PDF Viewer Screen for local files
 class _PdfViewerScreen extends StatelessWidget {
   final Uint8List pdfBytes;
   final String title;
@@ -2129,65 +2851,257 @@ class _PdfViewerScreen extends StatelessWidget {
     this.backgroundColor,
   });
 
+  Future<void> _sharePdf(BuildContext context) async {
+    try {
+      await Printing.sharePdf(
+        bytes: pdfBytes,
+        filename: filename,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error sharing PDF: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _printPdf(BuildContext context) async {
+    try {
+      await Printing.layoutPdf(
+        onLayout: (format) => pdfBytes,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error printing PDF: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(title),
-        backgroundColor: backgroundColor ?? Colors.red,
-        foregroundColor: Colors.white,
-        actions: [
-          // Share/Download button
-          IconButton(
-            icon: const Icon(Icons.share),
-            onPressed: () async {
-              try {
-                await Printing.sharePdf(
-                  bytes: pdfBytes,
-                  filename: filename,
-                );
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Error sharing PDF: $e'),
-                    backgroundColor: Colors.red,
+      backgroundColor: const Color(0xFFF2F3F5),
+      body: Column(
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 40, 16, 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Back Button
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.shade300,
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
-                );
-              }
-            },
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back_ios,
+                        color: Color.fromARGB(223, 107, 107, 107), size: 20),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xE0F44336),
+                  ),
+                ),
+                const SizedBox(width: 48), // spacing balance
+              ],
+            ),
           ),
-          // Print button
-          IconButton(
-            icon: const Icon(Icons.print),
-            onPressed: () async {
-              try {
-                await Printing.layoutPdf(
-                  onLayout: (format) => pdfBytes,
-                );
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Error printing PDF: $e'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              }
-            },
+          
+          // PDF Content with Integrated Action Buttons
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              decoration: const BoxDecoration(
+                color: Colors.transparent, // Remove white background
+                borderRadius: BorderRadius.all(Radius.circular(20)),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Column(
+                  children: [
+                    // PDF Content Area
+                    Expanded(
+                      child: InteractiveViewer(
+                        minScale: 0.5,
+                        maxScale: 4.0,
+                        child: ClipRect(
+                          child: PdfPreview(
+                            build: (format) => pdfBytes,
+                            allowPrinting: false, // We handle this in bottom buttons
+                            allowSharing: false,  // We handle this in bottom buttons
+                            canChangePageFormat: false,
+                            canChangeOrientation: false, // Disable orientation change
+                            canDebug: false,
+                            initialPageFormat: PdfPageFormat.a4,
+                            pdfFileName: filename,
+                            actions: const [], // Remove all default actions
+                            useActions: false, // Completely disable action bar
+                            scrollViewDecoration: const BoxDecoration(
+                              color: Colors.transparent,
+                            ),
+                            // Remove any bottom decorations
+                            dynamicLayout: false,
+                            maxPageWidth: double.infinity,
+                            previewPageMargin: const EdgeInsets.all(8), // Small margins around pages
+                            pageFormats: const {}, // Remove page format options
+                          ),
+                        ),
+                      ),
+                    ),
+                    
+                    // Integrated Action Buttons Inside Container
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: const BoxDecoration(
+                        color: Colors.transparent, // Remove background color
+                        borderRadius: BorderRadius.only(
+                          bottomLeft: Radius.circular(20),
+                          bottomRight: Radius.circular(20),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          // Compact Share Button
+                          Expanded(
+                            child: Container(
+                              height: 48,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    const Color(0xFF4A90E2),
+                                    const Color(0xFF357ABD),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF4A90E2).withOpacity(0.3),
+                                    spreadRadius: 0,
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () => _sharePdf(context),
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    child: const Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.share_rounded,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'Share',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 0.3,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // Compact Print Button
+                          Expanded(
+                            child: Container(
+                              height: 48,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    const Color(0xFF27AE60),
+                                    const Color(0xFF219A52),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF27AE60).withOpacity(0.3),
+                                    spreadRadius: 0,
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () => _printPdf(context),
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    child: const Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.print_rounded,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'Print',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 0.3,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ],
-      ),
-      body: SizedBox(
-        width: double.infinity,
-        height: double.infinity,
-        child: PdfPreview(
-          build: (format) => pdfBytes,
-          allowPrinting: true,
-          allowSharing: true,
-          canChangePageFormat: false,
-          canDebug: false,
-          initialPageFormat: PdfPageFormat.a4,
-          pdfFileName: filename,
-        ),
       ),
     );
   }

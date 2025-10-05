@@ -102,7 +102,6 @@ class _DpostappointmentState extends State<Dpostappointment> {
                     ? FirebaseFirestore.instance
                         .collection('completed_appointments')
                         .where('doctorId', isEqualTo: _currentUserId)
-                        .where('processedToHistory', isNotEqualTo: true)
                         .snapshots()
                     : const Stream.empty(),
                 builder: (context, snapshot) {
@@ -121,7 +120,14 @@ class _DpostappointmentState extends State<Dpostappointment> {
                     );
                   }
 
-                  final completedAppointments = snapshot.data?.docs ?? [];
+                  // Filter out appointments that have been processed to history (client-side filtering)
+                  final completedAppointments = (snapshot.data?.docs ?? [])
+                      .where((doc) {
+                        final data = doc.data() as Map<String, dynamic>;
+                        final processedToHistory = data['processedToHistory'] as bool?;
+                        return processedToHistory != true; // Include if null or false
+                      })
+                      .toList();
 
                   // Sort appointments by completedAt timestamp (client-side to avoid index requirements)
                   completedAppointments.sort((a, b) {
@@ -159,15 +165,23 @@ class _DpostappointmentState extends State<Dpostappointment> {
                       final doc = completedAppointments[index];
                       final appointment = doc.data() as Map<String, dynamic>;
 
-                      DateTime? date;
+                      // Use completedAt timestamp to show when the appointment was completed and sent here
+                      DateTime? completedDate;
+                      String? completedTime;
                       try {
-                        final dynamic appointmentDate =
-                            appointment["appointmentDate"];
-                        if (appointmentDate is Timestamp) {
-                          date = appointmentDate.toDate();
+                        final dynamic completedAt = appointment["completedAt"];
+                        if (completedAt is Timestamp) {
+                          completedDate = completedAt.toDate();
+                          // Format time in AM/PM format
+                          int hour = completedDate.hour;
+                          int minute = completedDate.minute;
+                          String period = hour >= 12 ? 'PM' : 'AM';
+                          if (hour > 12) hour -= 12;
+                          if (hour == 0) hour = 12;
+                          completedTime = "${hour.toString()}:${minute.toString().padLeft(2, '0')} $period";
                         }
                       } catch (e) {
-                        debugPrint('Error converting appointmentDate: $e');
+                        debugPrint('Error converting completedAt: $e');
                       }
 
                       return Card(
@@ -179,7 +193,7 @@ class _DpostappointmentState extends State<Dpostappointment> {
                         elevation: 2,
                         child: ListTile(
                           leading: CircleAvatar(
-                            backgroundColor: Colors.green,
+                            backgroundColor: Colors.blue,
                             child: Text(
                               appointment["patientName"]
                                       ?.substring(0, 1)
@@ -199,15 +213,15 @@ class _DpostappointmentState extends State<Dpostappointment> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                date != null
-                                    ? "${date.toLocal().toString().split(" ")[0]} at ${appointment["appointmentTime"] ?? "No time"}"
+                                completedDate != null
+                                    ? "${completedDate.day}/${completedDate.month}/${completedDate.year} at ${completedTime ?? "No time"}"
                                     : "Date not set",
                               ),
                               const Text(
                                 "Completed with Prescription",
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: Colors.green,
+                                  color: Colors.blue,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -218,7 +232,7 @@ class _DpostappointmentState extends State<Dpostappointment> {
                           onTap: () => _showCompletedAppointmentDetails({
                             ...appointment,
                             'id': doc.id,
-                            'date': date,
+                            'date': completedDate,
                           }),
                         ),
                       );

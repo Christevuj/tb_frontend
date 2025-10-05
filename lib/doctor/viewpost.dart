@@ -1,136 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import 'package:path_provider/path_provider.dart';
-import 'dart:io';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:typed_data';
+import 'dart:io';
 import 'certificate.dart';
-import 'dhistory.dart';
+import 'prescription.dart';
+import '../services/chat_service.dart';
+import '../chat_screens/chat_screen.dart';
 
-class Viewpostappointment extends StatelessWidget {
+class Viewpostappointment extends StatefulWidget {
   final Map<String, dynamic> appointment;
 
   const Viewpostappointment({super.key, required this.appointment});
 
   @override
+  State<Viewpostappointment> createState() => _ViewpostappointmentState();
+}
+
+class _ViewpostappointmentState extends State<Viewpostappointment> {
+  bool _isPatientInfoExpanded = false;
+  bool _isScheduleExpanded = false;
+  bool _isPrescriptionExpanded = false;
+
+  @override
   Widget build(BuildContext context) {
-    final date = appointment["date"] as DateTime?;
-
-    // Widget to show doctor info, including async address fetch if needed
-    Widget doctorInfoSection() {
-      final doctorName = appointment["doctorData"]?["firstName"] != null &&
-              appointment["doctorData"]?["lastName"] != null
-          ? "${appointment["doctorData"]["firstName"]} ${appointment["doctorData"]["lastName"]}"
-          : appointment["doctorName"] ?? "Unknown Doctor";
-
-      final experience = appointment["doctorData"]?["experience"] != null
-          ? "${appointment["doctorData"]["experience"]} years experience"
-          : "Experience not specified";
-
-      // Try to get address from appointment, else fetch from doctors collection
-      final localAddress =
-          appointment["doctorData"]?["address"] ?? appointment["facility"];
-      final doctorUid =
-          appointment["doctorUid"] ?? appointment["doctorData"]?["uid"];
-      // If local address is missing or empty, always try to fetch from doctors collection
-      if (localAddress == null || localAddress.toString().trim().isEmpty) {
-        return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>?>(
-          future: doctorUid != null
-              ? FirebaseFirestore.instance
-                  .collection('doctors')
-                  .doc(doctorUid)
-                  .get()
-              : Future<DocumentSnapshot<Map<String, dynamic>>?>.value(null),
-          builder: (context, snapshot) {
-            String address = "No address provided";
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SectionTitle(title: "Doctor"),
-                  InfoField(icon: Icons.person, text: doctorName),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8.0),
-                    child: LinearProgressIndicator(),
-                  ),
-                  InfoField(icon: Icons.badge, text: experience),
-                ],
-              );
-            }
-            if (snapshot.hasData && snapshot.data != null) {
-              final data = snapshot.data!.data();
-              if (data != null &&
-                  data["address"] != null &&
-                  data["address"].toString().trim().isNotEmpty) {
-                address = data["address"];
-              }
-            }
-            return _buildModernSection(
-              title: "Healthcare Provider",
-              icon: Icons.local_hospital,
-              child: Column(
-                children: [
-                  ModernInfoCard(
-                    icon: Icons.person,
-                    title: "Doctor Name",
-                    value: doctorName,
-                    color: Colors.teal,
-                  ),
-                  const SizedBox(height: 8),
-                  ModernInfoCard(
-                    icon: Icons.location_on,
-                    title: "Facility Address",
-                    value: address,
-                    color: Colors.red,
-                  ),
-                  const SizedBox(height: 8),
-                  ModernInfoCard(
-                    icon: Icons.badge,
-                    title: "Experience",
-                    value: experience,
-                    color: Colors.amber,
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      } else {
-        // If local address is present, show it
-        return _buildModernSection(
-          title: "Healthcare Provider",
-          icon: Icons.local_hospital,
-          child: Column(
-            children: [
-              ModernInfoCard(
-                icon: Icons.person,
-                title: "Doctor Name",
-                value: doctorName,
-                color: Colors.teal,
-              ),
-              const SizedBox(height: 8),
-              ModernInfoCard(
-                icon: Icons.location_on,
-                title: "Facility Address",
-                value: localAddress,
-                color: Colors.red,
-              ),
-              const SizedBox(height: 8),
-              ModernInfoCard(
-                icon: Icons.badge,
-                title: "Experience",
-                value: experience,
-                color: Colors.amber,
-              ),
-            ],
-          ),
-        );
-      }
-    }
-
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -189,7 +84,7 @@ class Viewpostappointment extends StatelessWidget {
                       child: const Icon(
                         Icons.medical_information,
                         color: Colors.white,
-                        size: 10,
+                        size: 24,
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -237,492 +132,74 @@ class Viewpostappointment extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
 
-              // Patient Details Section
-              _buildModernSection(
+              // Patient Details Section - Collapsible Card
+              _buildCollapsibleCard(
                 title: "Patient Information",
-                icon: Icons.person,
-                child: Column(
-                  children: [
-                    ModernInfoCard(
-                      icon: Icons.person,
-                      title: "Full Name",
-                      value: appointment["patientName"] ?? "Unknown Patient",
-                      color: Colors.blue,
-                    ),
-                    const SizedBox(height: 8),
-                    ModernInfoCard(
-                      icon: Icons.email,
-                      title: "Email Address",
-                      value: appointment["patientEmail"] ?? "No email provided",
-                      color: Colors.orange,
-                    ),
-                    const SizedBox(height: 8),
-                    ModernInfoCard(
-                      icon: Icons.phone,
-                      title: "Phone Number",
-                      value: appointment["patientPhone"] ?? "No phone provided",
-                      color: Colors.green,
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ModernInfoCard(
-                            icon: Icons.person_outline,
-                            title: "Gender",
-                            value: appointment["patientGender"] ?? "Not specified",
-                            color: Colors.purple,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: ModernInfoCard(
-                            icon: Icons.cake,
-                            title: "Age",
-                            value: appointment["patientAge"]?.toString() ?? "Not specified",
-                            color: Colors.pink,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                subtitle: "Complete patient details available",
+                isExpanded: _isPatientInfoExpanded,
+                onToggle: () {
+                  setState(() {
+                    _isPatientInfoExpanded = !_isPatientInfoExpanded;
+                  });
+                },
+                bullets: [
+                  'Full Name: ${widget.appointment["patientName"] ?? "Unknown Patient"}',
+                  'Email: ${widget.appointment["patientEmail"] ?? "No email provided"}',
+                  'Phone: ${widget.appointment["patientPhone"] ?? "No phone provided"}',
+                  'Gender: ${widget.appointment["patientGender"] ?? "Not specified"} | Age: ${widget.appointment["patientAge"]?.toString() ?? "Not specified"}',
+                ],
+                buttonText: 'MESSAGE PATIENT',
+                onPressed: _openChat,
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
 
-              // Schedule Section
-              _buildModernSection(
+              // Schedule Section - Enhanced Card Design
+              _buildScheduleCard(
                 title: "Appointment Schedule",
-                icon: Icons.schedule,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: ModernInfoCard(
-                        icon: Icons.calendar_today,
-                        title: "Date",
-                        value: date != null
-                            ? date.toLocal().toString().split(" ")[0]
-                            : "Not specified",
-                        color: Colors.indigo,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: ModernInfoCard(
-                        icon: Icons.access_time,
-                        title: "Time",
-                        value: appointment["appointmentTime"] ?? "No time set",
-                        color: Colors.cyan,
-                      ),
-                    ),
-                  ],
-                ),
+                subtitle: "Scheduled appointment details",
+                isExpanded: _isScheduleExpanded,
+                onToggle: () {
+                  setState(() {
+                    _isScheduleExpanded = !_isScheduleExpanded;
+                  });
+                },
+                appointment: widget.appointment,
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
 
-              // Doctor Info (with address fetch)
-              doctorInfoSection(),
-
-              const SizedBox(height: 16),
-
-              // Meeting Link Section
-              _buildModernSection(
-                title: "Video Consultation",
-                icon: Icons.video_call,
-                child: ModernInfoCard(
-                  icon: Icons.link,
-                  title: "Meeting Link",
-                  value: appointment["meetingLink"] ?? "No meeting link provided",
-                  color: Colors.deepPurple,
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // E-Prescription Section
-              _buildModernSection(
+              // Electronic Prescription Section - Collapsible Card
+              _buildCollapsibleCard(
                 title: "Electronic Prescription",
-                icon: Icons.medical_services,
-                child: appointment["prescriptionData"] != null
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (appointment["prescriptionData"]["medicines"] != null)
-                            ...List.generate(
-                              (appointment["prescriptionData"]["medicines"] as List)
-                                  .length,
-                              (index) {
-                                final medicine = appointment["prescriptionData"]
-                                    ["medicines"][index];
-                                return Container(
-                                  margin: const EdgeInsets.symmetric(vertical: 4),
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.green.shade50,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: Colors.green.shade200),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.medication, 
-                                          color: Colors.green.shade600, size: 16),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          "${medicine['name']} - ${medicine['dosage']} (${medicine['frequency']})",
-                                          style: const TextStyle(fontSize: 14),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
-                          if (appointment["prescriptionData"]["notes"] != null) ...[
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.blue.shade50,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.blue.shade200),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Icon(Icons.note_alt, 
-                                          color: Colors.blue.shade600, size: 16),
-                                      const SizedBox(width: 8),
-                                      const Text(
-                                        "Additional Notes:",
-                                        style: TextStyle(fontWeight: FontWeight.bold),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    appointment["prescriptionData"]["notes"],
-                                    style: const TextStyle(fontSize: 14),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 16),
-                          // PDF Viewing Button
-                          if (appointment["prescriptionData"]["pdfPath"] != null)
-                            Center(
-                              child: ElevatedButton.icon(
-                                onPressed: () =>
-                                    _viewPrescriptionPdf(context, appointment),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green.shade600,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                                icon: const Icon(Icons.picture_as_pdf, size: 18),
-                                label: const Text('View Prescription PDF',
-                                    style: TextStyle(fontSize: 14)),
-                              ),
-                            ),
-                        ],
-                      )
-                    : Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.shade50,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.orange.shade200),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.warning, color: Colors.orange.shade600),
-                            const SizedBox(width: 8),
-                            const Expanded(
-                              child: Text(
-                                "No prescription data available for this appointment",
-                                style: TextStyle(fontSize: 14),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                subtitle: "Prescription details and medication list",
+                isExpanded: _isPrescriptionExpanded,
+                onToggle: () {
+                  setState(() {
+                    _isPrescriptionExpanded = !_isPrescriptionExpanded;
+                  });
+                },
+                bullets: _buildPrescriptionBullets(),
+                buttonText: 'View prescription PDF',
+                onPressed: () {
+                  _viewPrescriptionPdf(context, widget.appointment);
+                },
               ),
 
               const SizedBox(height: 16),
 
-              // Treatment Progress Section
-              Container(
-                margin: const EdgeInsets.symmetric(vertical: 8),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Colors.teal.shade50,
-                      Colors.blue.shade50,
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.1),
-                      spreadRadius: 2,
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    children: [
-                      // Progress Header
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.teal.shade100,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Icon(
-                              Icons.timeline,
-                              color: Colors.teal.shade700,
-                              size: 24,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          const Text(
-                            "Patient Journey Timeline",
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.teal,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      
-                      // Step 1: Book Appointment
-                      _buildModernProgressStep(
-                        icon: Icons.calendar_month,
-                        title: "Book an Appointment",
-                        description: "Patient requested appointment with a Doctor",
-                        isCompleted: true,
-                        stepNumber: 1,
-                        isLastStep: false,
-                      ),
-                      
-                      // Step 2: Appointment Approved
-                      _buildModernProgressStep(
-                        icon: Icons.verified,
-                        title: "Appointment Approved",
-                        description: "Doctor confirmed and approved the appointment schedule",
-                        isCompleted: true,
-                        stepNumber: 2,
-                        isLastStep: false,
-                      ),
-                      
-                      // Step 3: Meeting Completed
-                      _buildModernProgressStep(
-                        icon: Icons.video_call,
-                        title: "Meeting Completed",
-                        description: "Doctor consultation and e-prescription provided",
-                        isCompleted: appointment["meetingCompleted"] == true,
-                        stepNumber: 3,
-                        isLastStep: false,
-                      ),
-                      
-                      // Step 4: Certificate Sent
-                      _buildModernProgressStep(
-                        icon: Icons.card_membership,
-                        title: "Certificate Sent to Patient",
-                        description: "Treatment completion certificate delivered",
-                        isCompleted: appointment["certificateSent"] == true,
-                        stepNumber: 4,
-                        isLastStep: false,
-                      ),
-                      
-                      // Step 5: Treatment Completed
-                      _buildModernProgressStep(
-                        icon: Icons.health_and_safety,
-                        title: "Treatment Fully Completed",
-                        description: "Patient has completed full TB treatment program",
-                        isCompleted: appointment["treatmentCompleted"] == true,
-                        stepNumber: 5,
-                        isLastStep: true,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              // Certificate Management Section - Updated UI
+              _buildCertificateCard(widget.appointment),
+
+              const SizedBox(height: 16),
+
+              // Patient Journey Timeline Section - Enhanced Design
+              _buildTimelineCard(),
 
               const SizedBox(height: 32),
 
               // Action Buttons Section
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Colors.grey.shade50,
-                      Colors.white,
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey.shade200),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.admin_panel_settings, 
-                             color: Colors.teal.shade600),
-                        const SizedBox(width: 8),
-                        const Text(
-                          "Certificate Management",
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.teal,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    // Create/View Certificate Button
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: appointment["meetingCompleted"] == true
-                            ? () {
-                                if (appointment["certificateSent"] == true) {
-                                  // View certificate if already created
-                                  _viewCertificatePdf(context, appointment);
-                                } else {
-                                  // Create certificate if not created yet
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          Certificate(appointment: appointment),
-                                    ),
-                                  );
-                                }
-                              }
-                            : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: appointment["meetingCompleted"] == true
-                              ? (appointment["certificateSent"] == true
-                                  ? Colors.blue
-                                  : Colors.teal)
-                              : Colors.grey,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        icon: Icon(
-                          appointment["meetingCompleted"] == true
-                              ? (appointment["certificateSent"] == true
-                                  ? Icons.visibility
-                                  : Icons.add_circle)
-                              : Icons.lock,
-                          color: Colors.white,
-                        ),
-                        label: Text(
-                          appointment["meetingCompleted"] == true
-                              ? (appointment["certificateSent"] == true
-                                  ? "View Certificate"
-                                  : "Create Certificate of Patient")
-                              : "Complete Treatment First",
-                          style: const TextStyle(fontSize: 16, color: Colors.white),
-                        ),
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 10),
-                    
-                    // Certificate Status Container (when certificate is sent)
-                    if (appointment["certificateSent"] == true) ...[
-                      SizedBox(
-                        width: double.infinity,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          decoration: BoxDecoration(
-                            color: Colors.green.shade100,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.green.shade300),
-                          ),
-                          child: const Text(
-                            "Certificate Sent to Patient ✓",
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 16, 
-                              color: Colors.green,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                    ],
-                    
-                    // Done/Confirmation Button
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: appointment["certificateSent"] == true
-                            ? () {
-                                // Navigate to dhistory.dart with appointment data
-                                Navigator.of(context).pushReplacement(
-                                  MaterialPageRoute(
-                                    builder: (context) => const Dhistory(),
-                                  ),
-                                );
-                              }
-                            : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: appointment["certificateSent"] == true
-                              ? Colors.green
-                              : Colors.grey.shade300,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        icon: Icon(
-                          appointment["certificateSent"] == true
-                              ? Icons.check_circle
-                              : Icons.block,
-                          color: appointment["certificateSent"] == true
-                              ? Colors.white
-                              : Colors.grey,
-                        ),
-                        label: Text(
-                          "Done",
-                          style: TextStyle(
-                            fontSize: 16, 
-                            color: appointment["certificateSent"] == true
-                                ? Colors.white
-                                : Colors.grey,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              _buildActionButtons(widget.appointment),
                   ],
                 ),
               ),
@@ -733,206 +210,996 @@ class Viewpostappointment extends StatelessWidget {
     );
   }
 
-  Widget _buildModernProgressStep({
-    required IconData icon,
-    required String title,
-    required String description,
-    required bool isCompleted,
-    required int stepNumber,
-    required bool isLastStep,
-  }) {
-    return Column(
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Step number and icon
-            Column(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: isCompleted 
-                        ? Colors.green.shade500
-                        : Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      if (isCompleted) 
-                        BoxShadow(
-                          color: Colors.green.withOpacity(0.3),
-                          spreadRadius: 1,
-                          blurRadius: 4,
-                          offset: const Offset(0, 1),
+  // Method to open chat with patient
+  Future<void> _openChat() async {
+    try {
+      final ChatService chatService = ChatService();
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        throw Exception('No authenticated user found');
+      }
+
+      final patientId = widget.appointment['patientUid'];
+      final patientName =
+          widget.appointment['patientName'] ?? 'Unknown Patient';
+
+      if (patientId == null) {
+        throw Exception('Patient ID not found');
+      }
+
+      // Create or update user docs for chat - ensure both users exist in users collection
+      await chatService.createUserDoc(
+        userId: currentUser.uid,
+        name: 'Dr. ${currentUser.displayName ?? 'Doctor'}',
+        role: 'doctor',
+      );
+
+      await chatService.createUserDoc(
+        userId: patientId,
+        name: patientName,
+        role: 'patient',
+      );
+
+      // Navigate to chat screen
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChatScreen(
+              currentUserId: currentUser.uid,
+              otherUserId: patientId,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error opening chat: $e'),
+            backgroundColor: Colors.red.shade600,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            action: SnackBarAction(
+              label: 'Dismiss',
+              textColor: Colors.white,
+              onPressed: () {},
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+
+
+  // Helper method to build timeline card
+  Widget _buildTimelineCard() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('prescriptions')
+          .where('appointmentId', isEqualTo: widget.appointment['appointmentId'])
+          .snapshots(),
+      builder: (context, prescriptionSnapshot) {
+        bool hasPrescription = false;
+
+        if (prescriptionSnapshot.hasData && prescriptionSnapshot.data!.docs.isNotEmpty) {
+          hasPrescription = true;
+        }
+
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('certificates')
+              .where('appointmentId', isEqualTo: widget.appointment['appointmentId'])
+              .snapshots(),
+          builder: (context, certificateSnapshot) {
+            bool hasCertificate = false;
+
+            if (certificateSnapshot.hasData && certificateSnapshot.data!.docs.isNotEmpty) {
+              hasCertificate = true;
+            }
+
+            return Card(
+              margin: const EdgeInsets.symmetric(vertical: 8),
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: Colors.grey.shade200, width: 1),
+              ),
+              color: Colors.white,
+              child: Column(
+                children: [
+                  // Card Header with Blue Accent Strip
+                  Container(
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF0A84FF),
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(12),
+                        topRight: Radius.circular(12),
+                      ),
+                    ),
+                    child: Container(
+                      width: double.infinity,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(12),
+                          topRight: Radius.circular(12),
                         ),
-                    ],
+                      ),
+                      margin: const EdgeInsets.only(left: 4),
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0A84FF).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              Icons.timeline,
+                              color: Color(0xFF0A84FF),
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          const Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Patient Journey Timeline',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Treatment progress tracking',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      if (isCompleted)
-                        const Icon(
-                          Icons.check,
-                          color: Colors.white,
-                          size: 20,
-                        )
-                      else
-                        Text(
-                          stepNumber.toString(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                  // Timeline Content
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Step-by-step Instructions Container
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.blue.shade200),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildStepInstruction(
+                                stepNumber: '1',
+                                instruction: 'Patient requested appointment with a Doctor',
+                                isCompleted: true,
+                              ),
+                              const SizedBox(height: 8),
+                              _buildStepInstruction(
+                                stepNumber: '2',
+                                instruction: 'Doctor confirmed and approved the appointment schedule',
+                                isCompleted: true,
+                              ),
+                              const SizedBox(height: 8),
+                              _buildStepInstruction(
+                                stepNumber: '3',
+                                instruction: 'Consultation completed with prescription issued',
+                                isCompleted: hasPrescription, // Now checks if prescription exists
+                              ),
+                              const SizedBox(height: 8),
+                              _buildStepInstruction(
+                                stepNumber: '4',
+                                instruction: 'Treatment completion certificate delivered',
+                                isCompleted: hasCertificate, // Now checks if certificate exists
+                              ),
+                              const SizedBox(height: 8),
+                              _buildStepInstruction(
+                                stepNumber: '5',
+                                instruction: 'Full TB treatment program completed',
+                                isCompleted: widget.appointment["treatmentCompleted"] == true,
+                              ),
+                            ],
                           ),
                         ),
-                    ],
-                  ),
-                ),
-                if (!isLastStep)
-                  Container(
-                    width: 2,
-                    height: 25,
-                    color: isCompleted 
-                        ? Colors.green.shade300
-                        : Colors.grey.shade300,
-                  ),
-              ],
-            ),
-            const SizedBox(width: 16),
-            // Content
-            Expanded(
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 15),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: isCompleted 
-                      ? Colors.green.shade50
-                      : Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: isCompleted 
-                        ? Colors.green.shade200
-                        : Colors.grey.shade200,
-                    width: 1,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.1),
-                      spreadRadius: 1,
-                      blurRadius: 4,
-                      offset: const Offset(0, 1),
+                      ],
                     ),
-                  ],
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(4),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                          color: isCompleted 
-                              ? Colors.green.shade800
-                              : Colors.grey.shade700,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 2,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        description,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isCompleted 
-                              ? Colors.green.shade600
-                              : Colors.grey.shade600,
-                          height: 1.3,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
                   ),
-                ),
+                ],
               ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Helper method to build step instruction
+  Widget _buildStepInstruction({
+    required String stepNumber,
+    required String instruction,
+    required bool isCompleted,
+  }) {
+    return Row(
+      children: [
+        Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            color: isCompleted ? Colors.green.shade600 : Colors.grey.shade300,
+            shape: BoxShape.circle,
+          ),
+          child: Center(
+            child: isCompleted
+                ? const Icon(Icons.check, color: Colors.white, size: 16)
+                : Text(
+                    stepNumber,
+                    style: TextStyle(
+                      color: Colors.grey.shade600,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            instruction,
+            style: TextStyle(
+              fontSize: 13,
+              color: isCompleted ? Colors.green.shade800 : Colors.grey.shade700,
+              fontWeight: isCompleted ? FontWeight.w500 : FontWeight.normal,
             ),
-          ],
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildModernSection({
+  // Helper method to get icon for bullet points
+  static IconData _iconForBullet(String text) {
+    if (text.toLowerCase().contains('phone')) return Icons.phone;
+    if (text.toLowerCase().contains('email')) return Icons.email;
+    if (text.toLowerCase().contains('name')) return Icons.person;
+    if (text.toLowerCase().contains('date')) return Icons.calendar_today;
+    if (text.toLowerCase().contains('time')) return Icons.access_time;
+    if (text.toLowerCase().contains('facility')) return Icons.location_on;
+    if (text.toLowerCase().contains('prescription')) return Icons.medical_services;
+    if (text.toLowerCase().contains('medicine')) return Icons.medication;
+    if (text.toLowerCase().contains('gender')) return Icons.people;
+    return Icons.info;
+  }
+
+  // Helper method to build styled text with bold labels
+  Widget _buildStyledBulletText(String text) {
+    final colonIndex = text.indexOf(':');
+    if (colonIndex != -1 && colonIndex < text.length - 1) {
+      final label = text.substring(0, colonIndex + 1);
+      final value = text.substring(colonIndex + 1);
+      return RichText(
+        text: TextSpan(
+          style: const TextStyle(fontSize: 14, color: Colors.black87),
+          children: [
+            TextSpan(
+              text: label,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            TextSpan(text: value),
+          ],
+        ),
+      );
+    }
+    return Text(
+      text,
+      style: const TextStyle(fontSize: 14),
+    );
+  }
+
+  // Helper method to build collapsible detailed card
+  Widget _buildCollapsibleCard({
     required String title,
-    required IconData icon,
-    required Widget child,
+    required String subtitle,
+    required bool isExpanded,
+    required VoidCallback onToggle,
+    required List<String> bullets,
+    required String buttonText,
+    required VoidCallback onPressed,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 2,
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+    return Card(
+      elevation: 2,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: Column(
+        children: [
+          // Header - Always visible
+          InkWell(
+            onTap: onToggle,
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 6,
+                    height: 40,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF0A84FF),
+                      borderRadius: BorderRadius.all(Radius.circular(3)),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle,
+                          style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    color: const Color(0xFF0A84FF),
+                    size: 24,
+                  ),
+                ],
+              ),
+            ),
           ),
+          // Expandable content
+          if (isExpanded) ...[
+            const Divider(height: 1),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Column(
+                    children: bullets
+                        .map((b) => Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 6.0),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    _iconForBullet(b),
+                                    size: 18,
+                                    color: const Color(0xFF0A84FF),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: _buildStyledBulletText(b),
+                                  ),
+                                ],
+                              ),
+                            ))
+                        .toList(),
+                  ),
+                  const SizedBox(height: 16),
+                  // Consistent button styling for all actions
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: OutlinedButton.icon(
+                      onPressed: onPressed,
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFF0A84FF)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(28),
+                        ),
+                      ),
+                      icon: buttonText.contains('MESSAGE')
+                          ? const Icon(Icons.message, color: Color(0xFF0A84FF), size: 16)
+                          : const Icon(Icons.visibility, color: Color(0xFF0A84FF), size: 16),
+                      label: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10),
+                        child: Text(
+                          buttonText,
+                          style: const TextStyle(color: Color(0xFF0A84FF)),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
+    );
+  }
+
+  // Helper method to build schedule card (read-only for approved appointments)
+  Widget _buildScheduleCard({
+    required String title,
+    required String subtitle,
+    required bool isExpanded,
+    required VoidCallback onToggle,
+    required Map<String, dynamic> appointment,
+  }) {
+    DateTime? date;
+    try {
+      final dynamic appointmentDate = appointment["date"];
+      if (appointmentDate is Timestamp) {
+        date = appointmentDate.toDate();
+      } else if (appointmentDate is DateTime) {
+        date = appointmentDate;
+      }
+    } catch (e) {
+      debugPrint('Error converting appointmentDate: $e');
+    }
+
+    return Card(
+      elevation: 2,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade50,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16),
-                topRight: Radius.circular(16),
+          // Header - Always visible
+          InkWell(
+            onTap: onToggle,
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: Colors.white,
               ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 6,
+                    height: 40,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF0A84FF),
+                      borderRadius: BorderRadius.all(Radius.circular(3)),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle,
+                          style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    color: const Color(0xFF0A84FF),
+                    size: 24,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Expandable content
+          if (isExpanded) ...[
+            const Divider(height: 1),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+              ),
+              child: Column(
+                children: [
+                  'Date: ${date != null ? date.toLocal().toString().split(" ")[0] : "Not specified"}',
+                  'Time: ${appointment["appointmentTime"] ?? "No time set"}',
+                ]
+                    .map((b) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6.0),
+                          child: Row(
+                            children: [
+                              Icon(
+                                _iconForBullet(b),
+                                size: 18,
+                                color: const Color(0xFF0A84FF),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: _buildStyledBulletText(b),
+                              ),
+                            ],
+                          ),
+                        ))
+                    .toList(),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // Helper method to build prescription bullets
+  List<String> _buildPrescriptionBullets() {
+    final prescriptionData = widget.appointment["prescriptionData"];
+    List<String> bullets = [];
+    
+    if (prescriptionData == null) {
+      bullets.add('No prescription data available');
+      return bullets;
+    }
+
+    if (prescriptionData["medicines"] != null) {
+      final medicines = prescriptionData["medicines"] as List;
+      for (var medicine in medicines) {
+        bullets.add('${medicine['name']} - ${medicine['dosage']} (${medicine['frequency']})');
+      }
+    }
+
+    if (prescriptionData["notes"] != null && prescriptionData["notes"].toString().isNotEmpty) {
+      bullets.add('Additional notes: ${prescriptionData["notes"]}');
+    }
+
+    if (bullets.isEmpty) {
+      bullets.add('Prescription details available');
+    }
+
+    return bullets;
+  }
+
+  // Helper method to build certificate card with new UI
+  Widget _buildCertificateCard(Map<String, dynamic> appointment) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('certificates')
+          .where('appointmentId', isEqualTo: appointment['appointmentId'])
+          .snapshots(),
+      builder: (context, snapshot) {
+        bool hasCertificate = false;
+
+        if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+          hasCertificate = true;
+        }
+
+        return Card(
+          elevation: 2,
+          color: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: const BoxDecoration(
+              color: Colors.white,
             ),
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.teal.shade100,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Icon(
-                    icon,
-                    color: Colors.teal.shade700,
-                    size: 18,
+                  width: 6,
+                  height: 40,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF0A84FF),
+                    borderRadius: BorderRadius.all(Radius.circular(3)),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 16),
                 Expanded(
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.teal,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Certificate Of Completion",
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        hasCertificate
+                            ? "Certificate available for viewing"
+                            : "Issue completion certificate",
+                        style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: appointment["meetingCompleted"] == true
+                              ? () {
+                                  if (hasCertificate) {
+                                    // View certificate if already created
+                                    _viewCertificatePdf(context, appointment);
+                                  } else {
+                                    // Create certificate if not created yet
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            Certificate(appointment: appointment),
+                                      ),
+                                    );
+                                  }
+                                }
+                              : null,
+                          icon: Icon(
+                            appointment["meetingCompleted"] == true
+                                ? (hasCertificate ? Icons.visibility : Icons.add)
+                                : Icons.lock,
+                            size: 20,
+                          ),
+                          label: Text(
+                            appointment["meetingCompleted"] == true
+                                ? (hasCertificate ? "View Certificate" : "Add Certificate")
+                                : "Complete Meeting First",
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: appointment["meetingCompleted"] == true
+                                ? Colors.orange.shade600
+                                : Colors.grey.shade400,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: child,
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
+
+  // Build action buttons for Complete Meeting/Treatment
+  Widget _buildActionButtons(Map<String, dynamic> appointment) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('prescriptions')
+          .where('appointmentId', isEqualTo: appointment['appointmentId'])
+          .snapshots(),
+      builder: (context, prescriptionSnapshot) {
+        bool hasPrescription = false;
+        Map<String, dynamic>? prescriptionData;
+
+        if (prescriptionSnapshot.hasData && prescriptionSnapshot.data!.docs.isNotEmpty) {
+          hasPrescription = true;
+          prescriptionData =
+              prescriptionSnapshot.data!.docs.first.data() as Map<String, dynamic>;
+        }
+
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('certificates')
+              .where('appointmentId', isEqualTo: appointment['appointmentId'])
+              .snapshots(),
+          builder: (context, certificateSnapshot) {
+            bool hasCertificate = false;
+
+            if (certificateSnapshot.hasData && certificateSnapshot.data!.docs.isNotEmpty) {
+              hasCertificate = true;
+            }
+
+            return Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 20,
+                    offset: const Offset(0, -5),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // E-prescription requirement message when no prescription exists
+                  if (!hasPrescription)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.orange.shade50,
+                            Colors.orange.shade100
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.orange.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.shade200,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.medical_services_rounded,
+                              color: Colors.orange.shade700,
+                              size: 16,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Create an e-prescription first before proceeding with appointment actions',
+                              style: TextStyle(
+                                color: Colors.orange.shade700,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                height: 1.3,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  
+                  // Certificate requirement message when prescription exists but no certificate
+                  if (hasPrescription && !hasCertificate)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.orange.shade50,
+                            Colors.orange.shade100
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.orange.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.shade200,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.card_membership,
+                              color: Colors.orange.shade700,
+                              size: 16,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Create certificate of completion first before marking treatment as completed',
+                              style: TextStyle(
+                                color: Colors.orange.shade700,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                height: 1.3,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  
+                  // Upload Prescription First Button
+                  if (!hasPrescription)
+                    Container(
+                      width: double.infinity,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Colors.grey.shade400,
+                            Colors.grey.shade500
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.withOpacity(0.2),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () {
+                            // Navigate to prescription creation
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => Prescription(
+                                  appointment: appointment,
+                                ),
+                              ),
+                            );
+                          },
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.check_circle_rounded,
+                                  size: 18, color: Colors.white),
+                              const SizedBox(width: 8),
+                              const Text(
+                                "Complete Meeting",
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+
+                  // Treatment Completed button - only enabled when both prescription and certificate exist
+                  if (hasPrescription)
+                    Container(
+                      width: double.infinity,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: hasCertificate
+                              ? [
+                                  Colors.green.shade400,
+                                  Colors.green.shade600
+                                ]
+                              : [
+                                  Colors.grey.shade400,
+                                  Colors.grey.shade500
+                                ],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: hasCertificate 
+                                ? Colors.green.withOpacity(0.3)
+                                : Colors.grey.withOpacity(0.2),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: hasCertificate ? () async {
+                            try {
+                              // Create a completed appointment record first
+                              await FirebaseFirestore.instance
+                                  .collection('completed_appointments')
+                                  .add({
+                                ...appointment,
+                                'prescriptionData': prescriptionData,
+                                'meetingCompleted': true,
+                                'completedAt': FieldValue.serverTimestamp(),
+                              });
+
+                              // Send notification to patient about completed meeting and e-prescription
+                              await FirebaseFirestore.instance
+                                  .collection('patient_notifications')
+                                  .add({
+                                'patientUid': appointment['patientUid'] ??
+                                    appointment['patientId'],
+                                'appointmentId': appointment['appointmentId'],
+                                'type': 'meeting_completed',
+                                'title': 'Meeting Completed',
+                                'message':
+                                    'Your appointment with the doctor has been completed. E-prescription is now available for viewing and download.',
+                                'prescriptionData': prescriptionData,
+                                'createdAt': FieldValue.serverTimestamp(),
+                                'isRead': false,
+                                'doctorName':
+                                    appointment['doctorName'] ?? 'Your Doctor',
+                              });
+
+                              // Remove the appointment from approved_appointments
+                              await FirebaseFirestore.instance
+                                  .collection('approved_appointments')
+                                  .doc(appointment['appointmentId'])
+                                  .delete();
+
+                              if (context.mounted) {
+                                // Show success message
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                        "Treatment completed successfully! Appointment removed from active appointments. Patient notified about completion."),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+
+                                // Navigate back to doctor dashboard
+                                Navigator.of(context).pop();
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text("Error completing treatment: $e"),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            }
+                          } : null,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.check_circle_rounded,
+                                  size: 18, color: Colors.white),
+                              const SizedBox(width: 8),
+                              Text(
+                                hasCertificate 
+                                    ? "Treatment Completed"
+                                    : "Create Certificate First",
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+
 
   Widget ModernInfoCard({
     required IconData icon,
@@ -998,468 +1265,9 @@ class Viewpostappointment extends StatelessWidget {
     );
   }
 
-  void _showCertificate(
-      BuildContext context, Map<String, dynamic> appointment) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Colors.blue.shade50, Colors.white],
-              ),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Header
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade600,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.verified, color: Colors.white, size: 28),
-                      SizedBox(width: 8),
-                      Text(
-                        "CERTIFICATE OF COMPLETION",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
 
-                const SizedBox(height: 20),
 
-                // Certificate Content
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.blue.shade200, width: 2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Center(
-                        child: Text(
-                          "TB Treatment Completion Certificate",
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        "This is to certify that:",
-                        style: TextStyle(fontSize: 14),
-                      ),
-                      const SizedBox(height: 8),
-                      Center(
-                        child: Text(
-                          appointment["patientName"] ?? "Unknown Patient",
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        "Has successfully completed the TB treatment program under the supervision of:",
-                        style: TextStyle(fontSize: 14),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 8),
-                      Center(
-                        child: Text(
-                          appointment["doctorData"]?["firstName"] != null &&
-                                  appointment["doctorData"]?["lastName"] != null
-                              ? "Dr. ${appointment["doctorData"]["firstName"]} ${appointment["doctorData"]["lastName"]}"
-                              : appointment["doctorName"] ?? "Unknown Doctor",
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Center(
-                        child: Text(
-                          appointment["doctorData"]?["address"] ??
-                              appointment["facility"] ??
-                              "Unknown Facility",
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text("Date Completed:",
-                                  style: TextStyle(fontSize: 12)),
-                              Text(
-                                DateTime.now().toString().split(' ')[0],
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              const Text("Certificate ID:",
-                                  style: TextStyle(fontSize: 12)),
-                              Text(
-                                "TB-${appointment["id"]?.toString().substring(0, 8) ?? "XXXXXXXX"}",
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
 
-                const SizedBox(height: 20),
-
-                // Actions
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    ElevatedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey,
-                      ),
-                      child: const Text("Close",
-                          style: TextStyle(color: Colors.white)),
-                    ),
-                    ElevatedButton(
-                      onPressed: () async {
-                        // Generate PDF certificate and send to patient
-                        await _generateAndSendCertificate(appointment, context);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                      ),
-                      child: const Text("Generate & Send Certificate",
-                          style: TextStyle(color: Colors.white)),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  // Generate PDF certificate and send to patient
-  Future<void> _generateAndSendCertificate(
-      Map<String, dynamic> appointment, BuildContext context) async {
-    try {
-      final doctorName = appointment["doctorData"]?["firstName"] != null &&
-              appointment["doctorData"]?["lastName"] != null
-          ? "Dr. ${appointment["doctorData"]["firstName"]} ${appointment["doctorData"]["lastName"]}"
-          : appointment["doctorName"] ?? "Unknown Doctor";
-
-      final facilityName = appointment["doctorData"]?["address"] ??
-          appointment["facility"] ??
-          "Unknown Facility";
-
-      final patientName = appointment["patientName"] ?? "Unknown Patient";
-      final completionDate = DateTime.now().toString().split(' ')[0];
-      final certificateId =
-          "TB-${appointment["id"]?.toString().substring(0, 8) ?? "XXXXXXXX"}";
-
-      // Generate PDF
-      final pdf = pw.Document();
-
-      pdf.addPage(
-        pw.Page(
-          pageFormat: PdfPageFormat.a4,
-          margin: const pw.EdgeInsets.all(32),
-          build: (pw.Context context) {
-            return pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                // Header
-                pw.Center(
-                  child: pw.Column(
-                    children: [
-                      pw.Text(
-                        'TB TREATMENT COMPLETION CERTIFICATE',
-                        style: pw.TextStyle(
-                          fontSize: 24,
-                          fontWeight: pw.FontWeight.bold,
-                        ),
-                      ),
-                      pw.SizedBox(height: 10),
-                      pw.Container(
-                        height: 3,
-                        width: 300,
-                        color: PdfColors.blue,
-                      ),
-                    ],
-                  ),
-                ),
-
-                pw.SizedBox(height: 40),
-
-                // Certificate content
-                pw.Text(
-                  'This is to certify that:',
-                  style: pw.TextStyle(fontSize: 16),
-                ),
-
-                pw.SizedBox(height: 20),
-
-                pw.Container(
-                  padding: const pw.EdgeInsets.all(16),
-                  decoration: pw.BoxDecoration(
-                    border: pw.Border.all(color: PdfColors.blue, width: 2),
-                    borderRadius:
-                        const pw.BorderRadius.all(pw.Radius.circular(8)),
-                  ),
-                  child: pw.Center(
-                    child: pw.Text(
-                      patientName.toUpperCase(),
-                      style: pw.TextStyle(
-                        fontSize: 22,
-                        fontWeight: pw.FontWeight.bold,
-                        color: PdfColors.blue,
-                      ),
-                    ),
-                  ),
-                ),
-
-                pw.SizedBox(height: 30),
-
-                pw.Text(
-                  'Has successfully completed the Tuberculosis (TB) treatment program under the professional supervision of:',
-                  style: pw.TextStyle(fontSize: 14),
-                ),
-
-                pw.SizedBox(height: 20),
-
-                pw.Container(
-                  padding: const pw.EdgeInsets.all(12),
-                  decoration: pw.BoxDecoration(
-                    color: PdfColors.grey100,
-                    borderRadius:
-                        const pw.BorderRadius.all(pw.Radius.circular(6)),
-                  ),
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Text(
-                        'Supervising Doctor:',
-                        style: pw.TextStyle(
-                            fontWeight: pw.FontWeight.bold, fontSize: 12),
-                      ),
-                      pw.Text(doctorName, style: pw.TextStyle(fontSize: 14)),
-                      pw.SizedBox(height: 8),
-                      pw.Text(
-                        'Healthcare Facility:',
-                        style: pw.TextStyle(
-                            fontWeight: pw.FontWeight.bold, fontSize: 12),
-                      ),
-                      pw.Text(facilityName, style: pw.TextStyle(fontSize: 14)),
-                    ],
-                  ),
-                ),
-
-                pw.SizedBox(height: 30),
-
-                pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                  children: [
-                    pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
-                        pw.Text(
-                          'Date of Completion:',
-                          style: pw.TextStyle(
-                              fontWeight: pw.FontWeight.bold, fontSize: 12),
-                        ),
-                        pw.Text(completionDate,
-                            style: pw.TextStyle(fontSize: 14)),
-                      ],
-                    ),
-                    pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.end,
-                      children: [
-                        pw.Text(
-                          'Certificate ID:',
-                          style: pw.TextStyle(
-                              fontWeight: pw.FontWeight.bold, fontSize: 12),
-                        ),
-                        pw.Text(certificateId,
-                            style: pw.TextStyle(fontSize: 14)),
-                      ],
-                    ),
-                  ],
-                ),
-
-                pw.Spacer(),
-
-                // Footer
-                pw.Container(
-                  padding: const pw.EdgeInsets.all(16),
-                  decoration: pw.BoxDecoration(
-                    color: PdfColors.blue50,
-                    borderRadius:
-                        const pw.BorderRadius.all(pw.Radius.circular(8)),
-                  ),
-                  child: pw.Column(
-                    children: [
-                      pw.Text(
-                        'This certificate confirms the successful completion of the prescribed TB treatment regimen as per WHO guidelines.',
-                        style: pw.TextStyle(
-                            fontSize: 10, fontStyle: pw.FontStyle.italic),
-                        textAlign: pw.TextAlign.center,
-                      ),
-                      pw.SizedBox(height: 8),
-                      pw.Text(
-                        'Generated on ${DateTime.now().toString().split(' ')[0]} via TB-ISITA Digital Health Platform',
-                        style: pw.TextStyle(fontSize: 8),
-                        textAlign: pw.TextAlign.center,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-      );
-
-      // Save PDF to device storage
-      final directory = await getApplicationDocumentsDirectory();
-      final file = File(
-          '${directory.path}/TB_Certificate_${patientName.replaceAll(' ', '_')}_$certificateId.pdf');
-      await file.writeAsBytes(await pdf.save());
-
-      // Certificate text for notification
-      final certificateText = """
-TB Treatment Completion Certificate
-
-This is to certify that:
-$patientName
-
-Has successfully completed the TB treatment program under the supervision of:
-$doctorName
-$facilityName
-
-Date Completed: $completionDate
-Certificate ID: $certificateId
-""";
-
-      // Create patient notification for certificate
-      await FirebaseFirestore.instance.collection('patient_notifications').add({
-        'patientUid': appointment['patientUid'],
-        'appointmentId': appointment['id'],
-        'type': 'certificate_ready',
-        'title': 'Treatment Completion Certificate',
-        'message':
-            'Your TB treatment completion certificate is ready for download.',
-        'certificateText': certificateText,
-        'pdfPath': file.path,
-        'createdAt': FieldValue.serverTimestamp(),
-        'isRead': false,
-        'doctorName': doctorName,
-        'facilityName': facilityName,
-      });
-
-      // Update completed appointment to mark certificate as sent
-      await FirebaseFirestore.instance
-          .collection('completed_appointments')
-          .where('appointmentId', isEqualTo: appointment['id'])
-          .get()
-          .then((querySnapshot) async {
-        for (var doc in querySnapshot.docs) {
-          await doc.reference.update({
-            'certificateSent': true,
-            'certificateSentAt': FieldValue.serverTimestamp(),
-            'treatmentCompleted': true,
-            'pdfPath': file.path,
-          });
-        }
-      });
-
-      Navigator.of(context).pop();
-
-      // Show success message and option to share/view PDF
-      if (context.mounted) {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Certificate Generated Successfully!'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                    'The TB treatment completion certificate has been generated and sent to the patient.'),
-                const SizedBox(height: 16),
-                Text('PDF saved to: ${file.path}'),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Close'),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  // Open the generated PDF
-                  await Printing.sharePdf(
-                    bytes: await pdf.save(),
-                    filename:
-                        'TB_Certificate_${patientName.replaceAll(' ', '_')}_$certificateId.pdf',
-                  );
-                },
-                child: const Text('Share PDF'),
-              ),
-            ],
-          ),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Error generating certificate: $e"),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
 
   // Static method to view prescription PDF
   static void _viewPrescriptionPdf(

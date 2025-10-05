@@ -46,11 +46,18 @@ class _DhistoryState extends State<Dhistory> {
         .where('doctorId', isEqualTo: _currentDoctorId)
         .snapshots()
         .asyncMap((snapshot) async {
-      // If no documents found, try different collections
-      if (snapshot.docs.isEmpty) {
-        try {
-          List<Map<String, dynamic>> allAppointments = [];
+      List<Map<String, dynamic>> allAppointments = [];
 
+      // Get appointments from appointment_history collection (primary source)
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        allAppointments.add(data);
+      }
+
+      // If no documents found in appointment_history, try fallback collections for backward compatibility
+      if (allAppointments.isEmpty) {
+        try {
           // Get approved appointments
           final approvedSnapshot = await FirebaseFirestore.instance
               .collection('approved_appointments')
@@ -74,32 +81,13 @@ class _DhistoryState extends State<Dhistory> {
             data['id'] = doc.id;
             allAppointments.add(data);
           }
-
-          // Sort by timestamp (either approvedAt or rejectedAt)
-          allAppointments.sort((a, b) {
-            final timestampA = a['approvedAt'] ?? a['rejectedAt'];
-            final timestampB = b['approvedAt'] ?? b['rejectedAt'];
-            if (timestampA == null && timestampB == null) return 0;
-            if (timestampA == null) return 1;
-            if (timestampB == null) return -1;
-            return timestampB.compareTo(timestampA);
-          });
-
-          return allAppointments;
         } catch (e) {
           debugPrint('Error loading from fallback collections: $e');
-          return <Map<String, dynamic>>[];
         }
       }
 
-      // Sort appointment history by timestamp
-      final appointments = snapshot.docs.map((doc) {
-        final data = doc.data();
-        data['id'] = doc.id;
-        return data;
-      }).toList();
-
-      appointments.sort((a, b) {
+      // Sort by timestamp (either approvedAt or rejectedAt)
+      allAppointments.sort((a, b) {
         final timestampA = a['approvedAt'] ?? a['rejectedAt'];
         final timestampB = b['approvedAt'] ?? b['rejectedAt'];
         if (timestampA == null && timestampB == null) return 0;
@@ -108,77 +96,25 @@ class _DhistoryState extends State<Dhistory> {
         return timestampB.compareTo(timestampA);
       });
 
-      return appointments;
+      return allAppointments;
     });
   }
 
-  // ✅ Show appointment details in a floating dialog
+  // ✅ Show appointment details in full screen
   void _showAppointmentDetails(Map<String, dynamic> appointment) {
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      barrierDismissible: true,
-      builder: (context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          insetPadding: const EdgeInsets.all(20),
-          child: Viewhistory(appointment: appointment),
-        );
-      },
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: Viewhistory(appointment: appointment),
+      ),
     );
-  }
-
-  String _formatDate(dynamic dateValue) {
-    try {
-      DateTime date;
-      if (dateValue is Timestamp) {
-        date = dateValue.toDate();
-      } else if (dateValue is String) {
-        date = DateTime.parse(dateValue);
-      } else if (dateValue is DateTime) {
-        date = dateValue;
-      } else {
-        return 'Invalid date';
-      }
-      return '${date.day}/${date.month}/${date.year}';
-    } catch (e) {
-      debugPrint('Error formatting date: $e');
-      return 'Invalid date';
-    }
-  }
-
-  Widget _buildStatusIcon(String status) {
-    switch (status.toLowerCase()) {
-      case 'approved':
-      case 'completed':
-        return const CircleAvatar(
-          backgroundColor: Colors.green,
-          child: Icon(Icons.check, color: Colors.white),
-        );
-      case 'rejected':
-        return const CircleAvatar(
-          backgroundColor: Colors.red,
-          child: Icon(Icons.close, color: Colors.white),
-        );
-      default:
-        return const CircleAvatar(
-          backgroundColor: Colors.orange,
-          child: Icon(Icons.schedule, color: Colors.white),
-        );
-    }
-  }
-
-  Color _getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'approved':
-      case 'completed':
-        return Colors.green;
-      case 'rejected':
-        return Colors.red;
-      default:
-        return Colors.orange;
-    }
   }
 
   @override
@@ -295,15 +231,26 @@ class _DhistoryState extends State<Dhistory> {
                         var approvedAt = appointment['approvedAt'];
                         var rejectedAt = appointment['rejectedAt'];
                         var timestamp = approvedAt ?? rejectedAt;
+                        
                         if (timestamp is Timestamp) {
                           historyDate = timestamp.toDate();
-                          historyTime =
-                              "${historyDate.hour.toString().padLeft(2, '0')}:${historyDate.minute.toString().padLeft(2, '0')}";
+                          // Format time in AM/PM format
+                          int hour = historyDate.hour;
+                          int minute = historyDate.minute;
+                          String period = hour >= 12 ? 'PM' : 'AM';
+                          if (hour > 12) hour -= 12;
+                          if (hour == 0) hour = 12;
+                          historyTime = "${hour.toString()}:${minute.toString().padLeft(2, '0')} $period";
                         } else if (timestamp is String) {
                           try {
                             historyDate = DateTime.parse(timestamp);
-                            historyTime =
-                                "${historyDate.hour.toString().padLeft(2, '0')}:${historyDate.minute.toString().padLeft(2, '0')}";
+                            // Format time in AM/PM format
+                            int hour = historyDate.hour;
+                            int minute = historyDate.minute;
+                            String period = hour >= 12 ? 'PM' : 'AM';
+                            if (hour > 12) hour -= 12;
+                            if (hour == 0) hour = 12;
+                            historyTime = "${hour.toString()}:${minute.toString().padLeft(2, '0')} $period";
                           } catch (e) {
                             historyDate = null;
                             historyTime = null;
@@ -324,7 +271,23 @@ class _DhistoryState extends State<Dhistory> {
                           ),
                           elevation: 2,
                           child: ListTile(
-                            leading: _buildStatusIcon(status),
+                            leading: CircleAvatar(
+                              backgroundColor: status.toLowerCase() == 'completed' 
+                                  ? Colors.green 
+                                  : status.toLowerCase() == 'rejected' 
+                                      ? Colors.redAccent 
+                                      : Colors.orange,
+                              child: Text(
+                                appointment["patientName"]
+                                        ?.substring(0, 1)
+                                        .toUpperCase() ??
+                                    "P",
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
                             title: Text(
                               appointment["patientName"] ?? "Unknown Patient",
                               style:
@@ -334,30 +297,25 @@ class _DhistoryState extends State<Dhistory> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  "${appointment["facility"] ?? "Unknown Facility"}\n${historyDate != null ? _formatDate(historyDate) : "No date"} at ${historyTime ?? "No time"}",
+                                  historyDate != null 
+                                      ? "${historyDate.day}/${historyDate.month}/${historyDate.year} at ${historyTime ?? "No time"}"
+                                      : "Date not set",
                                 ),
-                                const SizedBox(height: 4),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: _getStatusColor(status)
-                                        .withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    status.toUpperCase(),
-                                    style: TextStyle(
-                                      color: _getStatusColor(status),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                Text(
+                                  status.toLowerCase() == 'completed' ? "Completed" : status.toLowerCase() == 'rejected' ? "Rejected" : status,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: status.toLowerCase() == 'completed' 
+                                        ? Colors.green 
+                                        : status.toLowerCase() == 'rejected' 
+                                            ? Colors.redAccent 
+                                            : Colors.orange,
                                   ),
                                 ),
                               ],
                             ),
-                            trailing: const Icon(Icons.arrow_forward_ios,
-                                size: 16, color: Colors.grey),
+                            trailing: const Icon(Icons.chevron_right,
+                                color: Colors.grey),
                             onTap: () => _showAppointmentDetails({
                               ...appointment,
                               'date': historyDate,

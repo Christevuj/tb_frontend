@@ -86,13 +86,25 @@ class _DhistoryState extends State<Dhistory> {
         }
       }
 
-      // Sort by timestamp (either approvedAt or rejectedAt)
+      // Sort by most relevant timestamp (prioritize treatment completed appointments)
       allAppointments.sort((a, b) {
-        final timestampA = a['approvedAt'] ?? a['rejectedAt'];
-        final timestampB = b['approvedAt'] ?? b['rejectedAt'];
+        // Get the most relevant timestamp for each appointment
+        final timestampA = a['treatmentCompletedAt'] ?? 
+                          a['movedToHistoryAt'] ?? 
+                          a['completedAt'] ?? 
+                          a['approvedAt'] ?? 
+                          a['rejectedAt'];
+        final timestampB = b['treatmentCompletedAt'] ?? 
+                          b['movedToHistoryAt'] ?? 
+                          b['completedAt'] ?? 
+                          b['approvedAt'] ?? 
+                          b['rejectedAt'];
+        
         if (timestampA == null && timestampB == null) return 0;
         if (timestampA == null) return 1;
         if (timestampB == null) return -1;
+        
+        // Sort descending (newest first)
         return timestampB.compareTo(timestampA);
       });
 
@@ -225,12 +237,53 @@ class _DhistoryState extends State<Dhistory> {
                       itemCount: appointments.length,
                       itemBuilder: (context, index) {
                         final appointment = appointments[index];
-                        // Use the timestamp when the data was sent to history (approvedAt or rejectedAt)
+                        
+                        // Determine the most relevant timestamp and status
                         DateTime? historyDate;
                         String? historyTime;
+                        String status = 'unknown';
+                        String statusDisplayText = 'Unknown';
+                        Color statusColor = Colors.orange;
+                        
+                        // Check for treatment completion first (highest priority)
+                        var treatmentCompletedAt = appointment['treatmentCompletedAt'];
+                        var movedToHistoryAt = appointment['movedToHistoryAt'];
+                        var completedAt = appointment['completedAt'];
                         var approvedAt = appointment['approvedAt'];
                         var rejectedAt = appointment['rejectedAt'];
-                        var timestamp = approvedAt ?? rejectedAt;
+                        
+                        var timestamp;
+                        
+                        if (treatmentCompletedAt != null) {
+                          timestamp = treatmentCompletedAt;
+                          status = 'treatment_completed';
+                          statusDisplayText = 'Treatment Completed';
+                          statusColor = Colors.purple;
+                        } else if (movedToHistoryAt != null) {
+                          timestamp = movedToHistoryAt;
+                          status = appointment['status'] ?? 'completed';
+                          statusDisplayText = 'Treatment Completed';
+                          statusColor = Colors.purple;
+                        } else if (completedAt != null) {
+                          timestamp = completedAt;
+                          status = 'consultation_completed';
+                          statusDisplayText = 'Consultation Completed';
+                          statusColor = Colors.blue;
+                        } else if (approvedAt != null) {
+                          timestamp = approvedAt;
+                          status = 'approved';
+                          statusDisplayText = 'Approved';
+                          statusColor = Colors.green;
+                        } else if (rejectedAt != null) {
+                          timestamp = rejectedAt;
+                          status = 'rejected';
+                          statusDisplayText = 'Rejected';
+                          statusColor = Colors.red;
+                        } else {
+                          // Fallback to appointment status
+                          status = appointment['status'] ?? 'unknown';
+                          statusDisplayText = status.replaceAll('_', ' ').toUpperCase();
+                        }
                         
                         if (timestamp is Timestamp) {
                           historyDate = timestamp.toDate();
@@ -257,12 +310,10 @@ class _DhistoryState extends State<Dhistory> {
                           }
                         }
 
-                        String status = appointment['status'] ?? 'unknown';
-                        // If status is 'approved', show as 'completed' in UI
-                        if (status.toLowerCase() == 'approved') {
-                          status = 'completed';
-                        }
-
+                        // Check if appointment has prescription or certificate data
+                        final hasPrescription = appointment['prescriptionData'] != null;
+                        final hasCertificate = appointment['certificateData'] != null;
+                        
                         return Card(
                           color: Colors.white,
                           margin: const EdgeInsets.symmetric(vertical: 8),
@@ -272,11 +323,7 @@ class _DhistoryState extends State<Dhistory> {
                           elevation: 2,
                           child: ListTile(
                             leading: CircleAvatar(
-                              backgroundColor: status.toLowerCase() == 'completed' 
-                                  ? Colors.green 
-                                  : status.toLowerCase() == 'rejected' 
-                                      ? Colors.redAccent 
-                                      : Colors.orange,
+                              backgroundColor: statusColor,
                               child: Text(
                                 appointment["patientName"]
                                         ?.substring(0, 1)
@@ -288,10 +335,44 @@ class _DhistoryState extends State<Dhistory> {
                                 ),
                               ),
                             ),
-                            title: Text(
-                              appointment["patientName"] ?? "Unknown Patient",
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.bold),
+                            title: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    appointment["patientName"] ?? "Unknown Patient",
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                                // Show indicators for prescription and certificate
+                                if (hasPrescription) 
+                                  Container(
+                                    margin: const EdgeInsets.only(left: 4),
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blue.shade100,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Icon(
+                                      Icons.medical_services,
+                                      size: 16,
+                                      color: Colors.blue,
+                                    ),
+                                  ),
+                                if (hasCertificate)
+                                  Container(
+                                    margin: const EdgeInsets.only(left: 4),
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.purple.shade100,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Icon(
+                                      Icons.card_membership,
+                                      size: 16,
+                                      color: Colors.purple,
+                                    ),
+                                  ),
+                              ],
                             ),
                             subtitle: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -301,21 +382,25 @@ class _DhistoryState extends State<Dhistory> {
                                       ? "${historyDate.day}/${historyDate.month}/${historyDate.year} at ${historyTime ?? "No time"}"
                                       : "Date not set",
                                 ),
-                                Text(
-                                  status.toLowerCase() == 'completed' ? "Completed" : status.toLowerCase() == 'rejected' ? "Rejected" : status,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: status.toLowerCase() == 'completed' 
-                                        ? Colors.green 
-                                        : status.toLowerCase() == 'rejected' 
-                                            ? Colors.redAccent 
-                                            : Colors.orange,
+                                const SizedBox(height: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: statusColor.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    statusDisplayText,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: statusColor,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
-                            trailing: const Icon(Icons.chevron_right,
-                                color: Colors.grey),
+                            trailing: const Icon(Icons.chevron_right, color: Colors.grey),
                             onTap: () => _showAppointmentDetails({
                               ...appointment,
                               'date': historyDate,

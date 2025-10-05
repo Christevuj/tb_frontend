@@ -120,12 +120,18 @@ class _DpostappointmentState extends State<Dpostappointment> {
                     );
                   }
 
-                  // Filter out appointments that have been processed to history (client-side filtering)
+                  // Filter out appointments that have been processed to history (treatment completed)
                   final completedAppointments = (snapshot.data?.docs ?? [])
                       .where((doc) {
                         final data = doc.data() as Map<String, dynamic>;
+                        
+                        // Filter out treatment completed appointments that have been moved to history
                         final processedToHistory = data['processedToHistory'] as bool?;
-                        return processedToHistory != true; // Include if null or false
+                        final treatmentCompleted = data['treatmentCompleted'] as bool?;
+                        
+                        // Include only appointments that haven't been processed to history
+                        // or that don't have treatment completed status
+                        return processedToHistory != true && treatmentCompleted != true;
                       })
                       .toList();
 
@@ -146,12 +152,35 @@ class _DpostappointmentState extends State<Dpostappointment> {
                   });
 
                   if (completedAppointments.isEmpty) {
-                    return const Padding(
-                      padding: EdgeInsets.only(top: 60),
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 60),
                       child: Center(
-                        child: Text(
-                          "No completed appointments with prescriptions.",
-                          style: TextStyle(color: Colors.grey, fontSize: 16),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.history,
+                              size: 64,
+                              color: Colors.grey.shade400,
+                            ),
+                            const SizedBox(height: 16),
+                            const Text(
+                              "No Active Post-Consultation Appointments",
+                              style: TextStyle(
+                                color: Colors.grey, 
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              "Completed treatments are moved to history",
+                              style: TextStyle(
+                                color: Colors.grey.shade600, 
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     );

@@ -567,12 +567,6 @@ class _ViewpendingState extends State<Viewpending> {
                                         instruction: 'Treatment completion certificate delivered',
                                         isCompleted: false,
                                       ),
-                                      const SizedBox(height: 8),
-                                      _buildStepInstruction(
-                                        stepNumber: '5',
-                                        instruction: 'Full TB treatment program completed',
-                                        isCompleted: false,
-                                      ),
                                     ],
                                   ),
                                 ),
@@ -1794,16 +1788,28 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
   late Animation<double> _scaleAnimation;
   late Animation<double> _fadeAnimation;
 
-  // Time picker variables
-  late int selectedHour;
-  late int selectedMinute;
-  late String selectedPeriod;
+  // Start time picker variables
+  late int startHour;
+  late int startMinute;
+  late String startPeriod;
 
-  final FixedExtentScrollController _hourController =
+  // End time picker variables
+  late int endHour;
+  late int endMinute;
+  late String endPeriod;
+
+  final FixedExtentScrollController _startHourController =
       FixedExtentScrollController();
-  final FixedExtentScrollController _minuteController =
+  final FixedExtentScrollController _startMinuteController =
       FixedExtentScrollController();
-  final FixedExtentScrollController _periodController =
+  final FixedExtentScrollController _startPeriodController =
+      FixedExtentScrollController();
+  
+  final FixedExtentScrollController _endHourController =
+      FixedExtentScrollController();
+  final FixedExtentScrollController _endMinuteController =
+      FixedExtentScrollController();
+  final FixedExtentScrollController _endPeriodController =
       FixedExtentScrollController();
 
   @override
@@ -1840,9 +1846,13 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
 
     // Set initial scroll positions after a delay to ensure widgets are built
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _hourController.jumpToItem(selectedHour - 1);
-      _minuteController.jumpToItem(selectedMinute);
-      _periodController.jumpToItem(selectedPeriod == 'AM' ? 0 : 1);
+      _startHourController.jumpToItem(startHour - 1);
+      _startMinuteController.jumpToItem(startMinute);
+      _startPeriodController.jumpToItem(startPeriod == 'AM' ? 0 : 1);
+      // Set end time to start time + 30 minutes initially
+      _endHourController.jumpToItem(endHour - 1);
+      _endMinuteController.jumpToItem(endMinute);
+      _endPeriodController.jumpToItem(endPeriod == 'AM' ? 0 : 1);
     });
   }
 
@@ -1851,31 +1861,58 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
       // Parse time like "09:30 AM"
       final parts = selectedTime.split(' ');
       final timePart = parts[0];
-      selectedPeriod = parts[1];
+      startPeriod = parts[1];
 
       final timeComponents = timePart.split(':');
-      selectedHour = int.parse(timeComponents[0]);
-      selectedMinute = int.parse(timeComponents[1]);
+      startHour = int.parse(timeComponents[0]);
+      startMinute = int.parse(timeComponents[1]);
+      
+      // Calculate end time (add 30 minutes as default)
+      endHour = startHour;
+      endMinute = startMinute + 30;
+      endPeriod = startPeriod;
+      
+      // Handle minute overflow
+      if (endMinute >= 60) {
+        endMinute -= 60;
+        endHour += 1;
+        // Handle hour overflow and AM/PM change
+        if (endPeriod == 'AM' && endHour > 12) {
+          endHour = 1;
+          endPeriod = 'PM';
+        } else if (endPeriod == 'PM' && endHour > 12) {
+          endHour = 1;
+          endPeriod = 'AM'; // Next day
+        }
+      }
     } catch (e) {
       // Default values if parsing fails
-      selectedHour = 9;
-      selectedMinute = 0;
-      selectedPeriod = 'AM';
+      startHour = 9;
+      startMinute = 0;
+      startPeriod = 'AM';
+      endHour = 9;
+      endMinute = 30;
+      endPeriod = 'AM';
     }
   }
 
   String _formatSelectedTime() {
-    final hourStr = selectedHour.toString().padLeft(2, '0');
-    final minuteStr = selectedMinute.toString().padLeft(2, '0');
-    return '$hourStr:$minuteStr $selectedPeriod';
+    final startHourStr = startHour.toString().padLeft(2, '0');
+    final startMinuteStr = startMinute.toString().padLeft(2, '0');
+    final endHourStr = endHour.toString().padLeft(2, '0');
+    final endMinuteStr = endMinute.toString().padLeft(2, '0');
+    return '$startHourStr:$startMinuteStr $startPeriod - $endHourStr:$endMinuteStr $endPeriod';
   }
 
   @override
   void dispose() {
     _animationController.dispose();
-    _hourController.dispose();
-    _minuteController.dispose();
-    _periodController.dispose();
+    _startHourController.dispose();
+    _startMinuteController.dispose();
+    _startPeriodController.dispose();
+    _endHourController.dispose();
+    _endMinuteController.dispose();
+    _endPeriodController.dispose();
     super.dispose();
   }
 
@@ -1908,7 +1945,10 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
           scale: _scaleAnimation,
           child: Container(
             width: MediaQuery.of(context).size.width * 0.9,
-            constraints: const BoxConstraints(maxWidth: 400),
+            constraints: BoxConstraints(
+              maxWidth: 400,
+              maxHeight: MediaQuery.of(context).size.height * 0.85,
+            ),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(24),
@@ -1961,19 +2001,12 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                             const Text(
                               'Edit Schedule',
                               style: TextStyle(
-                                fontSize: 20,
+                                fontSize: 18,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
                               ),
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Select new date and time',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.white.withOpacity(0.9),
-                              ),
-                            ),
+                   
                           ],
                         ),
                       ),
@@ -1990,11 +2023,12 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                 ),
 
                 // Content
-                Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                       // Date Selection
                       Text(
                         'Select Date',
@@ -2132,7 +2166,7 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
 
                       // Time Selection
                       Text(
-                        'Select Time',
+                        'Select Time Range',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -2140,136 +2174,326 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                         ),
                       ),
                       const SizedBox(height: 12),
+                      
                       Container(
-                        height: 200,
                         decoration: BoxDecoration(
                           color: Colors.grey.shade50,
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: Colors.grey.shade200),
                         ),
-                        child: Row(
+                        child: Column(
                           children: [
-                            // Hour picker
-                            Expanded(
+                            // Start Time Section
+                            Padding(
+                              padding: const EdgeInsets.all(12),
                               child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(12),
-                                    child: Text(
-                                      'Hour',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey.shade700,
-                                      ),
+                                  Text(
+                                    'Start Time',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.grey.shade700,
                                     ),
                                   ),
-                                  Expanded(
-                                    child: CupertinoPicker(
-                                      scrollController: _hourController,
-                                      itemExtent: 40,
-                                      onSelectedItemChanged: (index) {
-                                        setState(() {
-                                          selectedHour = index + 1;
-                                        });
-                                      },
-                                      children: List.generate(12, (index) {
-                                        return Center(
-                                          child: Text(
-                                            '${index + 1}',
-                                            style: TextStyle(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.w500,
-                                              color: Colors.grey.shade800,
-                                            ),
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    height: 80,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: Colors.grey.shade300),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        // Start Hour picker
+                                        Expanded(
+                                          child: Column(
+                                            children: [
+                                              Container(
+                                                padding: const EdgeInsets.all(6),
+                                                child: Text(
+                                                  'Hour',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: Colors.grey.shade600,
+                                                  ),
+                                                ),
+                                              ),
+                                              Expanded(
+                                                child: CupertinoPicker(
+                                                  scrollController: _startHourController,
+                                                  itemExtent: 24,
+                                                  onSelectedItemChanged: (index) {
+                                                    setState(() {
+                                                      startHour = index + 1;
+                                                    });
+                                                  },
+                                                  children: List.generate(12, (index) {
+                                                    return Center(
+                                                      child: Text(
+                                                        '${index + 1}',
+                                                        style: TextStyle(
+                                                          fontSize: 13,
+                                                          fontWeight: FontWeight.w500,
+                                                          color: Colors.grey.shade800,
+                                                        ),
+                                                      ),
+                                                    );
+                                                  }),
+                                                ),
+                                              ),
+                                            ],
                                           ),
-                                        );
-                                      }),
+                                        ),
+                                        // Start Minute picker
+                                        Expanded(
+                                          child: Column(
+                                            children: [
+                                              Container(
+                                                padding: const EdgeInsets.all(6),
+                                                child: Text(
+                                                  'Min',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: Colors.grey.shade600,
+                                                  ),
+                                                ),
+                                              ),
+                                              Expanded(
+                                                child: CupertinoPicker(
+                                                  scrollController: _startMinuteController,
+                                                  itemExtent: 24,
+                                                  onSelectedItemChanged: (index) {
+                                                    setState(() {
+                                                      startMinute = index;
+                                                    });
+                                                  },
+                                                  children: List.generate(60, (index) {
+                                                    return Center(
+                                                      child: Text(
+                                                        index.toString().padLeft(2, '0'),
+                                                        style: TextStyle(
+                                                          fontSize: 13,
+                                                          fontWeight: FontWeight.w500,
+                                                          color: Colors.grey.shade800,
+                                                        ),
+                                                      ),
+                                                    );
+                                                  }),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        // Start AM/PM picker
+                                        Expanded(
+                                          child: Column(
+                                            children: [
+                                              Container(
+                                                padding: const EdgeInsets.all(6),
+                                                child: Text(
+                                                  'Period',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: Colors.grey.shade600,
+                                                  ),
+                                                ),
+                                              ),
+                                              Expanded(
+                                                child: CupertinoPicker(
+                                                  scrollController: _startPeriodController,
+                                                  itemExtent: 24,
+                                                  onSelectedItemChanged: (index) {
+                                                    setState(() {
+                                                      startPeriod = index == 0 ? 'AM' : 'PM';
+                                                    });
+                                                  },
+                                                  children: ['AM', 'PM'].map((period) {
+                                                    return Center(
+                                                      child: Text(
+                                                        period,
+                                                        style: TextStyle(
+                                                          fontSize: 13,
+                                                          fontWeight: FontWeight.w500,
+                                                          color: Colors.grey.shade800,
+                                                        ),
+                                                      ),
+                                                    );
+                                                  }).toList(),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-
-                            // Minute picker
-                            Expanded(
-                              child: Column(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(12),
-                                    child: Text(
-                                      'Minute',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey.shade700,
-                                      ),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: CupertinoPicker(
-                                      scrollController: _minuteController,
-                                      itemExtent: 40,
-                                      onSelectedItemChanged: (index) {
-                                        setState(() {
-                                          selectedMinute = index;
-                                        });
-                                      },
-                                      children: List.generate(60, (index) {
-                                        return Center(
-                                          child: Text(
-                                            index.toString().padLeft(2, '0'),
-                                            style: TextStyle(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.w500,
-                                              color: Colors.grey.shade800,
-                                            ),
-                                          ),
-                                        );
-                                      }),
-                                    ),
-                                  ),
-                                ],
+                            
+                            // Divider
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              child: Divider(
+                                height: 1,
+                                color: Colors.grey.shade300,
                               ),
                             ),
-
-                            // AM/PM picker
-                            Expanded(
+                            
+                            // End Time Section
+                            Padding(
+                              padding: const EdgeInsets.all(12),
                               child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(12),
-                                    child: Text(
-                                      'Period',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey.shade700,
-                                      ),
+                                  Text(
+                                    'End Time',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.grey.shade700,
                                     ),
                                   ),
-                                  Expanded(
-                                    child: CupertinoPicker(
-                                      scrollController: _periodController,
-                                      itemExtent: 40,
-                                      onSelectedItemChanged: (index) {
-                                        setState(() {
-                                          selectedPeriod =
-                                              index == 0 ? 'AM' : 'PM';
-                                        });
-                                      },
-                                      children: ['AM', 'PM'].map((period) {
-                                        return Center(
-                                          child: Text(
-                                            period,
-                                            style: TextStyle(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.w500,
-                                              color: Colors.grey.shade800,
-                                            ),
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    height: 80,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: Colors.grey.shade300),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        // End Hour picker
+                                        Expanded(
+                                          child: Column(
+                                            children: [
+                                              Container(
+                                                padding: const EdgeInsets.all(6),
+                                                child: Text(
+                                                  'Hour',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: Colors.grey.shade600,
+                                                  ),
+                                                ),
+                                              ),
+                                              Expanded(
+                                                child: CupertinoPicker(
+                                                  scrollController: _endHourController,
+                                                  itemExtent: 24,
+                                                  onSelectedItemChanged: (index) {
+                                                    setState(() {
+                                                      endHour = index + 1;
+                                                    });
+                                                  },
+                                                  children: List.generate(12, (index) {
+                                                    return Center(
+                                                      child: Text(
+                                                        '${index + 1}',
+                                                        style: TextStyle(
+                                                          fontSize: 13,
+                                                          fontWeight: FontWeight.w500,
+                                                          color: Colors.grey.shade800,
+                                                        ),
+                                                      ),
+                                                    );
+                                                  }),
+                                                ),
+                                              ),
+                                            ],
                                           ),
-                                        );
-                                      }).toList(),
+                                        ),
+                                        // End Minute picker
+                                        Expanded(
+                                          child: Column(
+                                            children: [
+                                              Container(
+                                                padding: const EdgeInsets.all(6),
+                                                child: Text(
+                                                  'Min',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: Colors.grey.shade600,
+                                                  ),
+                                                ),
+                                              ),
+                                              Expanded(
+                                                child: CupertinoPicker(
+                                                  scrollController: _endMinuteController,
+                                                  itemExtent: 24,
+                                                  onSelectedItemChanged: (index) {
+                                                    setState(() {
+                                                      endMinute = index;
+                                                    });
+                                                  },
+                                                  children: List.generate(60, (index) {
+                                                    return Center(
+                                                      child: Text(
+                                                        index.toString().padLeft(2, '0'),
+                                                        style: TextStyle(
+                                                          fontSize: 13,
+                                                          fontWeight: FontWeight.w500,
+                                                          color: Colors.grey.shade800,
+                                                        ),
+                                                      ),
+                                                    );
+                                                  }),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        // End AM/PM picker
+                                        Expanded(
+                                          child: Column(
+                                            children: [
+                                              Container(
+                                                padding: const EdgeInsets.all(6),
+                                                child: Text(
+                                                  'Period',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: Colors.grey.shade600,
+                                                  ),
+                                                ),
+                                              ),
+                                              Expanded(
+                                                child: CupertinoPicker(
+                                                  scrollController: _endPeriodController,
+                                                  itemExtent: 24,
+                                                  onSelectedItemChanged: (index) {
+                                                    setState(() {
+                                                      endPeriod = index == 0 ? 'AM' : 'PM';
+                                                    });
+                                                  },
+                                                  children: ['AM', 'PM'].map((period) {
+                                                    return Center(
+                                                      child: Text(
+                                                        period,
+                                                        style: TextStyle(
+                                                          fontSize: 13,
+                                                          fontWeight: FontWeight.w500,
+                                                          color: Colors.grey.shade800,
+                                                        ),
+                                                      ),
+                                                    );
+                                                  }).toList(),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],
@@ -2278,7 +2502,8 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                           ],
                         ),
                       ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
 

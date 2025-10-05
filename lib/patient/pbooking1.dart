@@ -64,15 +64,7 @@ class _Pbooking1State extends State<Pbooking1> {
         'Postal ID',
   ];
 
-  // Time slots for appointment
-  final List<String> _timeSlots = [
-    '9:00 AM',
-    '10:00 AM',
-    '11:00 AM',
-    '1:00 PM',
-    '2:00 PM',
-    '3:00 PM',
-  ];
+
 
   @override
   void initState() {
@@ -80,7 +72,7 @@ class _Pbooking1State extends State<Pbooking1> {
     // Set default values
     _selectedGender = null;
     _selectedID = null;
-    _selectedTime = _timeSlots.first;
+    _selectedTime = null;
 
     // Pre-fill name and email from Firestore user data
     final user = FirebaseAuth.instance.currentUser;
@@ -165,6 +157,235 @@ class _Pbooking1State extends State<Pbooking1> {
       setState(() {
         _selectedDate = date;
       });
+    }
+  }
+
+  Future<List<String>> _getAvailableTimeSlots() async {
+    if (_selectedDate == null) return [];
+
+    try {
+      // Get doctor's schedule for selected day
+      final dayName = _getDayName(_selectedDate!);
+      final doctorSchedules = await _getDoctorScheduleForDay(dayName);
+      
+      if (doctorSchedules.isEmpty) return [];
+
+      // Generate time slots based on doctor's schedule
+      List<String> allSlots = _generateTimeSlots(doctorSchedules);
+
+      // Get session duration from the first schedule (they should all have the same duration for a day)
+      final sessionDuration = int.tryParse(doctorSchedules.first['sessionDuration'] ?? '30') ?? 30;
+
+      // Get already booked appointments for this date
+      final bookedSlots = await _getBookedSlots(_selectedDate!, widget.doctor.id, sessionDuration);
+
+      // Filter out booked slots
+      return allSlots.where((slot) => !bookedSlots.contains(slot)).toList();
+    } catch (e) {
+      debugPrint('Error getting available slots: $e');
+      return [];
+    }
+  }
+
+  String _getDayName(DateTime date) {
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    return days[date.weekday - 1];
+  }
+
+  Future<List<Map<String, String>>> _getDoctorScheduleForDay(String dayName) async {
+    try {
+      // Get doctor's data from Firestore to access affiliations
+      final doctorDoc = await FirebaseFirestore.instance
+          .collection('doctors')
+          .doc(widget.doctor.id)
+          .get();
+
+      if (doctorDoc.exists) {
+        final doctorData = doctorDoc.data();
+        if (doctorData != null && doctorData['affiliations'] != null) {
+          final affiliations = doctorData['affiliations'] as List<dynamic>;
+          
+          for (var affiliation in affiliations) {
+            final schedules = affiliation['schedules'] as List<dynamic>? ?? [];
+            final daySchedules = schedules
+                .where((s) => s['day'] == dayName)
+                .map((s) => Map<String, String>.from(s))
+                .toList();
+            
+            if (daySchedules.isNotEmpty) {
+              return daySchedules;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error getting doctor schedule: $e');
+    }
+    return [];
+  }
+
+  List<String> _generateTimeSlots(List<Map<String, String>> schedules) {
+    List<String> slots = [];
+    for (var schedule in schedules) {
+      final startTime = schedule['start'] ?? '9:00 AM';
+      final endTime = schedule['end'] ?? '5:00 PM'; 
+      final breakStart = schedule['breakStart'] ?? '12:00 PM';
+      final breakEnd = schedule['breakEnd'] ?? '1:00 PM';
+      final sessionDuration = int.tryParse(schedule['sessionDuration'] ?? '30') ?? 30;
+      
+      debugPrint('Generating slots: $startTime to $endTime, break: $breakStart-$breakEnd, duration: ${sessionDuration}min');
+      
+      try {
+        // Parse times (simplified parsing)
+        final startHour = _parseTimeToMinutes(startTime);
+        final endHour = _parseTimeToMinutes(endTime);
+        final breakStartMinutes = _parseTimeToMinutes(breakStart);
+        final breakEndMinutes = _parseTimeToMinutes(breakEnd);
+        
+        // Generate slots from start to break (as time ranges)
+        int currentMinutes = startHour;
+        while (currentMinutes + sessionDuration <= breakStartMinutes) {
+          final slotStart = _formatMinutesToTime(currentMinutes);
+          final slotEnd = _formatMinutesToTime(currentMinutes + sessionDuration);
+          slots.add('$slotStart - $slotEnd');
+          currentMinutes += sessionDuration;
+        }
+        
+        // Generate slots from break end to day end (as time ranges)
+        currentMinutes = breakEndMinutes;
+        while (currentMinutes + sessionDuration <= endHour) {
+          final slotStart = _formatMinutesToTime(currentMinutes);
+          final slotEnd = _formatMinutesToTime(currentMinutes + sessionDuration);
+          slots.add('$slotStart - $slotEnd');
+          currentMinutes += sessionDuration;
+        }
+        
+      } catch (e) {
+        debugPrint('Error parsing times, using default slots: $e');
+        // Fallback to default slots with ranges if parsing fails
+        slots.addAll([
+          '9:00 AM - 9:30 AM', '9:30 AM - 10:00 AM', '10:00 AM - 10:30 AM', 
+          '10:30 AM - 11:00 AM', '11:00 AM - 11:30 AM', '11:30 AM - 12:00 PM',
+          '1:00 PM - 1:30 PM', '1:30 PM - 2:00 PM', '2:00 PM - 2:30 PM', 
+          '2:30 PM - 3:00 PM', '3:00 PM - 3:30 PM', '3:30 PM - 4:00 PM', 
+          '4:00 PM - 4:30 PM', '4:30 PM - 5:00 PM'
+        ]);
+      }
+    }
+    return slots.toSet().toList(); // Remove duplicates
+  }
+
+  // Helper method to parse time string to minutes since midnight
+  int _parseTimeToMinutes(String timeStr) {
+    try {
+      timeStr = timeStr.trim().toUpperCase();
+      final isAM = timeStr.contains('AM');
+      final isPM = timeStr.contains('PM');
+      
+      String time = timeStr.replaceAll(RegExp(r'[AP]M'), '').trim();
+      List<String> parts = time.split(':');
+      
+      int hours = int.parse(parts[0]);
+      int minutes = parts.length > 1 ? int.parse(parts[1]) : 0;
+      
+      // Convert to 24-hour format
+      if (isPM && hours != 12) hours += 12;
+      if (isAM && hours == 12) hours = 0;
+      
+      return hours * 60 + minutes;
+    } catch (e) {
+      debugPrint('Error parsing time $timeStr: $e');
+      return 9 * 60; // Default to 9 AM
+    }
+  }
+
+  // Helper method to format minutes back to time string
+  String _formatMinutesToTime(int minutes) {
+    int hours = minutes ~/ 60;
+    int mins = minutes % 60;
+    
+    String period = hours >= 12 ? 'PM' : 'AM';
+    int displayHour = hours > 12 ? hours - 12 : (hours == 0 ? 12 : hours);
+    
+    String minuteStr = mins == 0 ? '00' : mins.toString().padLeft(2, '0');
+    return '$displayHour:$minuteStr $period';
+  }
+
+  Future<List<String>> _getBookedSlots(DateTime date, String doctorId, int sessionDuration) async {
+    try {
+      final formattedDate = Timestamp.fromDate(DateTime(date.year, date.month, date.day));
+      
+      // Check both pending and approved appointments
+      final pendingQuery = await FirebaseFirestore.instance
+          .collection('pending_patient_data')
+          .where('doctorId', isEqualTo: doctorId)
+          .where('appointmentDate', isEqualTo: formattedDate)
+          .get();
+      
+      // Check if approved_appointments collection exists
+      QuerySnapshot? approvedQuery;
+      try {
+        approvedQuery = await FirebaseFirestore.instance
+            .collection('approved_appointments')
+            .where('doctorId', isEqualTo: doctorId)
+            .where('appointmentDate', isEqualTo: formattedDate)
+            .get();
+      } catch (e) {
+        debugPrint('approved_appointments collection may not exist yet: $e');
+      }
+
+      Set<String> bookedTimes = {};
+      
+      for (var doc in pendingQuery.docs) {
+        final data = doc.data();
+        final time = data['appointmentTime'];
+        if (time != null) {
+          // Handle both old format (start time only) and new format (time range)
+          bookedTimes.add(time);
+          // If it's an old format (just start time), also block the corresponding range
+          if (!time.contains(' - ')) {
+            // Try to convert single time to range format for comparison
+            final startTime = time;
+            try {
+              final startMinutes = _parseTimeToMinutes(startTime);
+              final endTime = _formatMinutesToTime(startMinutes + sessionDuration);
+              bookedTimes.add('$startTime - $endTime');
+            } catch (e) {
+              debugPrint('Error converting time format: $e');
+            }
+          }
+        }
+      }
+      
+      if (approvedQuery != null) {
+        for (var doc in approvedQuery.docs) {
+          final data = doc.data() as Map<String, dynamic>?;
+          if (data != null) {
+            final time = data['appointmentTime'];
+            if (time != null) {
+              // Handle both old format (start time only) and new format (time range)
+              bookedTimes.add(time);
+              // If it's an old format (just start time), also block the corresponding range
+              if (!time.contains(' - ')) {
+                // Try to convert single time to range format for comparison
+                final startTime = time;
+                try {
+                  final startMinutes = _parseTimeToMinutes(startTime);
+                  final endTime = _formatMinutesToTime(startMinutes + sessionDuration);
+                  bookedTimes.add('$startTime - $endTime');
+                } catch (e) {
+                  debugPrint('Error converting time format: $e');
+                }
+              }
+            }
+          }
+        }
+      }
+
+      return bookedTimes.toList();
+    } catch (e) {
+      debugPrint('Error getting booked slots: $e');
+      return [];
     }
   }
 
@@ -304,6 +525,157 @@ class _Pbooking1State extends State<Pbooking1> {
         );
       }
     }
+  }
+
+  // Build time slots widget with AM/PM separation
+  Widget _buildTimeSlots() {
+    return FutureBuilder<List<String>>(
+      future: _getAvailableTimeSlots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final availableSlots = snapshot.data ?? [];
+        
+        if (availableSlots.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text(
+              'No available slots for this date',
+              style: TextStyle(color: Colors.grey.shade600),
+              textAlign: TextAlign.center,
+            ),
+          );
+        }
+
+        // Separate AM and PM slots
+        final morningSlots = <String>[];
+        final afternoonSlots = <String>[];
+
+        for (String slot in availableSlots) {
+          if (slot.contains('AM')) {
+            morningSlots.add(slot);
+          } else if (slot.contains('PM')) {
+            // Check if it's 12:XX PM (should be in afternoon)
+            if (slot.startsWith('12:')) {
+              afternoonSlots.add(slot);
+            } else {
+              afternoonSlots.add(slot);
+            }
+          }
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Morning Session
+            if (morningSlots.isNotEmpty) ...[
+              _buildSessionHeader('Morning Session', Icons.wb_sunny, Colors.orange),
+              const SizedBox(height: 12),
+              _buildSessionContainer(morningSlots, Colors.orange.withOpacity(0.1)),
+              const SizedBox(height: 20),
+            ],
+            
+            // Afternoon Session
+            if (afternoonSlots.isNotEmpty) ...[
+              _buildSessionHeader('Afternoon Session', Icons.wb_sunny_outlined, Colors.blue),
+              const SizedBox(height: 12),
+              _buildSessionContainer(afternoonSlots, Colors.blue.withOpacity(0.1)),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  // Build session header
+  Widget _buildSessionHeader(String title, IconData icon, Color color) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: color, size: 20),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: color,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Build session container with time slots
+  Widget _buildSessionContainer(List<String> slots, Color backgroundColor) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: backgroundColor.withOpacity(0.5)),
+      ),
+      child: Wrap(
+        spacing: 10,
+        runSpacing: 10,
+        children: slots.map((time) {
+          final isSelected = _selectedTime == time;
+          return Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                setState(() {
+                  _selectedTime = time;
+                });
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                constraints: const BoxConstraints(minWidth: 130),
+                decoration: BoxDecoration(
+                  color: isSelected ? const Color(0xE0F44336) : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: isSelected 
+                          ? const Color(0xE0F44336).withOpacity(0.3)
+                          : Colors.grey.withOpacity(0.2),
+                      blurRadius: isSelected ? 8 : 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                  border: isSelected 
+                      ? Border.all(color: const Color(0xE0F44336), width: 2)
+                      : Border.all(color: Colors.grey.shade300, width: 1),
+                ),
+                child: Text(
+                  time,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : Colors.black87,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
   }
 
   // Custom Input Decoration
@@ -603,72 +975,20 @@ class _Pbooking1State extends State<Pbooking1> {
                         ),
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.shade200,
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
+                    _selectedDate == null 
+                      ? Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(16),
                           ),
-                        ],
-                      ),
-                      child: Wrap(
-                        spacing: 12,
-                        runSpacing: 12,
-                        children: _timeSlots.map((time) {
-                          final isSelected = _selectedTime == time;
-                          return Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: () {
-                                setState(() {
-                                  _selectedTime = time;
-                                });
-                              },
-                              borderRadius: BorderRadius.circular(12),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? const Color(0xE0F44336)
-                                      : const Color(0xFFF5F5F5),
-                                  borderRadius: BorderRadius.circular(12),
-                                  boxShadow: isSelected
-                                      ? [
-                                          BoxShadow(
-                                            color: const Color(0xE0F44336)
-                                                .withOpacity(0.3),
-                                            blurRadius: 8,
-                                            offset: const Offset(0, 4),
-                                          ),
-                                        ]
-                                      : null,
-                                ),
-                                child: Text(
-                                  time,
-                                  style: TextStyle(
-                                    color: isSelected
-                                        ? Colors.white
-                                        : Colors.black87,
-                                    fontWeight: isSelected
-                                        ? FontWeight.w600
-                                        : FontWeight.normal,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
+                          child: Text(
+                            'Please select a date first',
+                            style: TextStyle(color: Colors.grey.shade600),
+                            textAlign: TextAlign.center,
+                          ),
+                        )
+                      : _buildTimeSlots(),
                   ],
                 ),
               ),

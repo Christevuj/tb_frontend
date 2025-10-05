@@ -3,6 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:printing/printing.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdfx/pdfx.dart' as pdfx;
+import 'package:http/http.dart' as http;
 import 'dart:typed_data';
 import 'dart:io';
 import 'certificate.dart';
@@ -23,6 +26,33 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
   bool _isPatientInfoExpanded = false;
   bool _isScheduleExpanded = false;
   bool _isPrescriptionExpanded = false;
+
+  // Helper method to collect complete appointment data for history
+  Future<Map<String, dynamic>> _collectCompleteAppointmentData(
+    Map<String, dynamic> appointment, 
+    Map<String, dynamic>? prescriptionData,
+    Map<String, dynamic>? certificateData
+  ) async {
+    // Start with the base appointment data
+    Map<String, dynamic> completeData = Map<String, dynamic>.from(appointment);
+    
+    // Add prescription data if available
+    if (prescriptionData != null) {
+      completeData['prescriptionData'] = prescriptionData;
+    }
+    
+    // Add certificate data if available
+    if (certificateData != null) {
+      completeData['certificateData'] = certificateData;
+    }
+    
+    // Add metadata about the history transfer
+    completeData['originalStatus'] = completeData['status'];
+    completeData['historyTransferredBy'] = FirebaseAuth.instance.currentUser?.uid;
+    completeData['historyTransferredAt'] = FieldValue.serverTimestamp();
+    
+    return completeData;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -410,12 +440,6 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
                                 stepNumber: '4',
                                 instruction: 'Treatment completion certificate delivered',
                                 isCompleted: hasCertificate, // Now checks if certificate exists
-                              ),
-                              const SizedBox(height: 8),
-                              _buildStepInstruction(
-                                stepNumber: '5',
-                                instruction: 'Full TB treatment program completed',
-                                isCompleted: widget.appointment["treatmentCompleted"] == true,
                               ),
                             ],
                           ),
@@ -1111,28 +1135,65 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
                           borderRadius: BorderRadius.circular(12),
                           onTap: hasCertificate ? () async {
                             try {
-                              // Create a completed appointment record first
+                              // Get certificate data
+                              Map<String, dynamic>? certificateDataMap;
+                              try {
+                                final certificateQuery = await FirebaseFirestore.instance
+                                    .collection('certificates')
+                                    .where('appointmentId', isEqualTo: appointment['appointmentId'])
+                                    .get();
+                                
+                                if (certificateQuery.docs.isNotEmpty) {
+                                  certificateDataMap = certificateQuery.docs.first.data();
+                                }
+                              } catch (e) {
+                                debugPrint('Error fetching certificate data: $e');
+                              }
+
+                              // Collect all appointment data including prescription and certificate
+                              final completeAppointmentData = await _collectCompleteAppointmentData(
+                                appointment, 
+                                prescriptionData, 
+                                certificateDataMap
+                              );
+
+                              // Move to appointment_history collection
+                              await FirebaseFirestore.instance
+                                  .collection('appointment_history')
+                                  .add({
+                                ...completeAppointmentData,
+                                'status': 'treatment_completed',
+                                'treatmentCompletedAt': FieldValue.serverTimestamp(),
+                                'movedToHistoryAt': FieldValue.serverTimestamp(),
+                                'processedToHistory': true,
+                              });
+
+                              // Create a completed appointment record (for dpost.dart visibility)
                               await FirebaseFirestore.instance
                                   .collection('completed_appointments')
                                   .add({
                                 ...appointment,
                                 'prescriptionData': prescriptionData,
+                                'certificateData': certificateDataMap,
                                 'meetingCompleted': true,
+                                'treatmentCompleted': true,
                                 'completedAt': FieldValue.serverTimestamp(),
+                                'processedToHistory': true, // Mark as processed to history
                               });
 
-                              // Send notification to patient about completed meeting and e-prescription
+                              // Send notification to patient about treatment completion
                               await FirebaseFirestore.instance
                                   .collection('patient_notifications')
                                   .add({
                                 'patientUid': appointment['patientUid'] ??
                                     appointment['patientId'],
                                 'appointmentId': appointment['appointmentId'],
-                                'type': 'meeting_completed',
-                                'title': 'Meeting Completed',
+                                'type': 'treatment_completed',
+                                'title': 'Treatment Completed',
                                 'message':
-                                    'Your appointment with the doctor has been completed. E-prescription is now available for viewing and download.',
+                                    'Your TB treatment has been completed successfully. Both e-prescription and treatment certificate are available for download.',
                                 'prescriptionData': prescriptionData,
+                                'certificateData': certificateDataMap,
                                 'createdAt': FieldValue.serverTimestamp(),
                                 'isRead': false,
                                 'doctorName':
@@ -1150,7 +1211,7 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
                                     content: Text(
-                                        "Treatment completed successfully! Appointment removed from active appointments. Patient notified about completion."),
+                                        "Treatment completed successfully! All data moved to history. Patient notified about treatment completion."),
                                     backgroundColor: Colors.green,
                                   ),
                                 );
@@ -1285,29 +1346,36 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
         // Check for Cloudinary URL first
         if (prescriptionData['pdfUrl'] != null &&
             prescriptionData['pdfUrl'].toString().isNotEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content:
-                  Text('Opening cloud PDF - implement web view or download'),
-              backgroundColor: Colors.orange,
+          String pdfUrl = prescriptionData['pdfUrl'].toString();
+          debugPrint('Opening prescription PDF from URL: $pdfUrl');
+
+          // Navigate to URL-based prescription PDF viewer
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => _PrescriptionPdfViewerFromUrlScreen(
+                pdfUrl: pdfUrl,
+                title: 'Electronic Prescription',
+                filename: 'Prescription.pdf',
+                backgroundColor: Colors.blue,
+              ),
             ),
           );
-          // TODO: Implement cloud PDF viewing
           return;
         }
 
-        // Check for local PDF path
+        // Check for local PDF path (fallback)
         if (prescriptionData['pdfPath'] != null) {
           final file = File(prescriptionData['pdfPath']);
           if (await file.exists()) {
             final pdfBytes = await file.readAsBytes();
-            // Show in-app PDF viewer
+            // Show in-app prescription PDF viewer
             Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (context) => _PdfViewerScreen(
+                builder: (context) => _PrescriptionPdfViewerScreen(
                   pdfBytes: pdfBytes,
-                  title: 'Prescription PDF',
+                  title: 'Electronic Prescription',
                   filename: 'Prescription.pdf',
+                  backgroundColor: Colors.blue,
                 ),
               ),
             );
@@ -1322,13 +1390,14 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
         final file = File(prescriptionData['pdfPath']);
         if (await file.exists()) {
           final pdfBytes = await file.readAsBytes();
-          // Show in-app PDF viewer
+          // Show in-app prescription PDF viewer
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (context) => _PdfViewerScreen(
+              builder: (context) => _PrescriptionPdfViewerScreen(
                 pdfBytes: pdfBytes,
-                title: 'Prescription PDF',
+                title: 'Electronic Prescription',
                 filename: 'Prescription.pdf',
+                backgroundColor: Colors.blue,
               ),
             ),
           );
@@ -1344,8 +1413,8 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('PDF version not available.'),
-            backgroundColor: Colors.blue,
+            content: Text('Prescription PDF not available. Please contact your doctor.'),
+            backgroundColor: Colors.orange,
           ),
         );
       }
@@ -1374,45 +1443,52 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
       if (certificateSnapshot.docs.isNotEmpty) {
         final certificateData = certificateSnapshot.docs.first.data();
 
-        // Check for local PDF path first (most likely to exist)
+        // Check for Cloudinary URL first
+        if (certificateData['pdfUrl'] != null &&
+            certificateData['pdfUrl'].toString().isNotEmpty) {
+          String pdfUrl = certificateData['pdfUrl'].toString();
+          debugPrint('Opening certificate PDF from URL: $pdfUrl');
+
+          // Navigate to URL-based certificate PDF viewer
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => _CertificatePdfViewerFromUrlScreen(
+                pdfUrl: pdfUrl,
+                title: 'TB Treatment Certificate',
+                filename: 'TB_Certificate.pdf',
+                backgroundColor: Colors.purple,
+              ),
+            ),
+          );
+          return;
+        }
+
+        // Check for local PDF path (fallback)
         if (certificateData['pdfPath'] != null) {
           final file = File(certificateData['pdfPath']);
           if (await file.exists()) {
             final pdfBytes = await file.readAsBytes();
-            // Show in-app PDF viewer
+            // Show in-app certificate PDF viewer
             Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (context) => _PdfViewerScreen(
+                builder: (context) => _CertificatePdfViewerScreen(
                   pdfBytes: pdfBytes,
                   title: 'TB Treatment Certificate',
                   filename: 'TB_Certificate.pdf',
+                  backgroundColor: Colors.purple,
                 ),
               ),
             );
             return;
           }
         }
-
-        // Check for Cloudinary URL
-        if (certificateData['pdfUrl'] != null &&
-            certificateData['pdfUrl'].toString().isNotEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                  'Cloud certificate viewing - implement web view or download'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-          // TODO: Implement cloud PDF viewing for certificates
-          return;
-        }
       }
 
-      // No certificate found
+      // No certificate found or no PDF available
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-              'Certificate PDF not found. It may have been moved or deleted.'),
+              'Certificate PDF not available. Please contact your healthcare provider.'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -1540,44 +1616,1605 @@ class InfoField extends StatelessWidget {
   }
 }
 
-class _PdfViewerScreen extends StatelessWidget {
-  final Uint8List pdfBytes;
+// Certificate PDF Viewer Screen for URLs
+class _CertificatePdfViewerFromUrlScreen extends StatefulWidget {
+  final String pdfUrl;
   final String title;
   final String filename;
+  final Color? backgroundColor;
 
-  const _PdfViewerScreen({
-    required this.pdfBytes,
+  const _CertificatePdfViewerFromUrlScreen({
+    required this.pdfUrl,
     required this.title,
     required this.filename,
+    this.backgroundColor,
   });
+
+  @override
+  State<_CertificatePdfViewerFromUrlScreen> createState() =>
+      _CertificatePdfViewerFromUrlScreenState();
+}
+
+class _CertificatePdfViewerFromUrlScreenState extends State<_CertificatePdfViewerFromUrlScreen> {
+  pdfx.PdfController? _pdfController;
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializePdf();
+  }
+
+  Future<void> _initializePdf() async {
+    try {
+      debugPrint('Initializing Certificate PDF from URL: ${widget.pdfUrl}');
+
+      // Download PDF from URL
+      final response = await http.get(Uri.parse(widget.pdfUrl));
+      if (response.statusCode == 200) {
+        final pdfBytes = response.bodyBytes;
+        _pdfController = pdfx.PdfController(
+          document: pdfx.PdfDocument.openData(pdfBytes),
+        );
+        setState(() {
+          _isLoading = false;
+        });
+      } else {
+        throw Exception('Failed to download Certificate PDF: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Error loading Certificate PDF: $e');
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Failed to load Certificate PDF: ${e.toString()}';
+      });
+    }
+  }
+
+  Future<void> _downloadAndSharePdf() async {
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      // Download PDF bytes from URL
+      final response = await http.get(Uri.parse(widget.pdfUrl));
+
+      // Close loading dialog
+      Navigator.of(context).pop();
+
+      if (response.statusCode == 200) {
+        final pdfBytes = response.bodyBytes;
+
+        // Share the PDF
+        await Printing.sharePdf(
+          bytes: pdfBytes,
+          filename: widget.filename,
+        );
+      } else {
+        throw Exception('Failed to download Certificate PDF: ${response.statusCode}');
+      }
+    } catch (e) {
+      // Close loading dialog if still open
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error downloading Certificate PDF: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _printPdf() async {
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      // Download PDF bytes from URL
+      final response = await http.get(Uri.parse(widget.pdfUrl));
+
+      // Close loading dialog
+      Navigator.of(context).pop();
+
+      if (response.statusCode == 200) {
+        final pdfBytes = response.bodyBytes;
+
+        // Print the PDF
+        await Printing.layoutPdf(
+          onLayout: (format) => pdfBytes,
+        );
+      } else {
+        throw Exception('Failed to download Certificate PDF: ${response.statusCode}');
+      }
+    } catch (e) {
+      // Close loading dialog if still open
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error printing Certificate PDF: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _pdfController?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(title),
-        backgroundColor: Colors.teal,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.share),
-            onPressed: () async {
-              await Printing.sharePdf(
-                bytes: pdfBytes,
-                filename: filename,
-              );
-            },
+      backgroundColor: const Color(0xFFF2F3F5),
+      body: Column(
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 40, 16, 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Back Button
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.shade300,
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back_ios,
+                        color: Color.fromARGB(223, 107, 107, 107), size: 20),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+                const Text(
+                  "TB Certificate",
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.purple,
+                  ),
+                ),
+                const SizedBox(width: 48), // spacing balance
+              ],
+            ),
+          ),
+          
+          // PDF Content with Integrated Action Buttons
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              decoration: const BoxDecoration(
+                color: Colors.transparent, // Remove white background
+                borderRadius: BorderRadius.all(Radius.circular(20)),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Column(
+                  children: [
+                    // PDF Content Area
+                    Expanded(
+                      child: _buildBody(),
+                    ),
+                    
+                    // Integrated Action Buttons Inside Container
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: const BoxDecoration(
+                        color: Colors.transparent, // Remove background color
+                        borderRadius: BorderRadius.only(
+                          bottomLeft: Radius.circular(20),
+                          bottomRight: Radius.circular(20),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          // Compact Share Button
+                          Expanded(
+                            child: Container(
+                              height: 48,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Colors.purple.shade400,
+                                    Colors.purple.shade600,
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.purple.withOpacity(0.3),
+                                    spreadRadius: 0,
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: _downloadAndSharePdf,
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    child: const Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.share_rounded,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'Share',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 0.3,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // Compact Print Button
+                          Expanded(
+                            child: Container(
+                              height: 48,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    const Color(0xFF27AE60),
+                                    const Color(0xFF219A52),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF27AE60).withOpacity(0.3),
+                                    spreadRadius: 0,
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: _printPdf,
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    child: const Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.print_rounded,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'Print',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 0.3,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ],
       ),
-      body: PdfPreview(
-        build: (format) => pdfBytes,
-        allowPrinting: true,
-        allowSharing: true,
-        canChangeOrientation: false,
-        canChangePageFormat: false,
-        canDebug: false,
-        actions: const [],
+    );
+  }
+
+  Widget _buildBody() {
+    if (_isLoading) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.purple.shade50,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.purple.shade600),
+                strokeWidth: 3,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Loading Certificate...',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey.shade700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Please wait while we prepare your TB treatment certificate',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade500,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Icon(
+                  Icons.verified_outlined,
+                  size: 64,
+                  color: Colors.red.shade400,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Unable to Load Certificate',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey.shade800,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Text(
+                  _errorMessage!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey.shade600,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.purple.shade500, Colors.purple.shade600],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.purple.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      _isLoading = true;
+                      _errorMessage = null;
+                    });
+                    _initializePdf();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.refresh, color: Colors.white),
+                      SizedBox(width: 8),
+                      Text(
+                        'Try Again',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_pdfController == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.warning_amber_rounded,
+              size: 48,
+              color: Colors.orange.shade400,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Certificate Controller Not Available',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey.shade700,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return InteractiveViewer(
+      minScale: 0.5,
+      maxScale: 4.0,
+      child: Container(
+        width: double.infinity,
+        height: double.infinity,
+        padding: const EdgeInsets.all(8), // Small margins around PDF pages
+        child: pdfx.PdfView(
+          controller: _pdfController!,
+          scrollDirection: Axis.vertical,
+          backgroundDecoration: const BoxDecoration(
+            color: Colors.transparent, // Remove background
+          ),
+          // Enable smooth scrolling and zoom
+          pageSnapping: false,
+          physics: const BouncingScrollPhysics(),
+        ),
+      ),
+    );
+  }
+}
+
+// Certificate PDF Viewer Screen for Local Files
+class _CertificatePdfViewerScreen extends StatelessWidget {
+  final Uint8List pdfBytes;
+  final String title;
+  final String filename;
+  final Color? backgroundColor;
+
+  const _CertificatePdfViewerScreen({
+    required this.pdfBytes,
+    required this.title,
+    required this.filename,
+    this.backgroundColor,
+  });
+
+  Future<void> _sharePdf(BuildContext context) async {
+    try {
+      await Printing.sharePdf(
+        bytes: pdfBytes,
+        filename: filename,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error sharing Certificate PDF: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _printPdf(BuildContext context) async {
+    try {
+      await Printing.layoutPdf(
+        onLayout: (format) => pdfBytes,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error printing Certificate PDF: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF2F3F5),
+      body: Column(
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 40, 16, 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Back Button
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.shade300,
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back_ios,
+                        color: Color.fromARGB(223, 107, 107, 107), size: 20),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+                const Text(
+                  "TB Certificate",
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.purple,
+                  ),
+                ),
+                const SizedBox(width: 48), // spacing balance
+              ],
+            ),
+          ),
+          
+          // PDF Content with Integrated Action Buttons
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              decoration: const BoxDecoration(
+                color: Colors.transparent, // Remove white background
+                borderRadius: BorderRadius.all(Radius.circular(20)),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Column(
+                  children: [
+                    // PDF Content Area
+                    Expanded(
+                      child: InteractiveViewer(
+                        minScale: 0.5,
+                        maxScale: 4.0,
+                        child: ClipRect(
+                          child: PdfPreview(
+                            build: (format) => pdfBytes,
+                            allowPrinting: false, // We handle this in bottom buttons
+                            allowSharing: false,  // We handle this in bottom buttons
+                            canChangePageFormat: false,
+                            canChangeOrientation: false, // Disable orientation change
+                            canDebug: false,
+                            initialPageFormat: PdfPageFormat.a4,
+                            pdfFileName: filename,
+                            actions: const [], // Remove all default actions
+                            useActions: false, // Completely disable action bar
+                            scrollViewDecoration: const BoxDecoration(
+                              color: Colors.transparent,
+                            ),
+                            // Remove any bottom decorations
+                            dynamicLayout: false,
+                            maxPageWidth: double.infinity,
+                            previewPageMargin: const EdgeInsets.all(8), // Small margins around pages
+                            pageFormats: const {}, // Remove page format options
+                          ),
+                        ),
+                      ),
+                    ),
+                    
+                    // Integrated Action Buttons Inside Container
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: const BoxDecoration(
+                        color: Colors.transparent, // Remove background color
+                        borderRadius: BorderRadius.only(
+                          bottomLeft: Radius.circular(20),
+                          bottomRight: Radius.circular(20),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          // Compact Share Button
+                          Expanded(
+                            child: Container(
+                              height: 48,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Colors.purple.shade400,
+                                    Colors.purple.shade600,
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.purple.withOpacity(0.3),
+                                    spreadRadius: 0,
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () => _sharePdf(context),
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    child: const Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.share_rounded,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'Share',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 0.3,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // Compact Print Button
+                          Expanded(
+                            child: Container(
+                              height: 48,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    const Color(0xFF27AE60),
+                                    const Color(0xFF219A52),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF27AE60).withOpacity(0.3),
+                                    spreadRadius: 0,
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () => _printPdf(context),
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    child: const Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.print_rounded,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'Print',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 0.3,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Prescription PDF Viewer Screen for URLs
+class _PrescriptionPdfViewerFromUrlScreen extends StatefulWidget {
+  final String pdfUrl;
+  final String title;
+  final String filename;
+  final Color? backgroundColor;
+
+  const _PrescriptionPdfViewerFromUrlScreen({
+    required this.pdfUrl,
+    required this.title,
+    required this.filename,
+    this.backgroundColor,
+  });
+
+  @override
+  State<_PrescriptionPdfViewerFromUrlScreen> createState() =>
+      _PrescriptionPdfViewerFromUrlScreenState();
+}
+
+class _PrescriptionPdfViewerFromUrlScreenState extends State<_PrescriptionPdfViewerFromUrlScreen> {
+  pdfx.PdfController? _pdfController;
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializePdf();
+  }
+
+  Future<void> _initializePdf() async {
+    try {
+      debugPrint('Initializing Prescription PDF from URL: ${widget.pdfUrl}');
+
+      // Download PDF from URL
+      final response = await http.get(Uri.parse(widget.pdfUrl));
+      if (response.statusCode == 200) {
+        final pdfBytes = response.bodyBytes;
+        _pdfController = pdfx.PdfController(
+          document: pdfx.PdfDocument.openData(pdfBytes),
+        );
+        setState(() {
+          _isLoading = false;
+        });
+      } else {
+        throw Exception('Failed to download Prescription PDF: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Error loading Prescription PDF: $e');
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Failed to load Prescription PDF: ${e.toString()}';
+      });
+    }
+  }
+
+  Future<void> _downloadAndSharePdf() async {
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      // Download PDF bytes from URL
+      final response = await http.get(Uri.parse(widget.pdfUrl));
+
+      // Close loading dialog
+      Navigator.of(context).pop();
+
+      if (response.statusCode == 200) {
+        final pdfBytes = response.bodyBytes;
+
+        // Share the PDF
+        await Printing.sharePdf(
+          bytes: pdfBytes,
+          filename: widget.filename,
+        );
+      } else {
+        throw Exception('Failed to download Prescription PDF: ${response.statusCode}');
+      }
+    } catch (e) {
+      // Close loading dialog if still open
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error downloading Prescription PDF: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _printPdf() async {
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      // Download PDF bytes from URL
+      final response = await http.get(Uri.parse(widget.pdfUrl));
+
+      // Close loading dialog
+      Navigator.of(context).pop();
+
+      if (response.statusCode == 200) {
+        final pdfBytes = response.bodyBytes;
+
+        // Print the PDF
+        await Printing.layoutPdf(
+          onLayout: (format) => pdfBytes,
+        );
+      } else {
+        throw Exception('Failed to download Prescription PDF: ${response.statusCode}');
+      }
+    } catch (e) {
+      // Close loading dialog if still open
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error printing Prescription PDF: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _pdfController?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF2F3F5),
+      body: Column(
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 40, 16, 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Back Button
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.shade300,
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back_ios,
+                        color: Color.fromARGB(223, 107, 107, 107), size: 20),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+                const Text(
+                  "E-Prescription",
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF4A90E2),
+                  ),
+                ),
+                const SizedBox(width: 48), // spacing balance
+              ],
+            ),
+          ),
+          
+          // PDF Content with Integrated Action Buttons
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              decoration: const BoxDecoration(
+                color: Colors.transparent, // Remove white background
+                borderRadius: BorderRadius.all(Radius.circular(20)),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Column(
+                  children: [
+                    // PDF Content Area
+                    Expanded(
+                      child: _buildBody(),
+                    ),
+                    
+                    // Integrated Action Buttons Inside Container
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: const BoxDecoration(
+                        color: Colors.transparent, // Remove background color
+                        borderRadius: BorderRadius.only(
+                          bottomLeft: Radius.circular(20),
+                          bottomRight: Radius.circular(20),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          // Compact Share Button
+                          Expanded(
+                            child: Container(
+                              height: 48,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    const Color(0xFF4A90E2),
+                                    const Color(0xFF357ABD),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF4A90E2).withOpacity(0.3),
+                                    spreadRadius: 0,
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: _downloadAndSharePdf,
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    child: const Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.share_rounded,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'Share',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 0.3,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // Compact Print Button
+                          Expanded(
+                            child: Container(
+                              height: 48,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    const Color(0xFF27AE60),
+                                    const Color(0xFF219A52),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF27AE60).withOpacity(0.3),
+                                    spreadRadius: 0,
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: _printPdf,
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    child: const Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.print_rounded,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'Print',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 0.3,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_isLoading) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue.shade600),
+                strokeWidth: 3,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Loading Prescription...',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey.shade700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Please wait while we prepare your electronic prescription',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade500,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Icon(
+                  Icons.description_outlined,
+                  size: 64,
+                  color: Colors.red.shade400,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Unable to Load Prescription',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey.shade800,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Text(
+                  _errorMessage!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey.shade600,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.blue.shade500, Colors.blue.shade600],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.blue.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      _isLoading = true;
+                      _errorMessage = null;
+                    });
+                    _initializePdf();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.refresh, color: Colors.white),
+                      SizedBox(width: 8),
+                      Text(
+                        'Try Again',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_pdfController == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.warning_amber_rounded,
+              size: 48,
+              color: Colors.orange.shade400,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Prescription Controller Not Available',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey.shade700,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return InteractiveViewer(
+      minScale: 0.5,
+      maxScale: 4.0,
+      child: Container(
+        width: double.infinity,
+        height: double.infinity,
+        padding: const EdgeInsets.all(8), // Small margins around PDF pages
+        child: pdfx.PdfView(
+          controller: _pdfController!,
+          scrollDirection: Axis.vertical,
+          backgroundDecoration: const BoxDecoration(
+            color: Colors.transparent, // Remove background
+          ),
+          // Enable smooth scrolling and zoom
+          pageSnapping: false,
+          physics: const BouncingScrollPhysics(),
+        ),
+      ),
+    );
+  }
+}
+
+// Prescription PDF Viewer Screen for Local Files
+class _PrescriptionPdfViewerScreen extends StatelessWidget {
+  final Uint8List pdfBytes;
+  final String title;
+  final String filename;
+  final Color? backgroundColor;
+
+  const _PrescriptionPdfViewerScreen({
+    required this.pdfBytes,
+    required this.title,
+    required this.filename,
+    this.backgroundColor,
+  });
+
+  Future<void> _sharePdf(BuildContext context) async {
+    try {
+      await Printing.sharePdf(
+        bytes: pdfBytes,
+        filename: filename,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error sharing Prescription PDF: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _printPdf(BuildContext context) async {
+    try {
+      await Printing.layoutPdf(
+        onLayout: (format) => pdfBytes,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error printing Prescription PDF: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF2F3F5),
+      body: Column(
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 40, 16, 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Back Button
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.shade300,
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back_ios,
+                        color: Color.fromARGB(223, 107, 107, 107), size: 20),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+                const Text(
+                  "E-Prescription",
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF4A90E2),
+                  ),
+                ),
+                const SizedBox(width: 48), // spacing balance
+              ],
+            ),
+          ),
+          
+          // PDF Content with Integrated Action Buttons
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              decoration: const BoxDecoration(
+                color: Colors.transparent, // Remove white background
+                borderRadius: BorderRadius.all(Radius.circular(20)),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Column(
+                  children: [
+                    // PDF Content Area
+                    Expanded(
+                      child: InteractiveViewer(
+                        minScale: 0.5,
+                        maxScale: 4.0,
+                        child: ClipRect(
+                          child: PdfPreview(
+                            build: (format) => pdfBytes,
+                            allowPrinting: false, // We handle this in bottom buttons
+                            allowSharing: false,  // We handle this in bottom buttons
+                            canChangePageFormat: false,
+                            canChangeOrientation: false, // Disable orientation change
+                            canDebug: false,
+                            initialPageFormat: PdfPageFormat.a4,
+                            pdfFileName: filename,
+                            actions: const [], // Remove all default actions
+                            useActions: false, // Completely disable action bar
+                            scrollViewDecoration: const BoxDecoration(
+                              color: Colors.transparent,
+                            ),
+                            // Remove any bottom decorations
+                            dynamicLayout: false,
+                            maxPageWidth: double.infinity,
+                            previewPageMargin: const EdgeInsets.all(8), // Small margins around pages
+                            pageFormats: const {}, // Remove page format options
+                          ),
+                        ),
+                      ),
+                    ),
+                    
+                    // Integrated Action Buttons Inside Container
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: const BoxDecoration(
+                        color: Colors.transparent, // Remove background color
+                        borderRadius: BorderRadius.only(
+                          bottomLeft: Radius.circular(20),
+                          bottomRight: Radius.circular(20),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          // Compact Share Button
+                          Expanded(
+                            child: Container(
+                              height: 48,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    const Color(0xFF4A90E2),
+                                    const Color(0xFF357ABD),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF4A90E2).withOpacity(0.3),
+                                    spreadRadius: 0,
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () => _sharePdf(context),
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    child: const Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.share_rounded,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'Share',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 0.3,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // Compact Print Button
+                          Expanded(
+                            child: Container(
+                              height: 48,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    const Color(0xFF27AE60),
+                                    const Color(0xFF219A52),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF27AE60).withOpacity(0.3),
+                                    spreadRadius: 0,
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () => _printPdf(context),
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    child: const Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.print_rounded,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'Print',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 0.3,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

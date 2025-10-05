@@ -9,6 +9,8 @@ import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdfx/pdfx.dart' as pdfx;
 import 'package:http/http.dart' as http;
+import '../services/chat_service.dart';
+import '../chat_screens/chat_screen.dart';
 
 class PMyAppointmentScreen extends StatefulWidget {
   const PMyAppointmentScreen({super.key});
@@ -49,6 +51,9 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
 
   // Filter for appointments
   String _selectedFilter = 'All'; // Updated filter options
+
+  // Map to track expansion state of schedule cards by appointment ID
+  Map<String, bool> _scheduleCardExpansionState = {};
 
   // Available filter options
   final List<Map<String, dynamic>> _filterOptions = [
@@ -203,6 +208,88 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
       await _loadAppointmentDates();
     } else {
       debugPrint('No user logged in');
+    }
+  }
+
+  Future<void> _openChatWithDoctor(Map<String, dynamic> appointment) async {
+    try {
+      final ChatService chatService = ChatService();
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        throw Exception('No authenticated user found');
+      }
+
+      final doctorId = appointment['doctorId'] ?? appointment['doctor_id'];
+      String doctorName = 'Doctor';
+
+      if (doctorId == null) {
+        throw Exception('Doctor ID not found');
+      }
+
+      // Get doctor's information
+      try {
+        final doctorDoc = await FirebaseFirestore.instance
+            .collection('doctors')
+            .doc(doctorId)
+            .get();
+        
+        if (doctorDoc.exists) {
+          final doctorData = doctorDoc.data() as Map<String, dynamic>;
+          doctorName = "Dr. ${doctorData["fullName"] ?? appointment["doctorName"] ?? "Doctor"}";
+        } else if (appointment["doctorName"] != null) {
+          doctorName = "Dr. ${appointment["doctorName"]}";
+        }
+      } catch (e) {
+        debugPrint('Error fetching doctor details: $e');
+        // Use fallback name if doctor details can't be fetched
+        if (appointment["doctorName"] != null) {
+          doctorName = "Dr. ${appointment["doctorName"]}";
+        }
+      }
+
+      // Create or update user docs for chat - ensure both users exist in users collection
+      await chatService.createUserDoc(
+        userId: currentUser.uid,
+        name: currentUser.displayName ?? 'Patient',
+        role: 'patient',
+      );
+
+      await chatService.createUserDoc(
+        userId: doctorId,
+        name: doctorName,
+        role: 'doctor',
+      );
+
+      // Navigate to chat screen
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChatScreen(
+              currentUserId: currentUser.uid,
+              otherUserId: doctorId,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error opening chat: $e'),
+            backgroundColor: Colors.red.shade600,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            action: SnackBarAction(
+              label: 'Dismiss',
+              textColor: Colors.white,
+              onPressed: () {},
+            ),
+          ),
+        );
+      }
     }
   }
 
@@ -822,6 +909,7 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
       builder: (context, snapshot) {
         String doctorName = "Dr. Not assigned";
         String clinicAddress = "No clinic address available";
+        String doctorId = appointment["doctorId"] ?? appointment["doctor_id"] ?? "";
         
         if (snapshot.hasData && snapshot.data!.exists) {
           final doctorData = snapshot.data!.data() as Map<String, dynamic>;
@@ -870,6 +958,33 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                       const SizedBox(height: 12),
                       _buildBoldInfoRow(Icons.person, 'Doctor Name:', doctorName),
                       _buildBoldInfoRow(Icons.location_on, 'Clinic:', clinicAddress),
+                      const SizedBox(height: 12),
+                      // Message Doctor Button - Only show if not pending and doctor ID exists
+                      if (doctorId.isNotEmpty && 
+                          appointment['status']?.toString().toLowerCase() != 'pending')
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: () => _openChatWithDoctor(appointment),
+                            icon: const Icon(Icons.message, color: Color(0xFF0A84FF), size: 16),
+                            label: const Text(
+                              'MESSAGE DOCTOR',
+                              style: TextStyle(
+                                color: Color(0xFF0A84FF),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              side: const BorderSide(color: Color(0xFF0A84FF), width: 1),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -885,37 +1000,52 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
 
   // Schedule Card
   Widget _buildScheduleCard(Map<String, dynamic> appointment) {
-    return Card(
-      elevation: 2,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Container(
-              width: 6,
-              height: 40,
-              decoration: const BoxDecoration(
-                color: Color(0xFF0A84FF),
-                borderRadius: BorderRadius.all(Radius.circular(3)),
-              ),
+    String status = appointment['status']?.toString().toLowerCase() ?? 'unknown';
+    String appointmentId = appointment['appointmentId'] ?? appointment['id'] ?? DateTime.now().millisecondsSinceEpoch.toString();
+    
+    // Check if this appointment should have a collapsible schedule card
+    bool shouldBeCollapsible = status == 'consultation_finished' || 
+                             status == 'treatment_completed' || 
+                             status == 'completed';
+    
+    // Initialize expansion state if not exists
+    if (!_scheduleCardExpansionState.containsKey(appointmentId)) {
+      _scheduleCardExpansionState[appointmentId] = false; // Start collapsed for completed statuses
+    }
+    
+    if (shouldBeCollapsible) {
+      return Card(
+        elevation: 2,
+        color: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        child: ExpansionTile(
+          leading: Container(
+            width: 6,
+            height: 40,
+            decoration: const BoxDecoration(
+              color: Color(0xFF0A84FF),
+              borderRadius: BorderRadius.all(Radius.circular(3)),
             ),
-            const SizedBox(width: 16),
-            Expanded(
+          ),
+          title: const Text(
+            "Appointment Schedule",
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+          ),
+          subtitle: Text(
+            "Scheduled appointment details",
+            style: TextStyle(color: Colors.grey[600], fontSize: 13),
+          ),
+          initiallyExpanded: _scheduleCardExpansionState[appointmentId] ?? false,
+          onExpansionChanged: (expanded) {
+            setState(() {
+              _scheduleCardExpansionState[appointmentId] = expanded;
+            });
+          },
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    "Appointment Schedule",
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "Scheduled appointment details",
-                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                  ),
-                  const SizedBox(height: 12),
                   _buildBoldInfoRow(Icons.calendar_today, 'Date:', 
                       _formatDate(appointment['date'] ?? appointment['appointmentDate'] ?? appointment['appointment_date'])),
                   _buildBoldInfoRow(Icons.access_time, 'Time:', 
@@ -925,8 +1055,52 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
             ),
           ],
         ),
-      ),
-    );
+      );
+    } else {
+      // Return regular card for non-completed appointments
+      return Card(
+        elevation: 2,
+        color: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 6,
+                height: 40,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF0A84FF),
+                  borderRadius: BorderRadius.all(Radius.circular(3)),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Appointment Schedule",
+                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "Scheduled appointment details",
+                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildBoldInfoRow(Icons.calendar_today, 'Date:', 
+                        _formatDate(appointment['date'] ?? appointment['appointmentDate'] ?? appointment['appointment_date'])),
+                    _buildBoldInfoRow(Icons.access_time, 'Time:', 
+                        appointment["appointmentTime"] ?? appointment["appointment_time"] ?? appointment["time"] ?? "No time set"),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
   }
 
   // Pending Status Card

@@ -18,6 +18,7 @@ class _HmessagesState extends State<Hmessages> {
   String? _currentUserId;
   String? _currentUserName;
   String _searchQuery = '';
+  String? _currentFacilityId;
 
   @override
   void initState() {
@@ -50,11 +51,13 @@ class _HmessagesState extends State<Hmessages> {
     }
 
     final resolvedName = await _resolveCurrentUserName(user);
+    final facilityId = await _getCurrentUserFacility(user.uid);
 
     if (!mounted) return;
     setState(() {
       _currentUserId = user.uid;
       _currentUserName = resolvedName;
+      _currentFacilityId = facilityId;
     });
 
     try {
@@ -66,6 +69,29 @@ class _HmessagesState extends State<Hmessages> {
     } catch (e) {
       debugPrint('Error ensuring healthcare user doc: $e');
     }
+  }
+
+  Future<String?> _getCurrentUserFacility(String userId) async {
+    try {
+      final healthcareDoc = await FirebaseFirestore.instance
+          .collection('healthcare')
+          .doc(userId)
+          .get();
+
+      if (healthcareDoc.exists) {
+        final data = healthcareDoc.data();
+        if (data != null && data['facility'] != null) {
+          if (data['facility'] is Map) {
+            return data['facility']['id'] ?? data['facility']['name'];
+          } else if (data['facility'] is String) {
+            return data['facility'];
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error getting healthcare facility: $e');
+    }
+    return null;
   }
 
   Future<String> _resolveCurrentUserName(User user) async {
@@ -185,6 +211,252 @@ class _HmessagesState extends State<Hmessages> {
       debugPrint('Error getting patient name for $patientId: $e');
       return 'Unknown Patient';
     }
+  }
+
+  Future<List<Map<String, dynamic>>>
+      _getApprovedPatientsFromSameFacility() async {
+    if (_currentFacilityId == null) {
+      return [];
+    }
+
+    try {
+      // Get all doctors from the same facility
+      final doctorsQuery =
+          await FirebaseFirestore.instance.collection('doctors').get();
+
+      final sameFacilityDoctors = <String>[];
+
+      for (var doctorDoc in doctorsQuery.docs) {
+        final doctorData = doctorDoc.data();
+        final affiliations = doctorData['affiliations'];
+
+        if (affiliations is List) {
+          for (var affiliation in affiliations) {
+            if (affiliation is Map) {
+              final facilityId = affiliation['id'] ?? affiliation['name'];
+              if (facilityId == _currentFacilityId) {
+                sameFacilityDoctors.add(doctorDoc.id);
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      if (sameFacilityDoctors.isEmpty) {
+        return [];
+      }
+
+      // Get approved appointments from these doctors
+      final approvedPatients = <Map<String, dynamic>>[];
+
+      for (String doctorId in sameFacilityDoctors) {
+        final appointmentsQuery = await FirebaseFirestore.instance
+            .collection('approved_appointments')
+            .where('doctorUid', isEqualTo: doctorId)
+            .get();
+
+        for (var appointmentDoc in appointmentsQuery.docs) {
+          final appointmentData = appointmentDoc.data();
+          final patientId = appointmentData['patientUid'];
+          final patientName =
+              appointmentData['patientName'] ?? 'Unknown Patient';
+
+          // Check if patient is already in the list
+          if (!approvedPatients.any((p) => p['id'] == patientId)) {
+            approvedPatients.add({
+              'id': patientId,
+              'name': patientName,
+              'doctorId': doctorId,
+              'appointmentDate': appointmentData['appointmentDate'],
+              'status': appointmentData['status'] ?? 'approved',
+            });
+          }
+        }
+      }
+
+      return approvedPatients;
+    } catch (e) {
+      debugPrint('Error getting approved patients: $e');
+      return [];
+    }
+  }
+
+  void _showApprovedPatientsDialog() async {
+    final patients = await _getApprovedPatientsFromSameFacility();
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Container(
+            constraints: const BoxConstraints(
+              maxWidth: 500,
+              maxHeight: 600,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.redAccent,
+                        Colors.redAccent.withOpacity(0.8),
+                      ],
+                    ),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(20),
+                      topRight: Radius.circular(20),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.people_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Approved Patients',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(
+                          Icons.close,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Content
+                Flexible(
+                  child: patients.isEmpty
+                      ? const Padding(
+                          padding: EdgeInsets.all(40),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.people_outline,
+                                size: 64,
+                                color: Colors.grey,
+                              ),
+                              SizedBox(height: 16),
+                              Text(
+                                'No approved patients found',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                'No patients have been approved by doctors from your facility yet.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          shrinkWrap: true,
+                          padding: const EdgeInsets.all(16),
+                          itemCount: patients.length,
+                          itemBuilder: (context, index) {
+                            final patient = patients[index];
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade50,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.grey.shade200,
+                                ),
+                              ),
+                              child: ListTile(
+                                contentPadding: const EdgeInsets.all(16),
+                                leading: Container(
+                                  width: 48,
+                                  height: 48,
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        Colors.redAccent,
+                                        Colors.deepOrange.shade400,
+                                      ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      patient['name'][0].toUpperCase(),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                title: Text(
+                                  patient['name'],
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  'Status: ${patient['status']}',
+                                  style: TextStyle(
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                                trailing: ElevatedButton(
+                                  onPressed: () {
+                                    Navigator.of(context).pop();
+                                    _openChat(patient['id'], patient['name']);
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.redAccent,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  child: const Text('Chat'),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _openChat(String patientId, String patientName) async {
@@ -400,22 +672,54 @@ class _HmessagesState extends State<Hmessages> {
                                 ],
                               ),
                             ),
-                            Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(22),
-                                border: Border.all(
-                                  color: Colors.white.withOpacity(0.2),
-                                  width: 1,
+                            Row(
+                              children: [
+                                // Approved Patients Button
+                                Container(
+                                  width: 44,
+                                  height: 44,
+                                  margin: const EdgeInsets.only(right: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(22),
+                                    border: Border.all(
+                                      color: Colors.white.withOpacity(0.2),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    borderRadius: BorderRadius.circular(22),
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(22),
+                                      onTap: _showApprovedPatientsDialog,
+                                      child: const Icon(
+                                        Icons.people_rounded,
+                                        color: Colors.white,
+                                        size: 22,
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              ),
-                              child: const Icon(
-                                Icons.chat_bubble_rounded,
-                                color: Colors.white,
-                                size: 22,
-                              ),
+                                // Chat Icon
+                                Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(22),
+                                    border: Border.all(
+                                      color: Colors.white.withOpacity(0.2),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: const Icon(
+                                    Icons.chat_bubble_rounded,
+                                    color: Colors.white,
+                                    size: 22,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),

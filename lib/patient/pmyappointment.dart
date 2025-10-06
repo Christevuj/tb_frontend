@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:table_calendar/table_calendar.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:printing/printing.dart';
 import 'dart:io';
 import 'package:flutter/services.dart';
@@ -10,7 +9,9 @@ import 'package:pdf/pdf.dart';
 import 'package:pdfx/pdfx.dart' as pdfx;
 import 'package:http/http.dart' as http;
 import '../services/chat_service.dart';
+import '../services/webrtc_service.dart';
 import '../chat_screens/chat_screen.dart';
+import '../screens/video_call_screen.dart';
 
 class PMyAppointmentScreen extends StatefulWidget {
   const PMyAppointmentScreen({super.key});
@@ -232,10 +233,11 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
             .collection('doctors')
             .doc(doctorId)
             .get();
-        
+
         if (doctorDoc.exists) {
           final doctorData = doctorDoc.data() as Map<String, dynamic>;
-          doctorName = "Dr. ${doctorData["fullName"] ?? appointment["doctorName"] ?? "Doctor"}";
+          doctorName =
+              "Dr. ${doctorData["fullName"] ?? appointment["doctorName"] ?? "Doctor"}";
         } else if (appointment["doctorName"] != null) {
           doctorName = "Dr. ${appointment["doctorName"]}";
         }
@@ -730,7 +732,8 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
 
   // Status Card - shows above doctor information (Simplified for 30-50 year olds)
   Widget _buildStatusCard(Map<String, dynamic> appointment) {
-    String status = appointment['status']?.toString().toLowerCase() ?? 'unknown';
+    String status =
+        appointment['status']?.toString().toLowerCase() ?? 'unknown';
     Color statusColor;
     String statusTitle;
     String statusDescription;
@@ -746,7 +749,7 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
       case 'approved':
         statusColor = Colors.green.shade600;
         statusTitle = 'Ready for Consultation';
-        statusDescription = 'You can now join your appointment';
+        statusDescription = 'You can now join your video call';
         statusIcon = Icons.videocam;
         break;
       case 'consultation_finished':
@@ -842,7 +845,7 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
         // Status card appears above doctor information for all statuses
         _buildStatusCard(appointment),
         const SizedBox(height: 12),
-        
+
         if (status == 'pending') ...[
           // For pending: Show Doctor Info and Schedule only
           _buildPatientInfoCard(appointment), // Now shows doctor info
@@ -856,7 +859,7 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
           const SizedBox(height: 12),
           _buildScheduleCard(appointment),
           const SizedBox(height: 12),
-          _buildMeetingLinkCard(appointment),
+          _buildVideoCallCard(appointment),
         ] else if (status == 'with_prescription' ||
             status == 'consultation_finished') ...[
           // For with prescription: Show prescription info
@@ -889,7 +892,7 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
           const SizedBox(height: 12),
           _buildScheduleCard(appointment),
         ],
-        
+
         // Timeline card appears for all statuses except rejected
         if (status != 'rejected') ...[
           const SizedBox(height: 16),
@@ -909,17 +912,19 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
       builder: (context, snapshot) {
         String doctorName = "Dr. Not assigned";
         String clinicAddress = "No clinic address available";
-        String doctorId = appointment["doctorId"] ?? appointment["doctor_id"] ?? "";
-        
+        String doctorId =
+            appointment["doctorId"] ?? appointment["doctor_id"] ?? "";
+
         if (snapshot.hasData && snapshot.data!.exists) {
           final doctorData = snapshot.data!.data() as Map<String, dynamic>;
-          doctorName = "Dr. ${doctorData["fullName"] ?? appointment["doctorName"] ?? "Not assigned"}";
-          
+          doctorName =
+              "Dr. ${doctorData["fullName"] ?? appointment["doctorName"] ?? "Not assigned"}";
+
           if (doctorData["affiliations"] != null &&
               (doctorData["affiliations"] as List).isNotEmpty) {
-            clinicAddress = (doctorData["affiliations"][0]["address"] ??
-                    "No address")
-                .toString();
+            clinicAddress =
+                (doctorData["affiliations"][0]["address"] ?? "No address")
+                    .toString();
           }
         } else if (appointment["doctorName"] != null) {
           doctorName = "Dr. ${appointment["doctorName"]}";
@@ -948,7 +953,8 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                     children: [
                       const Text(
                         "Doctor Information",
-                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                        style: TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 16),
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -956,17 +962,21 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                         style: TextStyle(color: Colors.grey[600], fontSize: 13),
                       ),
                       const SizedBox(height: 12),
-                      _buildBoldInfoRow(Icons.person, 'Doctor Name:', doctorName),
-                      _buildBoldInfoRow(Icons.location_on, 'Clinic:', clinicAddress),
+                      _buildBoldInfoRow(
+                          Icons.person, 'Doctor Name:', doctorName),
+                      _buildBoldInfoRow(
+                          Icons.location_on, 'Clinic:', clinicAddress),
                       const SizedBox(height: 12),
                       // Message Doctor Button - Only show if not pending and doctor ID exists
-                      if (doctorId.isNotEmpty && 
-                          appointment['status']?.toString().toLowerCase() != 'pending')
+                      if (doctorId.isNotEmpty &&
+                          appointment['status']?.toString().toLowerCase() !=
+                              'pending')
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton.icon(
                             onPressed: () => _openChatWithDoctor(appointment),
-                            icon: const Icon(Icons.message, color: Color(0xFF0A84FF), size: 16),
+                            icon: const Icon(Icons.message,
+                                color: Color(0xFF0A84FF), size: 16),
                             label: const Text(
                               'MESSAGE DOCTOR',
                               style: TextStyle(
@@ -977,7 +987,8 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                             ),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.white,
-                              side: const BorderSide(color: Color(0xFF0A84FF), width: 1),
+                              side: const BorderSide(
+                                  color: Color(0xFF0A84FF), width: 1),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
@@ -996,23 +1007,25 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
     );
   }
 
-
-
   // Schedule Card
   Widget _buildScheduleCard(Map<String, dynamic> appointment) {
-    String status = appointment['status']?.toString().toLowerCase() ?? 'unknown';
-    String appointmentId = appointment['appointmentId'] ?? appointment['id'] ?? DateTime.now().millisecondsSinceEpoch.toString();
-    
+    String status =
+        appointment['status']?.toString().toLowerCase() ?? 'unknown';
+    String appointmentId = appointment['appointmentId'] ??
+        appointment['id'] ??
+        DateTime.now().millisecondsSinceEpoch.toString();
+
     // Check if this appointment should have a collapsible schedule card
-    bool shouldBeCollapsible = status == 'consultation_finished' || 
-                             status == 'treatment_completed' || 
-                             status == 'completed';
-    
+    bool shouldBeCollapsible = status == 'consultation_finished' ||
+        status == 'treatment_completed' ||
+        status == 'completed';
+
     // Initialize expansion state if not exists
     if (!_scheduleCardExpansionState.containsKey(appointmentId)) {
-      _scheduleCardExpansionState[appointmentId] = false; // Start collapsed for completed statuses
+      _scheduleCardExpansionState[appointmentId] =
+          false; // Start collapsed for completed statuses
     }
-    
+
     if (shouldBeCollapsible) {
       return Card(
         elevation: 2,
@@ -1035,7 +1048,8 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
             "Scheduled appointment details",
             style: TextStyle(color: Colors.grey[600], fontSize: 13),
           ),
-          initiallyExpanded: _scheduleCardExpansionState[appointmentId] ?? false,
+          initiallyExpanded:
+              _scheduleCardExpansionState[appointmentId] ?? false,
           onExpansionChanged: (expanded) {
             setState(() {
               _scheduleCardExpansionState[appointmentId] = expanded;
@@ -1046,10 +1060,19 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               child: Column(
                 children: [
-                  _buildBoldInfoRow(Icons.calendar_today, 'Date:', 
-                      _formatDate(appointment['date'] ?? appointment['appointmentDate'] ?? appointment['appointment_date'])),
-                  _buildBoldInfoRow(Icons.access_time, 'Time:', 
-                      appointment["appointmentTime"] ?? appointment["appointment_time"] ?? appointment["time"] ?? "No time set"),
+                  _buildBoldInfoRow(
+                      Icons.calendar_today,
+                      'Date:',
+                      _formatDate(appointment['date'] ??
+                          appointment['appointmentDate'] ??
+                          appointment['appointment_date'])),
+                  _buildBoldInfoRow(
+                      Icons.access_time,
+                      'Time:',
+                      appointment["appointmentTime"] ??
+                          appointment["appointment_time"] ??
+                          appointment["time"] ??
+                          "No time set"),
                 ],
               ),
             ),
@@ -1081,7 +1104,8 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                   children: [
                     const Text(
                       "Appointment Schedule",
-                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                      style:
+                          TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -1089,10 +1113,19 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                       style: TextStyle(color: Colors.grey[600], fontSize: 13),
                     ),
                     const SizedBox(height: 12),
-                    _buildBoldInfoRow(Icons.calendar_today, 'Date:', 
-                        _formatDate(appointment['date'] ?? appointment['appointmentDate'] ?? appointment['appointment_date'])),
-                    _buildBoldInfoRow(Icons.access_time, 'Time:', 
-                        appointment["appointmentTime"] ?? appointment["appointment_time"] ?? appointment["time"] ?? "No time set"),
+                    _buildBoldInfoRow(
+                        Icons.calendar_today,
+                        'Date:',
+                        _formatDate(appointment['date'] ??
+                            appointment['appointmentDate'] ??
+                            appointment['appointment_date'])),
+                    _buildBoldInfoRow(
+                        Icons.access_time,
+                        'Time:',
+                        appointment["appointmentTime"] ??
+                            appointment["appointment_time"] ??
+                            appointment["time"] ??
+                            "No time set"),
                   ],
                 ),
               ),
@@ -1147,13 +1180,11 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
     );
   }
 
-  // Meeting Link Card
-  Widget _buildMeetingLinkCard(Map<String, dynamic> appointment) {
-    final meetingLink = appointment['meetingLink'] ??
-        appointment['jitsi_link'] ??
-        appointment['meeting_link'];
+  // Video Call Card for WebRTC
+  Widget _buildVideoCallCard(Map<String, dynamic> appointment) {
+    final roomId = appointment['roomId'];
 
-    if (meetingLink == null || meetingLink.toString().isEmpty) {
+    if (roomId == null || roomId.toString().isEmpty) {
       return Card(
         elevation: 2,
         color: Colors.white,
@@ -1176,13 +1207,13 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      "Meeting Link",
+                      "Video Call",
                       style:
                           TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      "Meeting link not available yet",
+                      "Video call room not available yet",
                       style: TextStyle(color: Colors.grey[600], fontSize: 13),
                     ),
                   ],
@@ -1216,7 +1247,7 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    "Meeting Link",
+                    "Video Call",
                     style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
                   ),
                   const SizedBox(height: 4),
@@ -1229,18 +1260,85 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: () async {
-                        final Uri uri = Uri.parse(meetingLink.toString());
                         try {
-                          if (await canLaunchUrl(uri)) {
-                            await launchUrl(uri,
-                                mode: LaunchMode.externalApplication);
+                          // Show loading indicator
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (context) => AlertDialog(
+                              content: Row(
+                                children: [
+                                  CircularProgressIndicator(),
+                                  SizedBox(width: 16),
+                                  Text('Preparing video call...'),
+                                ],
+                              ),
+                            ),
+                          );
+
+                          // Check permissions before joining video call
+                          final webrtcService = WebRTCService();
+                          bool hasPermissions =
+                              await webrtcService.requestPermissions();
+
+                          // Close loading dialog
+                          Navigator.pop(context);
+
+                          if (!hasPermissions) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Camera and microphone permissions are required for video calls. Please enable them in your device settings.',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                                backgroundColor: Colors.orange.shade700,
+                                behavior: SnackBarBehavior.floating,
+                                duration: Duration(seconds: 5),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10)),
+                                action: SnackBarAction(
+                                  label: 'Settings',
+                                  textColor: Colors.white,
+                                  onPressed: () {
+                                    // Optional: Add openAppSettings() if available
+                                  },
+                                ),
+                              ),
+                            );
+                            return;
                           }
+
+                          // Navigate to video call screen
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => VideoCallScreen(
+                                appointmentId: appointment['id'] ?? '',
+                                patientName:
+                                    appointment['patientName'] ?? 'Patient',
+                                isDoctorCalling: false,
+                              ),
+                            ),
+                          );
                         } catch (e) {
-                          // Handle error
+                          // Close loading dialog if still open
+                          if (Navigator.canPop(context)) {
+                            Navigator.pop(context);
+                          }
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error starting video call: $e'),
+                              backgroundColor: Colors.red.shade600,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10)),
+                            ),
+                          );
                         }
                       },
                       icon: const Icon(Icons.video_call),
-                      label: const Text('Join Meeting'),
+                      label: const Text('Join Video Call'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green,
                         foregroundColor: Colors.white,
@@ -1540,14 +1638,15 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
 
   // Timeline Card - Dynamic progress based on appointment status
   Widget _buildTimelineCard(Map<String, dynamic> appointment) {
-    String status = appointment['status']?.toString().toLowerCase() ?? 'unknown';
-    
+    String status =
+        appointment['status']?.toString().toLowerCase() ?? 'unknown';
+
     // Determine which steps should be completed based on status
     bool step1Completed = false; // Patient requested appointment
     bool step2Completed = false; // Doctor approved appointment
     bool step3Completed = false; // Consultation completed with prescription
     bool step4Completed = false; // Treatment completion certificate delivered
-    
+
     switch (status) {
       case 'pending':
         step1Completed = true; // Only step 1 is green
@@ -1662,18 +1761,24 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildStepInstruction(
-                      '1', 'Patient requested appointment with a Doctor', step1Completed),
+                      '1',
+                      'Patient requested appointment with a Doctor',
+                      step1Completed),
                   const SizedBox(height: 8),
                   _buildStepInstruction(
                       '2',
                       'Doctor confirmed and approved the appointment schedule',
                       step2Completed),
                   const SizedBox(height: 8),
-                  _buildStepInstruction('3',
-                      'Consultation completed with prescription issued', step3Completed),
+                  _buildStepInstruction(
+                      '3',
+                      'Consultation completed with prescription issued',
+                      step3Completed),
                   const SizedBox(height: 8),
                   _buildStepInstruction(
-                      '4', 'Treatment completion certificate delivered', step4Completed),
+                      '4',
+                      'Treatment completion certificate delivered',
+                      step4Completed),
                 ],
               ),
             ),
@@ -1755,9 +1860,13 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
               text: TextSpan(
                 style: const TextStyle(fontSize: 14, color: Colors.black87),
                 children: [
-                  TextSpan(text: label, style: const TextStyle(fontWeight: FontWeight.normal)),
+                  TextSpan(
+                      text: label,
+                      style: const TextStyle(fontWeight: FontWeight.normal)),
                   const TextSpan(text: ' '),
-                  TextSpan(text: value, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  TextSpan(
+                      text: value,
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
                 ],
               ),
             ),
@@ -2122,7 +2231,8 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                             .where((appointment) =>
                                 appointment['status'] == 'pending' ||
                                 appointment['status'] == 'approved' ||
-                                appointment['status'] == 'consultation_finished')
+                                appointment['status'] ==
+                                    'consultation_finished')
                             .toList();
                         break;
                       case 'Treatment Completed':
@@ -2138,7 +2248,8 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                             .where((appointment) =>
                                 appointment['status'] == 'pending' ||
                                 appointment['status'] == 'approved' ||
-                                appointment['status'] == 'consultation_finished' ||
+                                appointment['status'] ==
+                                    'consultation_finished' ||
                                 appointment['status'] == 'rejected')
                             .toList();
                         break;
@@ -2327,7 +2438,7 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                     child: CircularProgressIndicator(),
                   ),
                 ),
-              
+
               // Bottom padding to ensure content isn't cut off
               const SizedBox(height: 32),
             ],
@@ -2671,7 +2782,7 @@ class _PdfViewerFromUrlScreenState extends State<_PdfViewerFromUrlScreen> {
               ],
             ),
           ),
-          
+
           // PDF Content with Integrated Action Buttons
           Expanded(
             child: Container(
@@ -2688,7 +2799,7 @@ class _PdfViewerFromUrlScreenState extends State<_PdfViewerFromUrlScreen> {
                     Expanded(
                       child: _buildBody(),
                     ),
-                    
+
                     // Integrated Action Buttons Inside Container
                     Container(
                       padding: const EdgeInsets.all(16),
@@ -2717,7 +2828,8 @@ class _PdfViewerFromUrlScreenState extends State<_PdfViewerFromUrlScreen> {
                                 borderRadius: BorderRadius.circular(14),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF4A90E2).withOpacity(0.3),
+                                    color: const Color(0xFF4A90E2)
+                                        .withOpacity(0.3),
                                     spreadRadius: 0,
                                     blurRadius: 8,
                                     offset: const Offset(0, 3),
@@ -2730,9 +2842,11 @@ class _PdfViewerFromUrlScreenState extends State<_PdfViewerFromUrlScreen> {
                                   onTap: _downloadAndSharePdf,
                                   borderRadius: BorderRadius.circular(14),
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16),
                                     child: const Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         Icon(
                                           Icons.share_rounded,
@@ -2773,7 +2887,8 @@ class _PdfViewerFromUrlScreenState extends State<_PdfViewerFromUrlScreen> {
                                 borderRadius: BorderRadius.circular(14),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF27AE60).withOpacity(0.3),
+                                    color: const Color(0xFF27AE60)
+                                        .withOpacity(0.3),
                                     spreadRadius: 0,
                                     blurRadius: 8,
                                     offset: const Offset(0, 3),
@@ -2786,9 +2901,11 @@ class _PdfViewerFromUrlScreenState extends State<_PdfViewerFromUrlScreen> {
                                   onTap: _printPdf,
                                   borderRadius: BorderRadius.circular(14),
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16),
                                     child: const Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         Icon(
                                           Icons.print_rounded,
@@ -3101,7 +3218,7 @@ class _PdfViewerScreen extends StatelessWidget {
               ],
             ),
           ),
-          
+
           // PDF Content with Integrated Action Buttons
           Expanded(
             child: Container(
@@ -3122,10 +3239,13 @@ class _PdfViewerScreen extends StatelessWidget {
                         child: ClipRect(
                           child: PdfPreview(
                             build: (format) => pdfBytes,
-                            allowPrinting: false, // We handle this in bottom buttons
-                            allowSharing: false,  // We handle this in bottom buttons
+                            allowPrinting:
+                                false, // We handle this in bottom buttons
+                            allowSharing:
+                                false, // We handle this in bottom buttons
                             canChangePageFormat: false,
-                            canChangeOrientation: false, // Disable orientation change
+                            canChangeOrientation:
+                                false, // Disable orientation change
                             canDebug: false,
                             initialPageFormat: PdfPageFormat.a4,
                             pdfFileName: filename,
@@ -3137,13 +3257,14 @@ class _PdfViewerScreen extends StatelessWidget {
                             // Remove any bottom decorations
                             dynamicLayout: false,
                             maxPageWidth: double.infinity,
-                            previewPageMargin: const EdgeInsets.all(8), // Small margins around pages
+                            previewPageMargin: const EdgeInsets.all(
+                                8), // Small margins around pages
                             pageFormats: const {}, // Remove page format options
                           ),
                         ),
                       ),
                     ),
-                    
+
                     // Integrated Action Buttons Inside Container
                     Container(
                       padding: const EdgeInsets.all(16),
@@ -3172,7 +3293,8 @@ class _PdfViewerScreen extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(14),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF4A90E2).withOpacity(0.3),
+                                    color: const Color(0xFF4A90E2)
+                                        .withOpacity(0.3),
                                     spreadRadius: 0,
                                     blurRadius: 8,
                                     offset: const Offset(0, 3),
@@ -3185,9 +3307,11 @@ class _PdfViewerScreen extends StatelessWidget {
                                   onTap: () => _sharePdf(context),
                                   borderRadius: BorderRadius.circular(14),
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16),
                                     child: const Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         Icon(
                                           Icons.share_rounded,
@@ -3228,7 +3352,8 @@ class _PdfViewerScreen extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(14),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF27AE60).withOpacity(0.3),
+                                    color: const Color(0xFF27AE60)
+                                        .withOpacity(0.3),
                                     spreadRadius: 0,
                                     blurRadius: 8,
                                     offset: const Offset(0, 3),
@@ -3241,9 +3366,11 @@ class _PdfViewerScreen extends StatelessWidget {
                                   onTap: () => _printPdf(context),
                                   borderRadius: BorderRadius.circular(14),
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16),
                                     child: const Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         Icon(
                                           Icons.print_rounded,

@@ -64,8 +64,6 @@ class _Pbooking1State extends State<Pbooking1> {
         'Postal ID',
   ];
 
-
-
   @override
   void initState() {
     super.initState();
@@ -167,17 +165,19 @@ class _Pbooking1State extends State<Pbooking1> {
       // Get doctor's schedule for selected day
       final dayName = _getDayName(_selectedDate!);
       final doctorSchedules = await _getDoctorScheduleForDay(dayName);
-      
+
       if (doctorSchedules.isEmpty) return [];
 
       // Generate time slots based on doctor's schedule
       List<String> allSlots = _generateTimeSlots(doctorSchedules);
 
       // Get session duration from the first schedule (they should all have the same duration for a day)
-      final sessionDuration = int.tryParse(doctorSchedules.first['sessionDuration'] ?? '30') ?? 30;
+      final sessionDuration =
+          int.tryParse(doctorSchedules.first['sessionDuration'] ?? '30') ?? 30;
 
       // Get already booked appointments for this date
-      final bookedSlots = await _getBookedSlots(_selectedDate!, widget.doctor.id, sessionDuration);
+      final bookedSlots = await _getBookedSlots(
+          _selectedDate!, widget.doctor.id, sessionDuration);
 
       // Filter out booked slots
       return allSlots.where((slot) => !bookedSlots.contains(slot)).toList();
@@ -188,11 +188,20 @@ class _Pbooking1State extends State<Pbooking1> {
   }
 
   String _getDayName(DateTime date) {
-    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const days = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday'
+    ];
     return days[date.weekday - 1];
   }
 
-  Future<List<Map<String, String>>> _getDoctorScheduleForDay(String dayName) async {
+  Future<List<Map<String, String>>> _getDoctorScheduleForDay(
+      String dayName) async {
     try {
       // Get doctor's data from Firestore to access affiliations
       final doctorDoc = await FirebaseFirestore.instance
@@ -204,14 +213,14 @@ class _Pbooking1State extends State<Pbooking1> {
         final doctorData = doctorDoc.data();
         if (doctorData != null && doctorData['affiliations'] != null) {
           final affiliations = doctorData['affiliations'] as List<dynamic>;
-          
+
           for (var affiliation in affiliations) {
             final schedules = affiliation['schedules'] as List<dynamic>? ?? [];
             final daySchedules = schedules
                 .where((s) => s['day'] == dayName)
                 .map((s) => Map<String, String>.from(s))
                 .toList();
-            
+
             if (daySchedules.isNotEmpty) {
               return daySchedules;
             }
@@ -228,47 +237,59 @@ class _Pbooking1State extends State<Pbooking1> {
     List<String> slots = [];
     for (var schedule in schedules) {
       final startTime = schedule['start'] ?? '9:00 AM';
-      final endTime = schedule['end'] ?? '5:00 PM'; 
+      final endTime = schedule['end'] ?? '5:00 PM';
       final breakStart = schedule['breakStart'] ?? '12:00 PM';
       final breakEnd = schedule['breakEnd'] ?? '1:00 PM';
-      final sessionDuration = int.tryParse(schedule['sessionDuration'] ?? '30') ?? 30;
-      
-      debugPrint('Generating slots: $startTime to $endTime, break: $breakStart-$breakEnd, duration: ${sessionDuration}min');
-      
+      final sessionDuration =
+          int.tryParse(schedule['sessionDuration'] ?? '30') ?? 30;
+
+      debugPrint(
+          'Generating slots: $startTime to $endTime, break: $breakStart-$breakEnd, duration: ${sessionDuration}min');
+
       try {
         // Parse times (simplified parsing)
         final startHour = _parseTimeToMinutes(startTime);
         final endHour = _parseTimeToMinutes(endTime);
         final breakStartMinutes = _parseTimeToMinutes(breakStart);
         final breakEndMinutes = _parseTimeToMinutes(breakEnd);
-        
+
         // Generate slots from start to break (as time ranges)
         int currentMinutes = startHour;
         while (currentMinutes + sessionDuration <= breakStartMinutes) {
           final slotStart = _formatMinutesToTime(currentMinutes);
-          final slotEnd = _formatMinutesToTime(currentMinutes + sessionDuration);
+          final slotEnd =
+              _formatMinutesToTime(currentMinutes + sessionDuration);
           slots.add('$slotStart - $slotEnd');
           currentMinutes += sessionDuration;
         }
-        
+
         // Generate slots from break end to day end (as time ranges)
         currentMinutes = breakEndMinutes;
         while (currentMinutes + sessionDuration <= endHour) {
           final slotStart = _formatMinutesToTime(currentMinutes);
-          final slotEnd = _formatMinutesToTime(currentMinutes + sessionDuration);
+          final slotEnd =
+              _formatMinutesToTime(currentMinutes + sessionDuration);
           slots.add('$slotStart - $slotEnd');
           currentMinutes += sessionDuration;
         }
-        
       } catch (e) {
         debugPrint('Error parsing times, using default slots: $e');
         // Fallback to default slots with ranges if parsing fails
         slots.addAll([
-          '9:00 AM - 9:30 AM', '9:30 AM - 10:00 AM', '10:00 AM - 10:30 AM', 
-          '10:30 AM - 11:00 AM', '11:00 AM - 11:30 AM', '11:30 AM - 12:00 PM',
-          '1:00 PM - 1:30 PM', '1:30 PM - 2:00 PM', '2:00 PM - 2:30 PM', 
-          '2:30 PM - 3:00 PM', '3:00 PM - 3:30 PM', '3:30 PM - 4:00 PM', 
-          '4:00 PM - 4:30 PM', '4:30 PM - 5:00 PM'
+          '9:00 AM - 9:30 AM',
+          '9:30 AM - 10:00 AM',
+          '10:00 AM - 10:30 AM',
+          '10:30 AM - 11:00 AM',
+          '11:00 AM - 11:30 AM',
+          '11:30 AM - 12:00 PM',
+          '1:00 PM - 1:30 PM',
+          '1:30 PM - 2:00 PM',
+          '2:00 PM - 2:30 PM',
+          '2:30 PM - 3:00 PM',
+          '3:00 PM - 3:30 PM',
+          '3:30 PM - 4:00 PM',
+          '4:00 PM - 4:30 PM',
+          '4:30 PM - 5:00 PM'
         ]);
       }
     }
@@ -281,17 +302,17 @@ class _Pbooking1State extends State<Pbooking1> {
       timeStr = timeStr.trim().toUpperCase();
       final isAM = timeStr.contains('AM');
       final isPM = timeStr.contains('PM');
-      
+
       String time = timeStr.replaceAll(RegExp(r'[AP]M'), '').trim();
       List<String> parts = time.split(':');
-      
+
       int hours = int.parse(parts[0]);
       int minutes = parts.length > 1 ? int.parse(parts[1]) : 0;
-      
+
       // Convert to 24-hour format
       if (isPM && hours != 12) hours += 12;
       if (isAM && hours == 12) hours = 0;
-      
+
       return hours * 60 + minutes;
     } catch (e) {
       debugPrint('Error parsing time $timeStr: $e');
@@ -303,25 +324,27 @@ class _Pbooking1State extends State<Pbooking1> {
   String _formatMinutesToTime(int minutes) {
     int hours = minutes ~/ 60;
     int mins = minutes % 60;
-    
+
     String period = hours >= 12 ? 'PM' : 'AM';
     int displayHour = hours > 12 ? hours - 12 : (hours == 0 ? 12 : hours);
-    
+
     String minuteStr = mins == 0 ? '00' : mins.toString().padLeft(2, '0');
     return '$displayHour:$minuteStr $period';
   }
 
-  Future<List<String>> _getBookedSlots(DateTime date, String doctorId, int sessionDuration) async {
+  Future<List<String>> _getBookedSlots(
+      DateTime date, String doctorId, int sessionDuration) async {
     try {
-      final formattedDate = Timestamp.fromDate(DateTime(date.year, date.month, date.day));
-      
+      final formattedDate =
+          Timestamp.fromDate(DateTime(date.year, date.month, date.day));
+
       // Check both pending and approved appointments
       final pendingQuery = await FirebaseFirestore.instance
           .collection('pending_patient_data')
           .where('doctorId', isEqualTo: doctorId)
           .where('appointmentDate', isEqualTo: formattedDate)
           .get();
-      
+
       // Check if approved_appointments collection exists
       QuerySnapshot? approvedQuery;
       try {
@@ -335,7 +358,7 @@ class _Pbooking1State extends State<Pbooking1> {
       }
 
       Set<String> bookedTimes = {};
-      
+
       for (var doc in pendingQuery.docs) {
         final data = doc.data();
         final time = data['appointmentTime'];
@@ -348,7 +371,8 @@ class _Pbooking1State extends State<Pbooking1> {
             final startTime = time;
             try {
               final startMinutes = _parseTimeToMinutes(startTime);
-              final endTime = _formatMinutesToTime(startMinutes + sessionDuration);
+              final endTime =
+                  _formatMinutesToTime(startMinutes + sessionDuration);
               bookedTimes.add('$startTime - $endTime');
             } catch (e) {
               debugPrint('Error converting time format: $e');
@@ -356,7 +380,7 @@ class _Pbooking1State extends State<Pbooking1> {
           }
         }
       }
-      
+
       if (approvedQuery != null) {
         for (var doc in approvedQuery.docs) {
           final data = doc.data() as Map<String, dynamic>?;
@@ -371,7 +395,8 @@ class _Pbooking1State extends State<Pbooking1> {
                 final startTime = time;
                 try {
                   final startMinutes = _parseTimeToMinutes(startTime);
-                  final endTime = _formatMinutesToTime(startMinutes + sessionDuration);
+                  final endTime =
+                      _formatMinutesToTime(startMinutes + sessionDuration);
                   bookedTimes.add('$startTime - $endTime');
                 } catch (e) {
                   debugPrint('Error converting time format: $e');
@@ -537,7 +562,7 @@ class _Pbooking1State extends State<Pbooking1> {
         }
 
         final availableSlots = snapshot.data ?? [];
-        
+
         if (availableSlots.isEmpty) {
           return Container(
             padding: const EdgeInsets.all(16),
@@ -575,17 +600,21 @@ class _Pbooking1State extends State<Pbooking1> {
           children: [
             // Morning Session
             if (morningSlots.isNotEmpty) ...[
-              _buildSessionHeader('Morning Session', Icons.wb_sunny, Colors.orange),
+              _buildSessionHeader(
+                  'Morning Session', Icons.wb_sunny, Colors.orange),
               const SizedBox(height: 12),
-              _buildSessionContainer(morningSlots, Colors.orange.withOpacity(0.1)),
+              _buildSessionContainer(
+                  morningSlots, Colors.orange.withOpacity(0.1)),
               const SizedBox(height: 20),
             ],
-            
+
             // Afternoon Session
             if (afternoonSlots.isNotEmpty) ...[
-              _buildSessionHeader('Afternoon Session', Icons.wb_sunny_outlined, Colors.blue),
+              _buildSessionHeader(
+                  'Afternoon Session', Icons.wb_sunny_outlined, Colors.blue),
               const SizedBox(height: 12),
-              _buildSessionContainer(afternoonSlots, Colors.blue.withOpacity(0.1)),
+              _buildSessionContainer(
+                  afternoonSlots, Colors.blue.withOpacity(0.1)),
             ],
           ],
         );
@@ -643,21 +672,22 @@ class _Pbooking1State extends State<Pbooking1> {
               },
               borderRadius: BorderRadius.circular(12),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 constraints: const BoxConstraints(minWidth: 130),
                 decoration: BoxDecoration(
                   color: isSelected ? const Color(0xE0F44336) : Colors.white,
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: isSelected 
+                      color: isSelected
                           ? const Color(0xE0F44336).withOpacity(0.3)
                           : Colors.grey.withOpacity(0.2),
                       blurRadius: isSelected ? 8 : 4,
                       offset: const Offset(0, 2),
                     ),
                   ],
-                  border: isSelected 
+                  border: isSelected
                       ? Border.all(color: const Color(0xE0F44336), width: 2)
                       : Border.all(color: Colors.grey.shade300, width: 1),
                 ),
@@ -744,7 +774,7 @@ class _Pbooking1State extends State<Pbooking1> {
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: DropdownButtonFormField<T>(
-        initialValue: value,
+        value: value,
         decoration: InputDecoration(
           labelText: label,
           labelStyle: TextStyle(
@@ -975,20 +1005,20 @@ class _Pbooking1State extends State<Pbooking1> {
                         ),
                       ),
                     ),
-                    _selectedDate == null 
-                      ? Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Text(
-                            'Please select a date first',
-                            style: TextStyle(color: Colors.grey.shade600),
-                            textAlign: TextAlign.center,
-                          ),
-                        )
-                      : _buildTimeSlots(),
+                    _selectedDate == null
+                        ? Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Text(
+                              'Please select a date first',
+                              style: TextStyle(color: Colors.grey.shade600),
+                              textAlign: TextAlign.center,
+                            ),
+                          )
+                        : _buildTimeSlots(),
                   ],
                 ),
               ),

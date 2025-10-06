@@ -72,6 +72,18 @@ class _Pbooking1State extends State<Pbooking1> {
     _selectedID = null;
     _selectedTime = null;
 
+    // Debug: Print doctor information
+    debugPrint('========== DOCTOR INFO ==========');
+    debugPrint('Doctor ID: ${widget.doctor.id}');
+    debugPrint('Doctor Name: ${widget.doctor.name}');
+    debugPrint('Doctor Email: ${widget.doctor.email}');
+    debugPrint('Doctor Specialization: ${widget.doctor.specialization}');
+    debugPrint('Doctor Facility: ${widget.doctor.facility}');
+    debugPrint('==================================');
+
+    // Run debug to check doctor data in Firestore
+    _debugDoctorData();
+
     // Pre-fill name and email from Firestore user data
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
@@ -152,37 +164,65 @@ class _Pbooking1State extends State<Pbooking1> {
     );
 
     if (date != null) {
+      final dayName = _getDayName(date);
+      debugPrint('========================================');
+      debugPrint('Date selected: ${_formatDate(date)}');
+      debugPrint('Day of week: $dayName');
+      debugPrint('Triggering schedule fetch...');
+      debugPrint('========================================');
+      
       setState(() {
         _selectedDate = date;
+        _selectedTime = null; // Reset selected time when date changes
       });
+      debugPrint('State updated, widget will rebuild');
     }
   }
 
   Future<List<String>> _getAvailableTimeSlots() async {
-    if (_selectedDate == null) return [];
+    if (_selectedDate == null) {
+      debugPrint('No date selected, returning empty slots');
+      return [];
+    }
 
     try {
+      debugPrint('Getting available time slots for: ${_formatDate(_selectedDate!)}');
+      
       // Get doctor's schedule for selected day
       final dayName = _getDayName(_selectedDate!);
+      debugPrint('Day name: $dayName');
+      
       final doctorSchedules = await _getDoctorScheduleForDay(dayName);
 
-      if (doctorSchedules.isEmpty) return [];
+      if (doctorSchedules.isEmpty) {
+        debugPrint('No schedules found for $dayName');
+        return [];
+      }
+
+      debugPrint('Found ${doctorSchedules.length} schedules');
 
       // Generate time slots based on doctor's schedule
       List<String> allSlots = _generateTimeSlots(doctorSchedules);
+      debugPrint('Generated ${allSlots.length} total slots');
 
       // Get session duration from the first schedule (they should all have the same duration for a day)
       final sessionDuration =
           int.tryParse(doctorSchedules.first['sessionDuration'] ?? '30') ?? 30;
+      debugPrint('Session duration: $sessionDuration minutes');
 
       // Get already booked appointments for this date
       final bookedSlots = await _getBookedSlots(
           _selectedDate!, widget.doctor.id, sessionDuration);
+      debugPrint('Found ${bookedSlots.length} booked slots: $bookedSlots');
 
       // Filter out booked slots
-      return allSlots.where((slot) => !bookedSlots.contains(slot)).toList();
+      final availableSlots = allSlots.where((slot) => !bookedSlots.contains(slot)).toList();
+      debugPrint('Returning ${availableSlots.length} available slots: $availableSlots');
+      
+      return availableSlots;
     } catch (e) {
       debugPrint('Error getting available slots: $e');
+      debugPrint('Stack trace: ${StackTrace.current}');
       return [];
     }
   }
@@ -203,32 +243,146 @@ class _Pbooking1State extends State<Pbooking1> {
   Future<List<Map<String, String>>> _getDoctorScheduleForDay(
       String dayName) async {
     try {
-      // Get doctor's data from Firestore to access affiliations
-      final doctorDoc = await FirebaseFirestore.instance
+      debugPrint('========== SCHEDULE FETCH START ==========');
+      debugPrint('Getting schedule for day: $dayName');
+      debugPrint('Doctor ID: ${widget.doctor.id}');
+      debugPrint('Doctor Email: ${widget.doctor.email}');
+      debugPrint('Doctor Name: ${widget.doctor.name}');
+      
+      // Try to get doctor's data from Firestore using the ID
+      DocumentSnapshot? doctorDoc;
+      
+      // First try: Use the doctor ID directly
+      doctorDoc = await FirebaseFirestore.instance
           .collection('doctors')
           .doc(widget.doctor.id)
           .get();
 
-      if (doctorDoc.exists) {
-        final doctorData = doctorDoc.data();
-        if (doctorData != null && doctorData['affiliations'] != null) {
-          final affiliations = doctorData['affiliations'] as List<dynamic>;
-
-          for (var affiliation in affiliations) {
-            final schedules = affiliation['schedules'] as List<dynamic>? ?? [];
-            final daySchedules = schedules
-                .where((s) => s['day'] == dayName)
-                .map((s) => Map<String, String>.from(s))
-                .toList();
-
-            if (daySchedules.isNotEmpty) {
-              return daySchedules;
-            }
-          }
+      // Second try: If not found, try querying by email
+      if (!doctorDoc.exists) {
+        debugPrint('Doctor not found by ID, trying to query by email...');
+        final querySnapshot = await FirebaseFirestore.instance
+            .collection('doctors')
+            .where('email', isEqualTo: widget.doctor.email)
+            .limit(1)
+            .get();
+        
+        if (querySnapshot.docs.isNotEmpty) {
+          doctorDoc = querySnapshot.docs.first;
+          debugPrint('Doctor found by email! Document ID: ${doctorDoc.id}');
         }
       }
-    } catch (e) {
-      debugPrint('Error getting doctor schedule: $e');
+
+      // Third try: If still not found, try querying by name
+      if (!doctorDoc.exists) {
+        debugPrint('Doctor not found by email, trying to query by fullName...');
+        final querySnapshot = await FirebaseFirestore.instance
+            .collection('doctors')
+            .where('fullName', isEqualTo: widget.doctor.name)
+            .limit(1)
+            .get();
+        
+        if (querySnapshot.docs.isNotEmpty) {
+          doctorDoc = querySnapshot.docs.first;
+          debugPrint('Doctor found by name! Document ID: ${doctorDoc.id}');
+        }
+      }
+
+      if (!doctorDoc.exists) {
+        debugPrint('ERROR: Doctor document not found after all attempts!');
+        debugPrint('Please check Firestore to ensure this doctor exists.');
+        return [];
+      }
+
+      final doctorData = doctorDoc.data() as Map<String, dynamic>?;
+      debugPrint('Doctor data keys: ${doctorData?.keys.join(", ")}');
+      
+      if (doctorData == null) {
+        debugPrint('ERROR: Doctor data is null!');
+        return [];
+      }
+
+      // Check if affiliations exist
+      if (doctorData['affiliations'] == null) {
+        debugPrint('WARNING: No affiliations field found in doctor data');
+        debugPrint('Doctor data structure: ${doctorData.toString()}');
+        return [];
+      }
+
+      final affiliations = doctorData['affiliations'] as List<dynamic>;
+      debugPrint('Found ${affiliations.length} affiliations');
+
+      // Collect all schedules for the day from all affiliations
+      List<Map<String, String>> allDaySchedules = [];
+
+      for (var i = 0; i < affiliations.length; i++) {
+        final affiliation = affiliations[i];
+        debugPrint('--- Affiliation $i ---');
+        debugPrint('Name: ${affiliation['name']}');
+        debugPrint('Address: ${affiliation['address']}');
+        
+        if (affiliation['schedules'] == null) {
+          debugPrint('WARNING: No schedules field in affiliation $i');
+          continue;
+        }
+
+        final schedules = affiliation['schedules'] as List<dynamic>;
+        debugPrint('Schedules count: ${schedules.length}');
+        
+        // Log all schedule days to help debug
+        for (var j = 0; j < schedules.length; j++) {
+          final schedule = schedules[j];
+          debugPrint('  Schedule $j: day="${schedule['day']}", start="${schedule['start']}", end="${schedule['end']}"');
+        }
+
+        final daySchedules = schedules
+            .where((s) {
+              final scheduleDay = s['day']?.toString() ?? '';
+              final match = scheduleDay == dayName;
+              if (match) {
+                debugPrint('MATCH FOUND: Schedule day "$scheduleDay" matches requested day "$dayName"');
+              }
+              return match;
+            })
+            .map((s) {
+              // Ensure all fields are strings
+              return {
+                'day': s['day']?.toString() ?? '',
+                'start': s['start']?.toString() ?? '9:00 AM',
+                'end': s['end']?.toString() ?? '5:00 PM',
+                'breakStart': s['breakStart']?.toString() ?? '12:00 PM',
+                'breakEnd': s['breakEnd']?.toString() ?? '1:00 PM',
+                'sessionDuration': s['sessionDuration']?.toString() ?? '30',
+              };
+            })
+            .toList();
+
+        if (daySchedules.isNotEmpty) {
+          debugPrint('Found ${daySchedules.length} schedules for $dayName in affiliation $i');
+          allDaySchedules.addAll(daySchedules);
+        }
+      }
+
+      if (allDaySchedules.isEmpty) {
+        debugPrint('WARNING: No schedules found for $dayName in any affiliation');
+        debugPrint('Available days in schedules:');
+        for (var affiliation in affiliations) {
+          final schedules = affiliation['schedules'] as List<dynamic>? ?? [];
+          final days = schedules.map((s) => s['day']).toSet().toList();
+          debugPrint('  Affiliation "${affiliation['name']}": $days');
+        }
+      } else {
+        debugPrint('SUCCESS: Returning ${allDaySchedules.length} schedules for $dayName');
+        for (var schedule in allDaySchedules) {
+          debugPrint('  ${schedule.toString()}');
+        }
+      }
+
+      debugPrint('========== SCHEDULE FETCH END ==========');
+      return allDaySchedules;
+    } catch (e, stackTrace) {
+      debugPrint('ERROR getting doctor schedule: $e');
+      debugPrint('Stack trace: $stackTrace');
     }
     return [];
   }
@@ -552,13 +706,108 @@ class _Pbooking1State extends State<Pbooking1> {
     }
   }
 
+  // DEBUG METHOD - Remove this after fixing the issue
+  Future<void> _debugDoctorData() async {
+    debugPrint('========== DEBUG DOCTOR DATA START ==========');
+    try {
+      // Try multiple ways to fetch doctor data
+      final doctorId = widget.doctor.id;
+      final doctorEmail = widget.doctor.email;
+      
+      debugPrint('Attempting to fetch doctor with ID: $doctorId');
+      
+      // Method 1: Direct ID lookup
+      final directDoc = await FirebaseFirestore.instance
+          .collection('doctors')
+          .doc(doctorId)
+          .get();
+      
+      if (directDoc.exists) {
+        debugPrint('✓ Doctor found by ID');
+        final data = directDoc.data();
+        debugPrint('Document ID: ${directDoc.id}');
+        debugPrint('Full data: ${data.toString()}');
+        
+        if (data?['affiliations'] != null) {
+          final affiliations = data!['affiliations'] as List<dynamic>;
+          debugPrint('Affiliations count: ${affiliations.length}');
+          
+          for (var i = 0; i < affiliations.length; i++) {
+            final aff = affiliations[i];
+            debugPrint('Affiliation $i:');
+            debugPrint('  Name: ${aff['name']}');
+            debugPrint('  Address: ${aff['address']}');
+            
+            if (aff['schedules'] != null) {
+              final schedules = aff['schedules'] as List<dynamic>;
+              debugPrint('  Schedules: ${schedules.length}');
+              for (var j = 0; j < schedules.length; j++) {
+                final sched = schedules[j];
+                debugPrint('    Schedule $j: ${sched.toString()}');
+              }
+            }
+          }
+        } else {
+          debugPrint('✗ No affiliations found in doctor data');
+        }
+      } else {
+        debugPrint('✗ Doctor NOT found by ID: $doctorId');
+        
+        // Try by email
+        debugPrint('Trying to find by email: $doctorEmail');
+        final emailQuery = await FirebaseFirestore.instance
+            .collection('doctors')
+            .where('email', isEqualTo: doctorEmail)
+            .get();
+        
+        if (emailQuery.docs.isNotEmpty) {
+          debugPrint('✓ Found ${emailQuery.docs.length} doctor(s) by email');
+          for (var doc in emailQuery.docs) {
+            debugPrint('  Doc ID: ${doc.id}');
+            debugPrint('  Data: ${doc.data()}');
+          }
+        } else {
+          debugPrint('✗ No doctor found by email');
+        }
+      }
+    } catch (e, stackTrace) {
+      debugPrint('ERROR in debug: $e');
+      debugPrint('Stack: $stackTrace');
+    }
+    debugPrint('========== DEBUG DOCTOR DATA END ==========');
+  }
+
   // Build time slots widget with AM/PM separation
   Widget _buildTimeSlots() {
+    // Use a key based on selected date to force rebuild
     return FutureBuilder<List<String>>(
+      key: ValueKey(_selectedDate?.toString() ?? 'no-date'),
       future: _getAvailableTimeSlots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xE0F44336)),
+              ),
+            ),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red.shade50,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text(
+              'Error loading slots: ${snapshot.error}',
+              style: TextStyle(color: Colors.red.shade700),
+              textAlign: TextAlign.center,
+            ),
+          );
         }
 
         final availableSlots = snapshot.data ?? [];
@@ -571,7 +820,7 @@ class _Pbooking1State extends State<Pbooking1> {
               borderRadius: BorderRadius.circular(16),
             ),
             child: Text(
-              'No available slots for this date',
+              'No available slots for this date. The doctor may not have scheduled appointments for this day.',
               style: TextStyle(color: Colors.grey.shade600),
               textAlign: TextAlign.center,
             ),

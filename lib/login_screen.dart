@@ -195,164 +195,176 @@ class TBisitaLoginScreen extends StatelessWidget {
     }
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              GestureDetector(
-                onTap: () {
-                  adminTapCount++;
-                  if (adminTapCount >= 5) {
-                    adminTapCount = 0;
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const AdminLogin(),
-                      ),
-                      (route) => false,
-                    );
-                  }
-                },
-                child: const Text(
-                  'Log in',
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                  ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight - 80, // 80 = vertical padding
                 ),
-              ),
-              const SizedBox(height: 40),
-              ValueListenableBuilder<bool>(
-                valueListenable: emailError,
-                builder: (_, isError, __) => TextField(
-                  controller: emailController,
-                  decoration: InputDecoration(
-                    labelText: 'Email address',
-                    labelStyle:
-                        TextStyle(color: isError ? Colors.red : Colors.grey),
-                    border: _border(isError),
-                    focusedBorder: _border(isError),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              ValueListenableBuilder2<bool, bool>(
-                first: passwordError,
-                second: obscureText,
-                builder: (_, isError, isObscure, __) => TextField(
-                  controller: passwordController,
-                  obscureText: isObscure,
-                  decoration: InputDecoration(
-                    labelText: 'Password',
-                    labelStyle:
-                        TextStyle(color: isError ? Colors.red : Colors.grey),
-                    border: _border(isError),
-                    focusedBorder: _border(isError),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        isObscure ? Icons.visibility_off : Icons.visibility,
-                        color: isError ? Colors.red : Colors.grey,
-                      ),
-                      onPressed: () => obscureText.value = !isObscure,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: () {},
-                  child: const Text(
-                    'Forgot password?',
-                    style: TextStyle(color: Color(0xFFFF4C72)),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              ValueListenableBuilder<bool>(
-                valueListenable: isLoading,
-                builder: (_, loading, __) => SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton(
-                    onPressed: loading ? null : loginUser,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.redAccent,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                    child: loading
-                        ? const CircularProgressIndicator(
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(Colors.white),
-                          )
-                        : const Text(
-                            'Log in',
-                            style: TextStyle(fontSize: 16, color: Colors.white),
-                          ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 15),
-              Center(
-                child: TextButton(
-                  onPressed: () async {
-                    // Try to sign in anonymously for guest mode, or just navigate
-                    try {
-                      await FirebaseAuth.instance.signInAnonymously();
-                      debugPrint('Guest signed in anonymously');
-                    } catch (e) {
-                      // If anonymous auth is disabled, just proceed without auth
-                      debugPrint(
-                          'Anonymous auth not available, proceeding as guest: $e');
-                    }
-
-                    // Navigate to guest mode regardless
-                    if (context.mounted) {
-                      Navigator.pushAndRemoveUntil(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const GuestMainWrapper()),
-                        (route) => false,
-                      );
-                    }
-                  },
-                  child: const Text(
-                    'Guest Mode',
-                    style: TextStyle(color: Colors.redAccent),
-                  ),
-                ),
-              ),
-              const Spacer(),
-              Center(
-                child: RichText(
-                  text: TextSpan(
-                    text: 'Don’t have an account? ',
-                    style: const TextStyle(color: Colors.black87),
+                child: IntrinsicHeight(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      TextSpan(
-                        text: 'Sign up',
-                        style: const TextStyle(color: Colors.redAccent),
-                        recognizer: TapGestureRecognizer()
-                          ..onTap = () {
-                            Navigator.push(
+                      GestureDetector(
+                        onTap: () {
+                          adminTapCount++;
+                          if (adminTapCount >= 5) {
+                            adminTapCount = 0;
+                            Navigator.pushAndRemoveUntil(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const SignupScreen(),
+                                builder: (context) => const AdminLogin(),
                               ),
+                              (route) => false,
                             );
+                          }
+                        },
+                        child: const Text(
+                          'Log in',
+                          style: TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 40),
+                      ValueListenableBuilder<bool>(
+                        valueListenable: emailError,
+                        builder: (_, isError, __) => TextField(
+                          controller: emailController,
+                          decoration: InputDecoration(
+                            labelText: 'Email address',
+                            labelStyle:
+                                TextStyle(color: isError ? Colors.red : Colors.grey),
+                            border: _border(isError),
+                            focusedBorder: _border(isError),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      ValueListenableBuilder2<bool, bool>(
+                        first: passwordError,
+                        second: obscureText,
+                        builder: (_, isError, isObscure, __) => TextField(
+                          controller: passwordController,
+                          obscureText: isObscure,
+                          decoration: InputDecoration(
+                            labelText: 'Password',
+                            labelStyle:
+                                TextStyle(color: isError ? Colors.red : Colors.grey),
+                            border: _border(isError),
+                            focusedBorder: _border(isError),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                isObscure ? Icons.visibility_off : Icons.visibility,
+                                color: isError ? Colors.red : Colors.grey,
+                              ),
+                              onPressed: () => obscureText.value = !isObscure,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: () {},
+                          child: const Text(
+                            'Forgot password?',
+                            style: TextStyle(color: Color(0xFFFF4C72)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      ValueListenableBuilder<bool>(
+                        valueListenable: isLoading,
+                        builder: (_, loading, __) => SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: ElevatedButton(
+                            onPressed: loading ? null : loginUser,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.redAccent,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            child: loading
+                                ? const CircularProgressIndicator(
+                                    valueColor:
+                                        AlwaysStoppedAnimation<Color>(Colors.white),
+                                  )
+                                : const Text(
+                                    'Log in',
+                                    style: TextStyle(fontSize: 16, color: Colors.white),
+                                  ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 15),
+                      Center(
+                        child: TextButton(
+                          onPressed: () async {
+                            // Try to sign in anonymously for guest mode, or just navigate
+                            try {
+                              await FirebaseAuth.instance.signInAnonymously();
+                              debugPrint('Guest signed in anonymously');
+                            } catch (e) {
+                              // If anonymous auth is disabled, just proceed without auth
+                              debugPrint(
+                                  'Anonymous auth not available, proceeding as guest: $e');
+                            }
+
+                            // Navigate to guest mode regardless
+                            if (context.mounted) {
+                              Navigator.pushAndRemoveUntil(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) => const GuestMainWrapper()),
+                                (route) => false,
+                              );
+                            }
                           },
+                          child: const Text(
+                            'Guest Mode',
+                            style: TextStyle(color: Colors.redAccent),
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      Center(
+                        child: RichText(
+                          text: TextSpan(
+                            text: 'Don’t have an account? ',
+                            style: const TextStyle(color: Colors.black87),
+                            children: [
+                              TextSpan(
+                                text: 'Sign up',
+                                style: const TextStyle(color: Colors.redAccent),
+                                recognizer: TapGestureRecognizer()
+                                  ..onTap = () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => const SignupScreen(),
+                                      ),
+                                    );
+                                  },
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
                   ),
                 ),
               ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );

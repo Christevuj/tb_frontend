@@ -1460,13 +1460,14 @@ class DashboardView extends StatelessWidget {
     Function(DashboardTab)? onNavigateToTab,
   }) {
     // Build query based on collection type
-    Query<Map<String, dynamic>> query = FirebaseFirestore.instance.collection(collection);
-    
+    Query<Map<String, dynamic>> query =
+        FirebaseFirestore.instance.collection(collection);
+
     // Add filtering for patients
     if (collection == 'users') {
       query = query.where('role', isEqualTo: 'patient');
     }
-    
+
     return StreamBuilder<QuerySnapshot>(
       stream: query
           .limit(50) // Limit for dashboard overview
@@ -3103,6 +3104,7 @@ class _PatientsViewState extends State<PatientsView> {
         border: Border.all(color: const Color(0xFFF3F4F6), width: 1.5),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           // Selection toolbar
           if (_isSelectionMode)
@@ -3137,150 +3139,145 @@ class _PatientsViewState extends State<PatientsView> {
               ),
             ),
           // DataTable
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: DataTable(
-                headingRowColor:
-                    WidgetStateProperty.all(const Color(0xFFF9FAFB)),
-                columns: [
-                  DataColumn(
-                      label: Text('Name',
-                          style: GoogleFonts.poppins(
-                              fontWeight: FontWeight.w700))),
-                  DataColumn(
-                      label: Text('Email',
-                          style: GoogleFonts.poppins(
-                              fontWeight: FontWeight.w700))),
-                  DataColumn(
-                      label: Text('Status',
-                          style: GoogleFonts.poppins(
-                              fontWeight: FontWeight.w700))),
-                  DataColumn(
-                      label: Text('Actions',
-                          style: GoogleFonts.poppins(
-                              fontWeight: FontWeight.w700))),
-                ],
-                rows: docs.map((doc) {
-                  final data = doc.data() as Map<String, dynamic>;
-                  String name = '';
-                  if (data['firstName'] != null && data['lastName'] != null) {
-                    name = '${data['firstName']} ${data['lastName']}';
-                  } else if (data['name'] != null) {
-                    name = data['name'];
-                  } else {
-                    name = 'N/A';
-                  }
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              headingRowColor: WidgetStateProperty.all(const Color(0xFFF9FAFB)),
+              columns: [
+                DataColumn(
+                    label: Text('Name',
+                        style:
+                            GoogleFonts.poppins(fontWeight: FontWeight.w700))),
+                DataColumn(
+                    label: Text('Email',
+                        style:
+                            GoogleFonts.poppins(fontWeight: FontWeight.w700))),
+                DataColumn(
+                    label: Text('Status',
+                        style:
+                            GoogleFonts.poppins(fontWeight: FontWeight.w700))),
+                DataColumn(
+                    label: Text('Actions',
+                        style:
+                            GoogleFonts.poppins(fontWeight: FontWeight.w700))),
+              ],
+              rows: docs.map((doc) {
+                final data = doc.data() as Map<String, dynamic>;
+                String name = '';
+                if (data['firstName'] != null && data['lastName'] != null) {
+                  name = '${data['firstName']} ${data['lastName']}';
+                } else if (data['name'] != null) {
+                  name = data['name'];
+                } else {
+                  name = 'N/A';
+                }
 
-                  // Get enhanced status using the helper method
-                  final displayStatus = _getPatientStatus(data);
-                  final statusColor = _getStatusColor(displayStatus);
-                  final backgroundColor =
-                      _getStatusBackgroundColor(displayStatus);
+                // Get enhanced status using the helper method
+                final displayStatus = _getPatientStatus(data);
+                final statusColor = _getStatusColor(displayStatus);
+                final backgroundColor =
+                    _getStatusBackgroundColor(displayStatus);
 
-                  final isSelected = selectedPatientIds.contains(doc.id);
+                final isSelected = selectedPatientIds.contains(doc.id);
 
-                  return DataRow(
-                    color: isSelected
-                        ? WidgetStateProperty.all(Colors.grey.withOpacity(0.3))
-                        : null,
-                    onLongPress: () {
-                      setState(() {
-                        if (!_isSelectionMode) {
-                          _isSelectionMode = true;
-                          selectedPatientIds.add(doc.id);
-                        } else {
-                          if (selectedPatientIds.contains(doc.id)) {
-                            selectedPatientIds.remove(doc.id);
-                            if (selectedPatientIds.isEmpty) {
-                              _isSelectionMode = false;
-                            }
-                          } else {
-                            selectedPatientIds.add(doc.id);
+                return DataRow(
+                  color: isSelected
+                      ? WidgetStateProperty.all(Colors.grey.withOpacity(0.3))
+                      : null,
+                  onLongPress: () {
+                    setState(() {
+                      if (!_isSelectionMode) {
+                        _isSelectionMode = true;
+                        selectedPatientIds.add(doc.id);
+                      } else {
+                        if (selectedPatientIds.contains(doc.id)) {
+                          selectedPatientIds.remove(doc.id);
+                          if (selectedPatientIds.isEmpty) {
+                            _isSelectionMode = false;
                           }
+                        } else {
+                          selectedPatientIds.add(doc.id);
                         }
-                      });
-                    },
-                    cells: [
-                      DataCell(
-                        Text(name,
-                            style: GoogleFonts.poppins(
-                              color: isSelected ? Colors.grey.shade600 : null,
-                            )),
-                        onTap: _isSelectionMode
-                            ? () {
-                                setState(() {
-                                  if (selectedPatientIds.contains(doc.id)) {
-                                    selectedPatientIds.remove(doc.id);
-                                    if (selectedPatientIds.isEmpty) {
-                                      _isSelectionMode = false;
-                                    }
-                                  } else {
-                                    selectedPatientIds.add(doc.id);
+                      }
+                    });
+                  },
+                  cells: [
+                    DataCell(
+                      Text(name,
+                          style: GoogleFonts.poppins(
+                            color: isSelected ? Colors.grey.shade600 : null,
+                          )),
+                      onTap: _isSelectionMode
+                          ? () {
+                              setState(() {
+                                if (selectedPatientIds.contains(doc.id)) {
+                                  selectedPatientIds.remove(doc.id);
+                                  if (selectedPatientIds.isEmpty) {
+                                    _isSelectionMode = false;
                                   }
-                                });
-                              }
-                            : null,
-                      ),
-                      DataCell(
-                        Text(data['email'] ?? 'N/A',
-                            style: GoogleFonts.poppins(
-                              color: isSelected ? Colors.grey.shade600 : null,
-                            )),
-                        onTap: _isSelectionMode
-                            ? () {
-                                setState(() {
-                                  if (selectedPatientIds.contains(doc.id)) {
-                                    selectedPatientIds.remove(doc.id);
-                                    if (selectedPatientIds.isEmpty) {
-                                      _isSelectionMode = false;
-                                    }
-                                  } else {
-                                    selectedPatientIds.add(doc.id);
+                                } else {
+                                  selectedPatientIds.add(doc.id);
+                                }
+                              });
+                            }
+                          : null,
+                    ),
+                    DataCell(
+                      Text(data['email'] ?? 'N/A',
+                          style: GoogleFonts.poppins(
+                            color: isSelected ? Colors.grey.shade600 : null,
+                          )),
+                      onTap: _isSelectionMode
+                          ? () {
+                              setState(() {
+                                if (selectedPatientIds.contains(doc.id)) {
+                                  selectedPatientIds.remove(doc.id);
+                                  if (selectedPatientIds.isEmpty) {
+                                    _isSelectionMode = false;
                                   }
-                                });
-                              }
-                            : null,
-                      ),
-                      DataCell(
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? Colors.grey.shade300
-                                : backgroundColor,
-                            borderRadius: BorderRadius.circular(8),
+                                } else {
+                                  selectedPatientIds.add(doc.id);
+                                }
+                              });
+                            }
+                          : null,
+                    ),
+                    DataCell(
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? Colors.grey.shade300
+                              : backgroundColor,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          displayStatus,
+                          style: GoogleFonts.poppins(
+                            color:
+                                isSelected ? Colors.grey.shade600 : statusColor,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
                           ),
-                          child: Text(
-                            displayStatus,
-                            style: GoogleFonts.poppins(
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      Builder(
+                        builder: (btnContext) => IconButton(
+                          icon: Icon(Icons.visibility_rounded,
                               color: isSelected
-                                  ? Colors.grey.shade600
-                                  : statusColor,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 12,
-                            ),
-                          ),
+                                  ? Colors.grey.shade400
+                                  : const Color(0xFFEF4444)),
+                          onPressed: () => _showDetailsDialog(btnContext, data),
+                          tooltip: 'View Details',
                         ),
                       ),
-                      DataCell(
-                        Builder(
-                          builder: (btnContext) => IconButton(
-                            icon: Icon(Icons.visibility_rounded,
-                                color: isSelected
-                                    ? Colors.grey.shade400
-                                    : const Color(0xFFEF4444)),
-                            onPressed: () =>
-                                _showDetailsDialog(btnContext, data),
-                            tooltip: 'View Details',
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                }).toList(),
-              ),
+                    ),
+                  ],
+                );
+              }).toList(),
             ),
           ),
         ],
@@ -3755,6 +3752,7 @@ class _HealthWorkersViewState extends State<HealthWorkersView> {
         border: Border.all(color: const Color(0xFFF3F4F6), width: 1.5),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           // Selection toolbar
           if (_isSelectionMode)
@@ -3789,179 +3787,171 @@ class _HealthWorkersViewState extends State<HealthWorkersView> {
               ),
             ),
           // DataTable
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: DataTable(
-                headingRowColor:
-                    WidgetStateProperty.all(const Color(0xFFF9FAFB)),
-                columns: [
-                  DataColumn(
-                      label: Text('Name',
-                          style: GoogleFonts.poppins(
-                              fontWeight: FontWeight.w700))),
-                  DataColumn(
-                      label: Text('Position',
-                          style: GoogleFonts.poppins(
-                              fontWeight: FontWeight.w700))),
-                  DataColumn(
-                      label: Text('Facility',
-                          style: GoogleFonts.poppins(
-                              fontWeight: FontWeight.w700))),
-                  DataColumn(
-                      label: Text('Email',
-                          style: GoogleFonts.poppins(
-                              fontWeight: FontWeight.w700))),
-                  DataColumn(
-                      label: Text('Actions',
-                          style: GoogleFonts.poppins(
-                              fontWeight: FontWeight.w700))),
-                ],
-                rows: docs.map((doc) {
-                  final data = doc.data() as Map<String, dynamic>;
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              headingRowColor: WidgetStateProperty.all(const Color(0xFFF9FAFB)),
+              columns: [
+                DataColumn(
+                    label: Text('Name',
+                        style:
+                            GoogleFonts.poppins(fontWeight: FontWeight.w700))),
+                DataColumn(
+                    label: Text('Position',
+                        style:
+                            GoogleFonts.poppins(fontWeight: FontWeight.w700))),
+                DataColumn(
+                    label: Text('Facility',
+                        style:
+                            GoogleFonts.poppins(fontWeight: FontWeight.w700))),
+                DataColumn(
+                    label: Text('Email',
+                        style:
+                            GoogleFonts.poppins(fontWeight: FontWeight.w700))),
+                DataColumn(
+                    label: Text('Actions',
+                        style:
+                            GoogleFonts.poppins(fontWeight: FontWeight.w700))),
+              ],
+              rows: docs.map((doc) {
+                final data = doc.data() as Map<String, dynamic>;
 
-                  final facilityName =
-                      data['facility'] != null && data['facility'] is Map
-                          ? data['facility']['name'] ?? 'N/A'
-                          : 'N/A';
+                final facilityName =
+                    data['facility'] != null && data['facility'] is Map
+                        ? data['facility']['name'] ?? 'N/A'
+                        : 'N/A';
 
-                  final isSelected = selectedHealthWorkerIds.contains(doc.id);
+                final isSelected = selectedHealthWorkerIds.contains(doc.id);
 
-                  return DataRow(
-                    color: isSelected
-                        ? WidgetStateProperty.all(Colors.grey.withOpacity(0.3))
-                        : null,
-                    onLongPress: () {
-                      setState(() {
-                        if (!_isSelectionMode) {
-                          _isSelectionMode = true;
-                          selectedHealthWorkerIds.add(doc.id);
-                        } else {
-                          if (selectedHealthWorkerIds.contains(doc.id)) {
-                            selectedHealthWorkerIds.remove(doc.id);
-                            if (selectedHealthWorkerIds.isEmpty) {
-                              _isSelectionMode = false;
-                            }
-                          } else {
-                            selectedHealthWorkerIds.add(doc.id);
+                return DataRow(
+                  color: isSelected
+                      ? WidgetStateProperty.all(Colors.grey.withOpacity(0.3))
+                      : null,
+                  onLongPress: () {
+                    setState(() {
+                      if (!_isSelectionMode) {
+                        _isSelectionMode = true;
+                        selectedHealthWorkerIds.add(doc.id);
+                      } else {
+                        if (selectedHealthWorkerIds.contains(doc.id)) {
+                          selectedHealthWorkerIds.remove(doc.id);
+                          if (selectedHealthWorkerIds.isEmpty) {
+                            _isSelectionMode = false;
                           }
+                        } else {
+                          selectedHealthWorkerIds.add(doc.id);
                         }
-                      });
-                    },
-                    cells: [
-                      DataCell(
-                        Text(data['fullName'] ?? data['name'] ?? 'N/A',
-                            style: GoogleFonts.poppins(
-                              color: isSelected ? Colors.grey.shade600 : null,
-                            )),
-                        onTap: _isSelectionMode
-                            ? () {
-                                setState(() {
-                                  if (selectedHealthWorkerIds
-                                      .contains(doc.id)) {
-                                    selectedHealthWorkerIds.remove(doc.id);
-                                    if (selectedHealthWorkerIds.isEmpty) {
-                                      _isSelectionMode = false;
-                                    }
-                                  } else {
-                                    selectedHealthWorkerIds.add(doc.id);
+                      }
+                    });
+                  },
+                  cells: [
+                    DataCell(
+                      Text(data['fullName'] ?? data['name'] ?? 'N/A',
+                          style: GoogleFonts.poppins(
+                            color: isSelected ? Colors.grey.shade600 : null,
+                          )),
+                      onTap: _isSelectionMode
+                          ? () {
+                              setState(() {
+                                if (selectedHealthWorkerIds.contains(doc.id)) {
+                                  selectedHealthWorkerIds.remove(doc.id);
+                                  if (selectedHealthWorkerIds.isEmpty) {
+                                    _isSelectionMode = false;
                                   }
-                                });
-                              }
-                            : null,
-                      ),
-                      DataCell(
-                        Text(data['specialization'] ?? 'N/A',
-                            style: GoogleFonts.poppins(
-                              color: isSelected ? Colors.grey.shade600 : null,
-                            )),
-                        onTap: _isSelectionMode
-                            ? () {
-                                setState(() {
-                                  if (selectedHealthWorkerIds
-                                      .contains(doc.id)) {
-                                    selectedHealthWorkerIds.remove(doc.id);
-                                    if (selectedHealthWorkerIds.isEmpty) {
-                                      _isSelectionMode = false;
-                                    }
-                                  } else {
-                                    selectedHealthWorkerIds.add(doc.id);
+                                } else {
+                                  selectedHealthWorkerIds.add(doc.id);
+                                }
+                              });
+                            }
+                          : null,
+                    ),
+                    DataCell(
+                      Text(data['specialization'] ?? 'N/A',
+                          style: GoogleFonts.poppins(
+                            color: isSelected ? Colors.grey.shade600 : null,
+                          )),
+                      onTap: _isSelectionMode
+                          ? () {
+                              setState(() {
+                                if (selectedHealthWorkerIds.contains(doc.id)) {
+                                  selectedHealthWorkerIds.remove(doc.id);
+                                  if (selectedHealthWorkerIds.isEmpty) {
+                                    _isSelectionMode = false;
                                   }
-                                });
-                              }
-                            : null,
-                      ),
-                      DataCell(
-                        Text(facilityName,
-                            style: GoogleFonts.poppins(
-                              color: isSelected ? Colors.grey.shade600 : null,
-                            )),
-                        onTap: _isSelectionMode
-                            ? () {
-                                setState(() {
-                                  if (selectedHealthWorkerIds
-                                      .contains(doc.id)) {
-                                    selectedHealthWorkerIds.remove(doc.id);
-                                    if (selectedHealthWorkerIds.isEmpty) {
-                                      _isSelectionMode = false;
-                                    }
-                                  } else {
-                                    selectedHealthWorkerIds.add(doc.id);
+                                } else {
+                                  selectedHealthWorkerIds.add(doc.id);
+                                }
+                              });
+                            }
+                          : null,
+                    ),
+                    DataCell(
+                      Text(facilityName,
+                          style: GoogleFonts.poppins(
+                            color: isSelected ? Colors.grey.shade600 : null,
+                          )),
+                      onTap: _isSelectionMode
+                          ? () {
+                              setState(() {
+                                if (selectedHealthWorkerIds.contains(doc.id)) {
+                                  selectedHealthWorkerIds.remove(doc.id);
+                                  if (selectedHealthWorkerIds.isEmpty) {
+                                    _isSelectionMode = false;
                                   }
-                                });
-                              }
-                            : null,
-                      ),
-                      DataCell(
-                        Text(data['email'] ?? 'N/A',
-                            style: GoogleFonts.poppins(
-                              color: isSelected ? Colors.grey.shade600 : null,
-                            )),
-                        onTap: _isSelectionMode
-                            ? () {
-                                setState(() {
-                                  if (selectedHealthWorkerIds
-                                      .contains(doc.id)) {
-                                    selectedHealthWorkerIds.remove(doc.id);
-                                    if (selectedHealthWorkerIds.isEmpty) {
-                                      _isSelectionMode = false;
-                                    }
-                                  } else {
-                                    selectedHealthWorkerIds.add(doc.id);
+                                } else {
+                                  selectedHealthWorkerIds.add(doc.id);
+                                }
+                              });
+                            }
+                          : null,
+                    ),
+                    DataCell(
+                      Text(data['email'] ?? 'N/A',
+                          style: GoogleFonts.poppins(
+                            color: isSelected ? Colors.grey.shade600 : null,
+                          )),
+                      onTap: _isSelectionMode
+                          ? () {
+                              setState(() {
+                                if (selectedHealthWorkerIds.contains(doc.id)) {
+                                  selectedHealthWorkerIds.remove(doc.id);
+                                  if (selectedHealthWorkerIds.isEmpty) {
+                                    _isSelectionMode = false;
                                   }
-                                });
-                              }
-                            : null,
+                                } else {
+                                  selectedHealthWorkerIds.add(doc.id);
+                                }
+                              });
+                            }
+                          : null,
+                    ),
+                    DataCell(
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: Icon(Icons.visibility_rounded,
+                                color: isSelected
+                                    ? Colors.grey.shade400
+                                    : const Color(0xFFEF4444)),
+                            onPressed: () => _showDetailsDialog(context, data),
+                            tooltip: 'View Details',
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.email_rounded,
+                                color: isSelected
+                                    ? Colors.grey.shade400
+                                    : const Color(0xFF059669)),
+                            onPressed: () => widget.onSendEmail(
+                                context, data, 'healthworker'),
+                            tooltip: 'Send Credentials Email',
+                          ),
+                        ],
                       ),
-                      DataCell(
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: Icon(Icons.visibility_rounded,
-                                  color: isSelected
-                                      ? Colors.grey.shade400
-                                      : const Color(0xFFEF4444)),
-                              onPressed: () =>
-                                  _showDetailsDialog(context, data),
-                              tooltip: 'View Details',
-                            ),
-                            IconButton(
-                              icon: Icon(Icons.email_rounded,
-                                  color: isSelected
-                                      ? Colors.grey.shade400
-                                      : const Color(0xFF059669)),
-                              onPressed: () => widget.onSendEmail(
-                                  context, data, 'healthworker'),
-                              tooltip: 'Send Credentials Email',
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  );
-                }).toList(),
-              ),
+                    ),
+                  ],
+                );
+              }).toList(),
             ),
           ),
         ],

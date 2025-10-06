@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdfx/pdfx.dart' as pdfx;
 import 'package:http/http.dart' as http;
+import 'package:permission_handler/permission_handler.dart';
 import '../services/chat_service.dart';
 import '../services/webrtc_service.dart';
 import '../chat_screens/chat_screen.dart';
@@ -1300,7 +1301,7 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                                   label: 'Settings',
                                   textColor: Colors.white,
                                   onPressed: () {
-                                    // Optional: Add openAppSettings() if available
+                                    openAppSettings();
                                   },
                                 ),
                               ),
@@ -1308,14 +1309,15 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                             return;
                           }
 
-                          // Navigate to video call screen
-                          Navigator.push(
-                            context,
+                          // Navigate to video call screen with fullscreen modal
+                          Navigator.of(context, rootNavigator: true).push(
                             MaterialPageRoute(
+                              fullscreenDialog: true,
                               builder: (context) => VideoCallScreen(
                                 appointmentId: appointment['id'] ?? '',
                                 patientName:
                                     appointment['patientName'] ?? 'Patient',
+                                roomId: appointment['roomId'],
                                 isDoctorCalling: false,
                               ),
                             ),
@@ -2362,18 +2364,12 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                                         ),
                                       ),
                                     ),
-                                    // Meeting link indicator for approved appointments
+                                    // Room ID indicator for approved appointments
                                     if (status == 'approved' &&
-                                        ((appointment['meetingLink'] ??
-                                                    appointment['jitsi_link'] ??
-                                                    appointment[
-                                                        'meeting_link']) !=
-                                                null &&
-                                            (appointment['meetingLink'] ??
-                                                    appointment['jitsi_link'] ??
-                                                    appointment['meeting_link'])
-                                                .toString()
-                                                .isNotEmpty)) ...[
+                                        appointment['roomId'] != null &&
+                                        appointment['roomId']
+                                            .toString()
+                                            .isNotEmpty) ...[
                                       const SizedBox(width: 8),
                                       Container(
                                         padding: const EdgeInsets.symmetric(
@@ -2397,7 +2393,7 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                                             ),
                                             const SizedBox(width: 4),
                                             Text(
-                                              'Meeting',
+                                              'Video Call',
                                               style: TextStyle(
                                                 fontSize: 10,
                                                 color: Colors.green.shade600,

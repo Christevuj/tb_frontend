@@ -49,6 +49,10 @@
 	<string>This app needs access to location when open to show nearby TB DOTS facilities.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>This app needs access to location when in the background to show nearby TB DOTS facilities.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>This app needs access to camera for video calls with healthcare providers.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This app needs access to microphone for video calls with healthcare providers.</string>
 	<key>io.flutter.embedded_views_preview</key>
 	<true/>
 </dict>

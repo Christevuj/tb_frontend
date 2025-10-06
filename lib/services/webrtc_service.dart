@@ -57,11 +57,15 @@ class WebRTCService {
         print('Current microphone permission: $micStatus');
       }
 
-      // Request permissions if not already granted
-      Map<Permission, PermissionStatus> statuses = await [
+      // For Android 13+ (API 33+), we also need to check notification permission for better UX
+      List<Permission> permissionsToRequest = [
         Permission.camera,
         Permission.microphone,
-      ].request();
+      ];
+
+      // Request permissions if not already granted
+      Map<Permission, PermissionStatus> statuses =
+          await permissionsToRequest.request();
 
       bool cameraGranted =
           statuses[Permission.camera] == PermissionStatus.granted;
@@ -71,6 +75,8 @@ class WebRTCService {
       if (kDebugMode) {
         print('Camera permission granted: $cameraGranted');
         print('Microphone permission granted: $micGranted');
+        print(
+            'Detailed status - Camera: ${statuses[Permission.camera]}, Microphone: ${statuses[Permission.microphone]}');
       }
 
       if (!cameraGranted || !micGranted) {
@@ -101,6 +107,7 @@ class WebRTCService {
               'Permission denied: ${missingPermissions.join(' and ')} access required for video calls. Please grant permissions and try again.';
         }
 
+        if (kDebugMode) print('Permission error: $errorMessage');
         onError?.call(errorMessage);
         return false;
       }

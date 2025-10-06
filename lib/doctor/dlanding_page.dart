@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'prescription.dart';
 import '../services/chat_service.dart';
 import '../chat_screens/chat_screen.dart';
+import '../screens/video_call_screen.dart';
+import '../services/webrtc_service.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 bool _showAllAppointments = false; // Track See All state
 
@@ -21,11 +23,11 @@ class _DlandingpageState extends State<Dlandingpage> {
   CalendarFormat _calendarFormat = CalendarFormat.week;
   List<DateTime> _appointmentDates = []; // Track dates with appointments
   String? _currentDoctorId; // Store current doctor's ID
-  
+
   // State variables for collapsible sections in appointment details
   bool _isPatientInfoExpanded = false;
   bool _isScheduleExpanded = false;
-  bool _isMeetingLinkExpanded = false;
+  bool _isVideoCallExpanded = false;
 
   final List<String> _months = [
     "January",
@@ -147,7 +149,8 @@ class _DlandingpageState extends State<Dlandingpage> {
                     Colors.white,
                   ],
                 ),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(24)),
               ),
               child: SingleChildScrollView(
                 controller: controller,
@@ -231,7 +234,8 @@ class _DlandingpageState extends State<Dlandingpage> {
                               ),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                              icon: const Icon(Icons.close,
+                                  color: Colors.white, size: 28),
                               onPressed: () => Navigator.pop(context),
                             ),
                           ],
@@ -251,7 +255,8 @@ class _DlandingpageState extends State<Dlandingpage> {
                               isExpanded: _isPatientInfoExpanded,
                               onToggle: () {
                                 setModalState(() {
-                                  _isPatientInfoExpanded = !_isPatientInfoExpanded;
+                                  _isPatientInfoExpanded =
+                                      !_isPatientInfoExpanded;
                                 });
                               },
                               bullets: [
@@ -281,14 +286,14 @@ class _DlandingpageState extends State<Dlandingpage> {
 
                             const SizedBox(height: 12),
 
-                            // Meeting Link Section - Join Only for Approved
-                            _buildMeetingLinkCard(
-                              title: "Meeting Link",
+                            // Video Call Section - Join Only for Approved
+                            _buildVideoCallCard(
+                              title: "Video Call",
                               subtitle: "Join online consultation",
-                              isExpanded: _isMeetingLinkExpanded,
+                              isExpanded: _isVideoCallExpanded,
                               onToggle: () {
                                 setModalState(() {
-                                  _isMeetingLinkExpanded = !_isMeetingLinkExpanded;
+                                  _isVideoCallExpanded = !_isVideoCallExpanded;
                                 });
                               },
                               appointment: appointment,
@@ -321,8 +326,6 @@ class _DlandingpageState extends State<Dlandingpage> {
       ),
     );
   }
-
-
 
   Future<void> _openChat(Map<String, dynamic> appointment) async {
     try {
@@ -385,8 +388,6 @@ class _DlandingpageState extends State<Dlandingpage> {
     }
   }
 
-
-
   // Build action buttons for Accept/Reject
   Widget _buildActionButtons(Map<String, dynamic> appointment) {
     return StreamBuilder<QuerySnapshot>(
@@ -427,10 +428,7 @@ class _DlandingpageState extends State<Dlandingpage> {
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [
-                        Colors.orange.shade50,
-                        Colors.orange.shade100
-                      ],
+                      colors: [Colors.orange.shade50, Colors.orange.shade100],
                     ),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: Colors.orange.shade200),
@@ -464,7 +462,7 @@ class _DlandingpageState extends State<Dlandingpage> {
                     ],
                   ),
                 ),
-              
+
               // Upload Prescription First Button
               if (!hasPrescription)
                 Container(
@@ -474,10 +472,7 @@ class _DlandingpageState extends State<Dlandingpage> {
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [
-                        Colors.grey.shade400,
-                        Colors.grey.shade500
-                      ],
+                      colors: [Colors.grey.shade400, Colors.grey.shade500],
                     ),
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
@@ -532,10 +527,7 @@ class _DlandingpageState extends State<Dlandingpage> {
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [
-                        Colors.green.shade400,
-                        Colors.green.shade600
-                      ],
+                      colors: [Colors.green.shade400, Colors.green.shade600],
                     ),
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
@@ -940,12 +932,12 @@ class _DlandingpageState extends State<Dlandingpage> {
 
                       // Enhanced date extraction with multiple field name support
                       DateTime? appointmentDate;
-                      
+
                       try {
-                        dynamic dateField = appointment["appointmentDate"] ?? 
-                                          appointment["appointment_date"] ?? 
-                                          appointment["date"];
-                        
+                        dynamic dateField = appointment["appointmentDate"] ??
+                            appointment["appointment_date"] ??
+                            appointment["date"];
+
                         if (dateField != null) {
                           if (dateField is Timestamp) {
                             appointmentDate = dateField.toDate();
@@ -961,10 +953,10 @@ class _DlandingpageState extends State<Dlandingpage> {
                       }
 
                       // Enhanced time extraction with multiple field name support
-                      String appointmentTime = appointment["appointmentTime"] ?? 
-                                             appointment["appointment_time"] ?? 
-                                             appointment["time"] ?? 
-                                             "No time";
+                      String appointmentTime = appointment["appointmentTime"] ??
+                          appointment["appointment_time"] ??
+                          appointment["time"] ??
+                          "No time";
 
                       return Card(
                         color: Colors.white,
@@ -1103,18 +1095,22 @@ class _DlandingpageState extends State<Dlandingpage> {
                       children: [
                         Text(
                           title,
-                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 16),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           subtitle,
-                          style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                          style:
+                              TextStyle(color: Colors.grey[600], fontSize: 13),
                         ),
                       ],
                     ),
                   ),
                   Icon(
-                    isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    isExpanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
                     color: const Color(0xFF0A84FF),
                     size: 24,
                   ),
@@ -1136,7 +1132,8 @@ class _DlandingpageState extends State<Dlandingpage> {
                   Column(
                     children: bullets
                         .map((b) => Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 6.0),
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 6.0),
                               child: Row(
                                 children: [
                                   Icon(
@@ -1166,10 +1163,12 @@ class _DlandingpageState extends State<Dlandingpage> {
                         ),
                       ),
                       icon: buttonText.contains('MESSAGE')
-                          ? const Icon(Icons.message, color: Color(0xFF0A84FF), size: 16)
+                          ? const Icon(Icons.message,
+                              color: Color(0xFF0A84FF), size: 16)
                           : const SizedBox.shrink(),
                       label: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12.0, vertical: 10),
                         child: Text(
                           buttonText,
                           style: const TextStyle(color: Color(0xFF0A84FF)),
@@ -1235,18 +1234,22 @@ class _DlandingpageState extends State<Dlandingpage> {
                       children: [
                         Text(
                           title,
-                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 16),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           subtitle,
-                          style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                          style:
+                              TextStyle(color: Colors.grey[600], fontSize: 13),
                         ),
                       ],
                     ),
                   ),
                   Icon(
-                    isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    isExpanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
                     color: const Color(0xFF0A84FF),
                     size: 24,
                   ),
@@ -1292,8 +1295,8 @@ class _DlandingpageState extends State<Dlandingpage> {
     );
   }
 
-  // Helper method to build meeting link card (join only for approved appointments)
-  Widget _buildMeetingLinkCard({
+  // Helper method to build video call card (join only for approved appointments)
+  Widget _buildVideoCallCard({
     required String title,
     required String subtitle,
     required bool isExpanded,
@@ -1326,7 +1329,8 @@ class _DlandingpageState extends State<Dlandingpage> {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 16),
                   ),
                   const SizedBox(width: 4),
                   Text(
@@ -1334,32 +1338,100 @@ class _DlandingpageState extends State<Dlandingpage> {
                     style: TextStyle(color: Colors.grey[600], fontSize: 13),
                   ),
                   const SizedBox(height: 16),
-                  // Join Meeting button directly in the header
-                  if (appointment["meetingLink"] != null &&
-                      appointment["meetingLink"].toString().isNotEmpty)
+                  // Join Video Call button directly in the header
+                  if (appointment["roomId"] != null &&
+                      appointment["roomId"].toString().isNotEmpty)
                     OutlinedButton.icon(
                       onPressed: () async {
-                        final Uri uri =
-                            Uri.parse(appointment["meetingLink"].toString());
                         try {
-                          if (await canLaunchUrl(uri)) {
-                            await launchUrl(uri,
-                                mode: LaunchMode.externalApplication);
-                          } else {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content:
-                                        Text("Could not launch meeting link")),
-                              );
-                            }
+                          print('🎥 Join Video Call button pressed');
+
+                          // Check permissions before starting video call
+                          print(
+                              '🔒 Requesting camera and microphone permissions...');
+                          final webrtcService = WebRTCService();
+                          bool hasPermissions =
+                              await webrtcService.requestPermissions();
+                          print('🔒 Permission result: $hasPermissions');
+
+                          if (!hasPermissions) {
+                            print(
+                                '❌ Permissions not granted, showing error message');
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Camera and microphone permissions are required for video calls. Please enable them in your device settings.',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                                backgroundColor: Colors.orange.shade700,
+                                behavior: SnackBarBehavior.floating,
+                                duration: Duration(seconds: 5),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10)),
+                                action: SnackBarAction(
+                                  label: 'Settings',
+                                  textColor: Colors.white,
+                                  onPressed: () async {
+                                    await openAppSettings();
+                                  },
+                                ),
+                              ),
+                            );
+                            return;
+                          }
+
+                          print(
+                              '✅ Permissions granted, navigating to video call screen');
+                          // Navigate to WebRTC video call screen with fullscreen modal
+                          await Navigator.of(context, rootNavigator: true).push(
+                            MaterialPageRoute(
+                              fullscreenDialog: true,
+                              builder: (context) => VideoCallScreen(
+                                appointmentId: appointment['id'] ??
+                                    appointment['appointmentId'] ??
+                                    '',
+                                patientName:
+                                    appointment['patientName'] ?? 'Patient',
+                                roomId: appointment['roomId'],
+                                isDoctorCalling: true,
+                                onCallEnded: () {
+                                  print('Video call ended callback triggered');
+                                  if (mounted) {
+                                    print(
+                                        'Doctor landing page is mounted, refreshing...');
+                                    setState(() {
+                                      // Force refresh of the landing page
+                                    });
+                                    print('Doctor landing page refreshed');
+                                  } else {
+                                    print('Doctor landing page is not mounted');
+                                  }
+                                },
+                              ),
+                            ),
+                          );
+
+                          // Refresh the page after returning from video call
+                          print('Returned from video call screen');
+                          if (mounted) {
+                            print(
+                                'Refreshing doctor landing page after return');
+                            setState(() {
+                              // Trigger a rebuild to refresh the UI
+                            });
                           }
                         } catch (e) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text("Error: $e")),
-                            );
-                          }
+                          print('💥 Error in video call process: $e');
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error starting video call: $e'),
+                              backgroundColor: Colors.red.shade600,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10)),
+                            ),
+                          );
                         }
                       },
                       style: OutlinedButton.styleFrom(
@@ -1368,18 +1440,21 @@ class _DlandingpageState extends State<Dlandingpage> {
                           borderRadius: BorderRadius.circular(28),
                         ),
                       ),
-                      icon: const Icon(Icons.video_call, color: Color(0xFF0A84FF), size: 16),
+                      icon: const Icon(Icons.video_call,
+                          color: Color(0xFF0A84FF), size: 16),
                       label: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12.0, vertical: 10),
                         child: Text(
-                          "Join Meeting",
+                          "Join Video Call",
                           style: const TextStyle(color: Color(0xFF0A84FF)),
                         ),
                       ),
                     )
                   else
                     Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 12, horizontal: 16),
                       decoration: BoxDecoration(
                         color: Colors.grey.shade200,
                         borderRadius: BorderRadius.circular(28),
@@ -1387,10 +1462,11 @@ class _DlandingpageState extends State<Dlandingpage> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.link_off, color: Colors.grey.shade600, size: 16),
+                          Icon(Icons.link_off,
+                              color: Colors.grey.shade600, size: 16),
                           const SizedBox(width: 8),
                           Text(
-                            "No meeting link available",
+                            "No video call room available",
                             style: TextStyle(
                               color: Colors.grey.shade600,
                               fontWeight: FontWeight.w600,
@@ -1448,7 +1524,8 @@ class _DlandingpageState extends State<Dlandingpage> {
                     children: [
                       Text(
                         "E-Prescription",
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 16),
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -1475,7 +1552,9 @@ class _DlandingpageState extends State<Dlandingpage> {
                             size: 20,
                           ),
                           label: Text(
-                            hasPrescription ? "View Prescription" : "Add Prescription",
+                            hasPrescription
+                                ? "View Prescription"
+                                : "Add Prescription",
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
@@ -1606,25 +1685,31 @@ class _DlandingpageState extends State<Dlandingpage> {
                         children: [
                           _buildStepInstruction(
                             stepNumber: '1',
-                            instruction: 'Patient requested appointment with a Doctor',
+                            instruction:
+                                'Patient requested appointment with a Doctor',
                             isCompleted: true,
                           ),
                           const SizedBox(height: 8),
                           _buildStepInstruction(
                             stepNumber: '2',
-                            instruction: 'Doctor confirmed and approved the appointment schedule',
-                            isCompleted: true, // This should be true for approved appointments
+                            instruction:
+                                'Doctor confirmed and approved the appointment schedule',
+                            isCompleted:
+                                true, // This should be true for approved appointments
                           ),
                           const SizedBox(height: 8),
                           _buildStepInstruction(
                             stepNumber: '3',
-                            instruction: 'Consultation completed with prescription issued',
-                            isCompleted: hasPrescription, // Now checks if prescription exists
+                            instruction:
+                                'Consultation completed with prescription issued',
+                            isCompleted:
+                                hasPrescription, // Now checks if prescription exists
                           ),
                           const SizedBox(height: 8),
                           _buildStepInstruction(
                             stepNumber: '4',
-                            instruction: 'Treatment completion certificate delivered',
+                            instruction:
+                                'Treatment completion certificate delivered',
                             isCompleted: false,
                           ),
                           const SizedBox(height: 8),
@@ -1688,6 +1773,4 @@ class _DlandingpageState extends State<Dlandingpage> {
       ],
     );
   }
-
-
 }

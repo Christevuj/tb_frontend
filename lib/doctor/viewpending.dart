@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:tb_frontend/chat_screens/chat_screen.dart';
 import 'package:tb_frontend/services/chat_service.dart';
+import 'package:tb_frontend/screens/video_call_screen.dart';
+import 'package:tb_frontend/services/webrtc_service.dart';
 
 class Viewpending extends StatefulWidget {
   final Map<String, dynamic> appointment;
@@ -21,20 +23,6 @@ class _ViewpendingState extends State<Viewpending> {
   bool _isPatientInfoExpanded = true;
   bool _isUploadedIdExpanded = false;
   bool _isScheduleExpanded = false;
-
-  Future<void> _launchUrl(String url) async {
-    final Uri uri = Uri.parse(url);
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Could not launch meeting link'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
 
   Future<void> _showRejectDialog() async {
     final TextEditingController reasonController = TextEditingController();
@@ -55,7 +43,8 @@ class _ViewpendingState extends State<Viewpending> {
   Future<void> _rejectAppointment(String reason) async {
     try {
       final firestore = FirebaseFirestore.instance;
-      final appointmentId = widget.appointment['id'] ?? widget.appointment['appointmentId'];
+      final appointmentId =
+          widget.appointment['id'] ?? widget.appointment['appointmentId'];
 
       // Prepare the appointment data with rejection details
       final rejectedAppointmentData = {
@@ -66,10 +55,14 @@ class _ViewpendingState extends State<Viewpending> {
       };
 
       // Add to rejected collection with reason
-      await firestore.collection('rejected_appointments').add(rejectedAppointmentData);
+      await firestore
+          .collection('rejected_appointments')
+          .add(rejectedAppointmentData);
 
       // Also add to appointment history for proper tracking in dhistory.dart
-      await firestore.collection('appointment_history').add(rejectedAppointmentData);
+      await firestore
+          .collection('appointment_history')
+          .add(rejectedAppointmentData);
 
       // Also update the patient's profile with this rejected appointment
       if (widget.appointment['patientUid'] != null) {
@@ -82,7 +75,10 @@ class _ViewpendingState extends State<Viewpending> {
 
       // Delete from pending collection
       if (appointmentId != null) {
-        await firestore.collection('pending_patient_data').doc(appointmentId).delete();
+        await firestore
+            .collection('pending_patient_data')
+            .doc(appointmentId)
+            .delete();
       }
 
       Navigator.pop(context, 'rejected');
@@ -91,7 +87,8 @@ class _ViewpendingState extends State<Viewpending> {
           content: Text('Appointment rejected and moved to history'),
           backgroundColor: Colors.red.shade600,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
     } catch (e) {
@@ -100,7 +97,8 @@ class _ViewpendingState extends State<Viewpending> {
           content: Text('Error rejecting appointment: $e'),
           backgroundColor: Colors.red.shade600,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
     }
@@ -157,7 +155,8 @@ class _ViewpendingState extends State<Viewpending> {
             content: const Text('Schedule updated successfully'),
             backgroundColor: Colors.green.shade600,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
         );
       }
@@ -167,38 +166,43 @@ class _ViewpendingState extends State<Viewpending> {
           content: Text('Error updating schedule: $e'),
           backgroundColor: Colors.red.shade600,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
     }
   }
 
-  Future<void> _generateJitsiLink(Map<String, dynamic> appointment) async {
+  Future<void> _generateWebRTCRoom(Map<String, dynamic> appointment) async {
     try {
-      // Generate a unique room name
-      final String roomName = 'TBisita-${appointment['patientUid']}-${DateTime.now().millisecondsSinceEpoch}';
-      final String jitsiLink = 'https://meet.jit.si/$roomName';
+      // Generate a unique room ID for WebRTC
+      final String roomId =
+          'room_${appointment['patientUid']}_${DateTime.now().millisecondsSinceEpoch}';
 
-      // Update appointment with meeting link
+      // Update appointment with room ID
       final firestore = FirebaseFirestore.instance;
       final appointmentId = appointment['id'] ?? appointment['appointmentId'];
-      
+
       if (appointmentId != null) {
-        await firestore.collection('pending_patient_data').doc(appointmentId).update({
-          'meetingLink': jitsiLink,
+        await firestore
+            .collection('pending_patient_data')
+            .doc(appointmentId)
+            .update({
+          'roomId': roomId,
           'updatedAt': FieldValue.serverTimestamp(),
         });
 
         setState(() {
-          appointment['meetingLink'] = jitsiLink;
+          appointment['roomId'] = roomId;
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Meeting link generated successfully'),
+            content: Text('Video call room generated successfully'),
             backgroundColor: Colors.green.shade600,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
         );
       }
@@ -208,7 +212,8 @@ class _ViewpendingState extends State<Viewpending> {
           content: Text('Error generating meeting link: $e'),
           backgroundColor: Colors.red.shade600,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
     }
@@ -224,7 +229,8 @@ class _ViewpendingState extends State<Viewpending> {
       }
 
       final patientId = widget.appointment['patientUid'];
-      final patientName = widget.appointment['patientName'] ?? 'Unknown Patient';
+      final patientName =
+          widget.appointment['patientName'] ?? 'Unknown Patient';
 
       if (patientId == null) {
         throw Exception('Patient ID not found');
@@ -381,7 +387,8 @@ class _ViewpendingState extends State<Viewpending> {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                      icon: const Icon(Icons.close,
+                          color: Colors.white, size: 28),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],
@@ -447,8 +454,8 @@ class _ViewpendingState extends State<Viewpending> {
 
                     const SizedBox(height: 12),
 
-                    // Meeting Link Section - Non-collapsible Card  
-                    _buildMeetingLinkCard(
+                    // Meeting Link Section - Non-collapsible Card
+                    _buildVideoCallCard(
                       title: "Meeting Link",
                       subtitle: "Generate or view meeting link",
                       appointment: appointment,
@@ -492,7 +499,8 @@ class _ViewpendingState extends State<Viewpending> {
                                   Container(
                                     padding: const EdgeInsets.all(8),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF0A84FF).withOpacity(0.1),
+                                      color: const Color(0xFF0A84FF)
+                                          .withOpacity(0.1),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: const Icon(
@@ -503,7 +511,8 @@ class _ViewpendingState extends State<Viewpending> {
                                   ),
                                   const SizedBox(width: 12),
                                   const Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         'Patient Journey Timeline',
@@ -539,32 +548,39 @@ class _ViewpendingState extends State<Viewpending> {
                                   decoration: BoxDecoration(
                                     color: Colors.blue.shade50,
                                     borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: Colors.blue.shade200),
+                                    border:
+                                        Border.all(color: Colors.blue.shade200),
                                   ),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       _buildStepInstruction(
                                         stepNumber: '1',
-                                        instruction: 'Patient requested appointment with a Doctor',
+                                        instruction:
+                                            'Patient requested appointment with a Doctor',
                                         isCompleted: true,
                                       ),
                                       const SizedBox(height: 8),
                                       _buildStepInstruction(
                                         stepNumber: '2',
-                                        instruction: 'Doctor confirmed and approved the appointment schedule',
-                                        isCompleted: false, // This should be false for pending appointments
+                                        instruction:
+                                            'Doctor confirmed and approved the appointment schedule',
+                                        isCompleted:
+                                            false, // This should be false for pending appointments
                                       ),
                                       const SizedBox(height: 8),
                                       _buildStepInstruction(
                                         stepNumber: '3',
-                                        instruction: 'Consultation completed with prescription issued',
+                                        instruction:
+                                            'Consultation completed with prescription issued',
                                         isCompleted: false,
                                       ),
                                       const SizedBox(height: 8),
                                       _buildStepInstruction(
                                         stepNumber: '4',
-                                        instruction: 'Treatment completion certificate delivered',
+                                        instruction:
+                                            'Treatment completion certificate delivered',
                                         isCompleted: false,
                                       ),
                                     ],
@@ -609,18 +625,15 @@ class _ViewpendingState extends State<Viewpending> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Helpful message when no meeting link exists
-          if (appointment['meetingLink'] == null ||
-              appointment['meetingLink'].toString().isEmpty)
+          // Helpful message when no room ID exists
+          if (appointment['roomId'] == null ||
+              appointment['roomId'].toString().isEmpty)
             Container(
               margin: const EdgeInsets.only(bottom: 16),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [
-                    Colors.orange.shade50,
-                    Colors.orange.shade100
-                  ],
+                  colors: [Colors.orange.shade50, Colors.orange.shade100],
                 ),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.orange.shade200),
@@ -655,7 +668,7 @@ class _ViewpendingState extends State<Viewpending> {
               ),
             ),
           // Message Patient Button
-         
+
           Row(
             children: [
               Expanded(
@@ -665,26 +678,16 @@ class _ViewpendingState extends State<Viewpending> {
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: (appointment['meetingLink'] != null &&
-                              appointment['meetingLink']
-                                  .toString()
-                                  .isNotEmpty)
-                          ? [
-                              Colors.green.shade400,
-                              Colors.green.shade600
-                            ]
-                          : [
-                              Colors.grey.shade400,
-                              Colors.grey.shade500
-                            ],
+                      colors: (appointment['roomId'] != null &&
+                              appointment['roomId'].toString().isNotEmpty)
+                          ? [Colors.green.shade400, Colors.green.shade600]
+                          : [Colors.grey.shade400, Colors.grey.shade500],
                     ),
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: (appointment['meetingLink'] != null &&
-                                appointment['meetingLink']
-                                    .toString()
-                                    .isNotEmpty)
+                        color: (appointment['roomId'] != null &&
+                                appointment['roomId'].toString().isNotEmpty)
                             ? Colors.green.withOpacity(0.3)
                             : Colors.grey.withOpacity(0.2),
                         blurRadius: 8,
@@ -697,15 +700,13 @@ class _ViewpendingState extends State<Viewpending> {
                     child: InkWell(
                       borderRadius: BorderRadius.circular(12),
                       onTap: () async {
-                        // Check if meeting link exists before allowing approval
-                        if (appointment['meetingLink'] == null ||
-                            appointment['meetingLink']
-                                .toString()
-                                .isEmpty) {
+                        // Check if room ID exists before allowing approval
+                        if (appointment['roomId'] == null ||
+                            appointment['roomId'].toString().isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: const Text(
-                                  'Please generate a meeting link before accepting the appointment'),
+                                  'Please generate a video call room before accepting the appointment'),
                               backgroundColor: Colors.orange.shade600,
                               behavior: SnackBarBehavior.floating,
                               shape: RoundedRectangleBorder(
@@ -750,8 +751,7 @@ class _ViewpendingState extends State<Viewpending> {
                                 .add({
                               ...appointment,
                               'status': 'approved',
-                              'approvedAt':
-                                  FieldValue.serverTimestamp(),
+                              'approvedAt': FieldValue.serverTimestamp(),
                             });
                           }
 
@@ -763,8 +763,8 @@ class _ViewpendingState extends State<Viewpending> {
                                 .delete();
                           }
 
-                          Navigator.pop(context,
-                              'approved'); // Return 'approved' status
+                          Navigator.pop(
+                              context, 'approved'); // Return 'approved' status
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: const Text(
@@ -779,8 +779,7 @@ class _ViewpendingState extends State<Viewpending> {
                         } catch (e) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text(
-                                  'Error approving appointment: $e'),
+                              content: Text('Error approving appointment: $e'),
                               backgroundColor: Colors.red.shade600,
                               behavior: SnackBarBehavior.floating,
                               shape: RoundedRectangleBorder(
@@ -793,33 +792,23 @@ class _ViewpendingState extends State<Viewpending> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          if (appointment['meetingLink'] == null ||
-                              appointment['meetingLink']
-                                  .toString()
-                                  .isEmpty)
+                          if (appointment['roomId'] == null ||
+                              appointment['roomId'].toString().isEmpty)
                             const Icon(Icons.warning_rounded,
                                 size: 18, color: Colors.white),
-                          if (appointment['meetingLink'] == null ||
-                              appointment['meetingLink']
-                                  .toString()
-                                  .isEmpty)
+                          if (appointment['roomId'] == null ||
+                              appointment['roomId'].toString().isEmpty)
                             const SizedBox(width: 8),
-                          if (appointment['meetingLink'] != null &&
-                              appointment['meetingLink']
-                                  .toString()
-                                  .isNotEmpty)
+                          if (appointment['roomId'] != null &&
+                              appointment['roomId'].toString().isNotEmpty)
                             const Icon(Icons.check_circle_rounded,
                                 size: 18, color: Colors.white),
-                          if (appointment['meetingLink'] != null &&
-                              appointment['meetingLink']
-                                  .toString()
-                                  .isNotEmpty)
+                          if (appointment['roomId'] != null &&
+                              appointment['roomId'].toString().isNotEmpty)
                             const SizedBox(width: 8),
                           Text(
-                            (appointment['meetingLink'] != null &&
-                                    appointment['meetingLink']
-                                        .toString()
-                                        .isNotEmpty)
+                            (appointment['roomId'] != null &&
+                                    appointment['roomId'].toString().isNotEmpty)
                                 ? "Accept"
                                 : "Accept",
                             style: const TextStyle(
@@ -1012,18 +1001,22 @@ class _ViewpendingState extends State<Viewpending> {
                       children: [
                         Text(
                           title,
-                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 16),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           subtitle,
-                          style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                          style:
+                              TextStyle(color: Colors.grey[600], fontSize: 13),
                         ),
                       ],
                     ),
                   ),
                   Icon(
-                    isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    isExpanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
                     color: const Color(0xFF0A84FF),
                     size: 24,
                   ),
@@ -1045,7 +1038,8 @@ class _ViewpendingState extends State<Viewpending> {
                   Column(
                     children: bullets
                         .map((b) => Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 6.0),
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 6.0),
                               child: Row(
                                 children: [
                                   Icon(
@@ -1075,10 +1069,12 @@ class _ViewpendingState extends State<Viewpending> {
                         ),
                       ),
                       icon: buttonText.contains('MESSAGE')
-                          ? const Icon(Icons.message, color: Color(0xFF0A84FF), size: 16)
+                          ? const Icon(Icons.message,
+                              color: Color(0xFF0A84FF), size: 16)
                           : const SizedBox.shrink(),
                       label: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12.0, vertical: 10),
                         child: Text(
                           buttonText,
                           style: const TextStyle(color: Color(0xFF0A84FF)),
@@ -1135,12 +1131,14 @@ class _ViewpendingState extends State<Viewpending> {
                       children: [
                         Text(
                           title,
-                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 16),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           subtitle,
-                          style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                          style:
+                              TextStyle(color: Colors.grey[600], fontSize: 13),
                         ),
                       ],
                     ),
@@ -1163,7 +1161,9 @@ class _ViewpendingState extends State<Viewpending> {
                   ),
                   const SizedBox(width: 8),
                   Icon(
-                    isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    isExpanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
                     color: const Color(0xFF0A84FF),
                     size: 24,
                   ),
@@ -1210,7 +1210,7 @@ class _ViewpendingState extends State<Viewpending> {
   }
 
   // Helper method to build meeting link card
-  Widget _buildMeetingLinkCard({
+  Widget _buildVideoCallCard({
     required String title,
     required String subtitle,
     required Map<String, dynamic> appointment,
@@ -1244,7 +1244,8 @@ class _ViewpendingState extends State<Viewpending> {
                     children: [
                       Text(
                         title,
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 16),
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -1262,31 +1263,110 @@ class _ViewpendingState extends State<Viewpending> {
               margin: const EdgeInsets.only(bottom: 10),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: appointment["meetingLink"] != null &&
-                        appointment["meetingLink"]
-                            .toString()
-                            .isNotEmpty
-                    ? Colors.blue.shade50
+                color: appointment["roomId"] != null &&
+                        appointment["roomId"].toString().isNotEmpty
+                    ? Colors.green.shade50
                     : Colors.grey.shade50,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: appointment["meetingLink"] != null &&
-                          appointment["meetingLink"]
-                              .toString()
-                              .isNotEmpty
-                      ? Colors.blue.shade200
+                  color: appointment["roomId"] != null &&
+                          appointment["roomId"].toString().isNotEmpty
+                      ? Colors.green.shade200
                       : Colors.grey.shade200,
                   width: 1,
                 ),
               ),
               child: GestureDetector(
-                onTap: appointment["meetingLink"] != null &&
-                        appointment["meetingLink"]
-                            .toString()
-                            .isNotEmpty
+                onTap: appointment["roomId"] != null &&
+                        appointment["roomId"].toString().isNotEmpty
                     ? () async {
-                        await _launchUrl(
-                            appointment["meetingLink"]);
+                        try {
+                          // Show loading indicator
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (context) => AlertDialog(
+                              content: Row(
+                                children: [
+                                  CircularProgressIndicator(),
+                                  SizedBox(width: 16),
+                                  Text('Preparing video call...'),
+                                ],
+                              ),
+                            ),
+                          );
+
+                          // Check permissions before starting video call
+                          final webrtcService = WebRTCService();
+                          bool hasPermissions =
+                              await webrtcService.requestPermissions();
+
+                          // Close loading dialog
+                          Navigator.pop(context);
+
+                          if (!hasPermissions) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Camera and microphone permissions are required for video calls. Please enable them in your device settings.',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                                backgroundColor: Colors.orange.shade700,
+                                behavior: SnackBarBehavior.floating,
+                                duration: Duration(seconds: 5),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10)),
+                                action: SnackBarAction(
+                                  label: 'Settings',
+                                  textColor: Colors.white,
+                                  onPressed: () {
+                                    openAppSettings();
+                                  },
+                                ),
+                              ),
+                            );
+                            return;
+                          }
+
+                          // Navigate to WebRTC video call screen with fullscreen modal
+                          await Navigator.of(context, rootNavigator: true).push(
+                            MaterialPageRoute(
+                              fullscreenDialog: true,
+                              builder: (context) => VideoCallScreen(
+                                appointmentId: appointment['id'] ??
+                                    appointment['appointmentId'] ??
+                                    '',
+                                patientName:
+                                    appointment['patientName'] ?? 'Patient',
+                                roomId: appointment['roomId'],
+                                isDoctorCalling: true,
+                                onCallEnded: () {
+                                  print('Returned from video call screen');
+                                  // Refresh the pending appointments after call
+                                  setState(() {
+                                    print(
+                                        'Refreshing pending appointments after return');
+                                  });
+                                },
+                              ),
+                            ),
+                          );
+                        } catch (e) {
+                          // Close loading dialog if still open
+                          if (Navigator.canPop(context)) {
+                            Navigator.pop(context);
+                          }
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error starting video call: $e'),
+                              backgroundColor: Colors.red.shade600,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10)),
+                            ),
+                          );
+                        }
                       }
                     : null,
                 child: Row(
@@ -1294,26 +1374,20 @@ class _ViewpendingState extends State<Viewpending> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: appointment["meetingLink"] != null &&
-                                appointment["meetingLink"]
-                                    .toString()
-                                    .isNotEmpty
-                            ? Colors.blue.shade100
+                        color: appointment["roomId"] != null &&
+                                appointment["roomId"].toString().isNotEmpty
+                            ? Colors.green.shade100
                             : Colors.grey.shade200,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Icon(
-                        appointment["meetingLink"] != null &&
-                                appointment["meetingLink"]
-                                    .toString()
-                                    .isNotEmpty
+                        appointment["roomId"] != null &&
+                                appointment["roomId"].toString().isNotEmpty
                             ? Icons.video_call
                             : Icons.link_off,
-                        color: appointment["meetingLink"] != null &&
-                                appointment["meetingLink"]
-                                    .toString()
-                                    .isNotEmpty
-                            ? Colors.blue.shade600
+                        color: appointment["roomId"] != null &&
+                                appointment["roomId"].toString().isNotEmpty
+                            ? Colors.green.shade600
                             : Colors.grey.shade600,
                         size: 20,
                       ),
@@ -1321,51 +1395,40 @@ class _ViewpendingState extends State<Viewpending> {
                     const SizedBox(width: 16),
                     Expanded(
                       child: Text(
-                        appointment["meetingLink"] != null &&
-                                appointment["meetingLink"]
-                                    .toString()
-                                    .isNotEmpty
-                            ? appointment["meetingLink"]
-                            : "No meeting link generated yet",
+                        appointment["roomId"] != null &&
+                                appointment["roomId"].toString().isNotEmpty
+                            ? "Video Call Room: ${appointment["roomId"]}"
+                            : "No video call room generated yet",
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
-                          color: appointment["meetingLink"] != null &&
-                                  appointment["meetingLink"]
-                                      .toString()
-                                      .isNotEmpty
-                              ? Colors.blue.shade700
+                          color: appointment["roomId"] != null &&
+                                  appointment["roomId"].toString().isNotEmpty
+                              ? Colors.green.shade700
                               : Colors.grey.shade600,
-                          decoration: appointment["meetingLink"] != null &&
-                                  appointment["meetingLink"]
-                                      .toString()
-                                      .isNotEmpty
-                              ? TextDecoration.underline
-                              : null,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    if (appointment["meetingLink"] != null &&
-                        appointment["meetingLink"]
-                            .toString()
-                            .isNotEmpty)
+                    if (appointment["roomId"] != null &&
+                        appointment["roomId"].toString().isNotEmpty)
                       IconButton(
                         onPressed: () {
-                          Clipboard.setData(ClipboardData(
-                              text: appointment["meetingLink"]));
+                          Clipboard.setData(
+                              ClipboardData(text: appointment["roomId"]));
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: const Text('Link copied to clipboard'),
+                              content:
+                                  const Text('Room ID copied to clipboard'),
                               backgroundColor: Colors.green.shade600,
                               behavior: SnackBarBehavior.floating,
                             ),
                           );
                         },
                         icon: Icon(Icons.copy,
-                            color: Colors.blue.shade600, size: 20),
-                        tooltip: 'Copy link',
+                            color: Colors.green.shade600, size: 20),
+                        tooltip: 'Copy room ID',
                       ),
                   ],
                 ),
@@ -1376,16 +1439,14 @@ class _ViewpendingState extends State<Viewpending> {
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: () async {
-                  await _generateJitsiLink(appointment);
+                  await _generateWebRTCRoom(appointment);
                 },
                 icon: const Icon(Icons.video_call, size: 20),
                 label: Text(
-                  appointment["meetingLink"] != null &&
-                          appointment["meetingLink"]
-                              .toString()
-                              .isNotEmpty
-                      ? "Regenerate Link"
-                      : "Generate Link",
+                  appointment["roomId"] != null &&
+                          appointment["roomId"].toString().isNotEmpty
+                      ? "Regenerate Room"
+                      : "Generate Room",
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -1395,8 +1456,7 @@ class _ViewpendingState extends State<Viewpending> {
                   backgroundColor: Colors.blue.shade600,
                   foregroundColor: Colors.white,
                   elevation: 0,
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 12),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -1448,18 +1508,22 @@ class _ViewpendingState extends State<Viewpending> {
                       children: [
                         Text(
                           title,
-                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 16),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           subtitle,
-                          style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                          style:
+                              TextStyle(color: Colors.grey[600], fontSize: 13),
                         ),
                       ],
                     ),
                   ),
                   Icon(
-                    isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    isExpanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
                     color: const Color(0xFF0A84FF),
                     size: 24,
                   ),
@@ -1507,20 +1571,23 @@ class _ViewpendingState extends State<Viewpending> {
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: Colors.grey.shade200),
                     ),
-                    child: appointment["idImageUrl"] != null && 
-                           appointment["idImageUrl"].toString().isNotEmpty
+                    child: appointment["idImageUrl"] != null &&
+                            appointment["idImageUrl"].toString().isNotEmpty
                         ? ClipRRect(
                             borderRadius: BorderRadius.circular(12),
                             child: Image.network(
                               appointment["idImageUrl"],
                               fit: BoxFit.contain,
-                              loadingBuilder: (context, child, loadingProgress) {
+                              loadingBuilder:
+                                  (context, child, loadingProgress) {
                                 if (loadingProgress == null) return child;
                                 return Center(
                                   child: CircularProgressIndicator(
-                                    value: loadingProgress.expectedTotalBytes != null
-                                        ? loadingProgress.cumulativeBytesLoaded /
-                                          loadingProgress.expectedTotalBytes!
+                                    value: loadingProgress.expectedTotalBytes !=
+                                            null
+                                        ? loadingProgress
+                                                .cumulativeBytesLoaded /
+                                            loadingProgress.expectedTotalBytes!
                                         : null,
                                   ),
                                 );
@@ -1570,7 +1637,7 @@ class _ViewpendingState extends State<Viewpending> {
                             ),
                           ),
                   ),
-                  if (appointment["idImageUrl"] != null && 
+                  if (appointment["idImageUrl"] != null &&
                       appointment["idImageUrl"].toString().isNotEmpty) ...[
                     const SizedBox(height: 12),
                     SizedBox(
@@ -1591,7 +1658,8 @@ class _ViewpendingState extends State<Viewpending> {
                                     title: const Text('ID Document'),
                                     leading: IconButton(
                                       icon: const Icon(Icons.close),
-                                      onPressed: () => Navigator.of(context).pop(),
+                                      onPressed: () =>
+                                          Navigator.of(context).pop(),
                                     ),
                                   ),
                                   Expanded(
@@ -1613,9 +1681,11 @@ class _ViewpendingState extends State<Viewpending> {
                             borderRadius: BorderRadius.circular(28),
                           ),
                         ),
-                        icon: const Icon(Icons.zoom_in, color: Color(0xFF0A84FF), size: 16),
+                        icon: const Icon(Icons.zoom_in,
+                            color: Color(0xFF0A84FF), size: 16),
                         label: const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 10),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 12.0, vertical: 10),
                           child: Text(
                             'VIEW FULL SIZE',
                             style: TextStyle(color: Color(0xFF0A84FF)),
@@ -1804,7 +1874,7 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
       FixedExtentScrollController();
   final FixedExtentScrollController _startPeriodController =
       FixedExtentScrollController();
-  
+
   final FixedExtentScrollController _endHourController =
       FixedExtentScrollController();
   final FixedExtentScrollController _endMinuteController =
@@ -1866,12 +1936,12 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
       final timeComponents = timePart.split(':');
       startHour = int.parse(timeComponents[0]);
       startMinute = int.parse(timeComponents[1]);
-      
+
       // Calculate end time (add 30 minutes as default)
       endHour = startHour;
       endMinute = startMinute + 30;
       endPeriod = startPeriod;
-      
+
       // Handle minute overflow
       if (endMinute >= 60) {
         endMinute -= 60;
@@ -2006,7 +2076,6 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                                 color: Colors.white,
                               ),
                             ),
-                   
                           ],
                         ),
                       ),
@@ -2029,479 +2098,539 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                      // Date Selection
-                      Text(
-                        'Select Date',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey.shade800,
+                        // Date Selection
+                        Text(
+                          'Select Date',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey.shade800,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      GestureDetector(
-                        onTap: () async {
-                          final DateTime? picked = await showDatePicker(
-                            context: context,
-                            initialDate: selectedDate,
-                            firstDate: DateTime.now(),
-                            lastDate:
-                                DateTime.now().add(const Duration(days: 365)),
-                            builder: (context, child) {
-                              return Theme(
-                                data: Theme.of(context).copyWith(
-                                  colorScheme: ColorScheme.light(
-                                    primary: Colors.blue.shade600,
-                                    onPrimary: Colors.white,
-                                    surface: Colors.white,
-                                    onSurface: Colors.grey.shade800,
+                        const SizedBox(height: 12),
+                        GestureDetector(
+                          onTap: () async {
+                            final DateTime? picked = await showDatePicker(
+                              context: context,
+                              initialDate: selectedDate,
+                              firstDate: DateTime.now(),
+                              lastDate:
+                                  DateTime.now().add(const Duration(days: 365)),
+                              builder: (context, child) {
+                                return Theme(
+                                  data: Theme.of(context).copyWith(
+                                    colorScheme: ColorScheme.light(
+                                      primary: Colors.blue.shade600,
+                                      onPrimary: Colors.white,
+                                      surface: Colors.white,
+                                      onSurface: Colors.grey.shade800,
+                                    ),
+                                    dialogTheme: DialogThemeData(
+                                        backgroundColor: Colors.white),
                                   ),
-                                  dialogTheme: DialogThemeData(
-                                      backgroundColor: Colors.white),
+                                  child: child!,
+                                );
+                              },
+                            );
+                            if (picked != null && picked != selectedDate) {
+                              setState(() {
+                                selectedDate = picked;
+                              });
+                            }
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Colors.blue.shade50,
+                                  Colors.blue.shade100
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                  color: Colors.blue.shade200, width: 2),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.blue.withOpacity(0.1),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
                                 ),
-                                child: child!,
-                              );
-                            },
-                          );
-                          if (picked != null && picked != selectedDate) {
-                            setState(() {
-                              selectedDate = picked;
-                            });
-                          }
-                        },
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Colors.blue.shade50,
-                                Colors.blue.shade100
                               ],
                             ),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                                color: Colors.blue.shade200, width: 2),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.blue.withOpacity(0.1),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      Colors.blue.shade400,
-                                      Colors.blue.shade600
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        Colors.blue.shade400,
+                                        Colors.blue.shade600
+                                      ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(10),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.blue.withOpacity(0.3),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
                                     ],
                                   ),
-                                  borderRadius: BorderRadius.circular(10),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.blue.withOpacity(0.3),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
+                                  child: const Icon(
+                                    Icons.calendar_today_rounded,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
                                 ),
-                                child: const Icon(
-                                  Icons.calendar_today_rounded,
-                                  color: Colors.white,
-                                  size: 20,
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _formatDate(selectedDate),
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.blue.shade800,
+                                          letterSpacing: 0.3,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Tap to select a different date',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.blue.shade600,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.shade200,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    Icons.edit_rounded,
+                                    color: Colors.blue.shade700,
+                                    size: 16,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        // Time Selection
+                        Text(
+                          'Select Time Range',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.grey.shade200),
+                          ),
+                          child: Column(
+                            children: [
+                              // Start Time Section
+                              Padding(
+                                padding: const EdgeInsets.all(12),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      _formatDate(selectedDate),
+                                      'Start Time',
                                       style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.blue.shade800,
-                                        letterSpacing: 0.3,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.grey.shade700,
                                       ),
                                     ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'Tap to select a different date',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.blue.shade600,
-                                        fontWeight: FontWeight.w500,
+                                    const SizedBox(height: 8),
+                                    Container(
+                                      height: 80,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                            color: Colors.grey.shade300),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          // Start Hour picker
+                                          Expanded(
+                                            child: Column(
+                                              children: [
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.all(6),
+                                                  child: Text(
+                                                    'Hour',
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      color:
+                                                          Colors.grey.shade600,
+                                                    ),
+                                                  ),
+                                                ),
+                                                Expanded(
+                                                  child: CupertinoPicker(
+                                                    scrollController:
+                                                        _startHourController,
+                                                    itemExtent: 24,
+                                                    onSelectedItemChanged:
+                                                        (index) {
+                                                      setState(() {
+                                                        startHour = index + 1;
+                                                      });
+                                                    },
+                                                    children: List.generate(12,
+                                                        (index) {
+                                                      return Center(
+                                                        child: Text(
+                                                          '${index + 1}',
+                                                          style: TextStyle(
+                                                            fontSize: 13,
+                                                            fontWeight:
+                                                                FontWeight.w500,
+                                                            color: Colors
+                                                                .grey.shade800,
+                                                          ),
+                                                        ),
+                                                      );
+                                                    }),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          // Start Minute picker
+                                          Expanded(
+                                            child: Column(
+                                              children: [
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.all(6),
+                                                  child: Text(
+                                                    'Min',
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      color:
+                                                          Colors.grey.shade600,
+                                                    ),
+                                                  ),
+                                                ),
+                                                Expanded(
+                                                  child: CupertinoPicker(
+                                                    scrollController:
+                                                        _startMinuteController,
+                                                    itemExtent: 24,
+                                                    onSelectedItemChanged:
+                                                        (index) {
+                                                      setState(() {
+                                                        startMinute = index;
+                                                      });
+                                                    },
+                                                    children: List.generate(60,
+                                                        (index) {
+                                                      return Center(
+                                                        child: Text(
+                                                          index
+                                                              .toString()
+                                                              .padLeft(2, '0'),
+                                                          style: TextStyle(
+                                                            fontSize: 13,
+                                                            fontWeight:
+                                                                FontWeight.w500,
+                                                            color: Colors
+                                                                .grey.shade800,
+                                                          ),
+                                                        ),
+                                                      );
+                                                    }),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          // Start AM/PM picker
+                                          Expanded(
+                                            child: Column(
+                                              children: [
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.all(6),
+                                                  child: Text(
+                                                    'Period',
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      color:
+                                                          Colors.grey.shade600,
+                                                    ),
+                                                  ),
+                                                ),
+                                                Expanded(
+                                                  child: CupertinoPicker(
+                                                    scrollController:
+                                                        _startPeriodController,
+                                                    itemExtent: 24,
+                                                    onSelectedItemChanged:
+                                                        (index) {
+                                                      setState(() {
+                                                        startPeriod = index == 0
+                                                            ? 'AM'
+                                                            : 'PM';
+                                                      });
+                                                    },
+                                                    children: ['AM', 'PM']
+                                                        .map((period) {
+                                                      return Center(
+                                                        child: Text(
+                                                          period,
+                                                          style: TextStyle(
+                                                            fontSize: 13,
+                                                            fontWeight:
+                                                                FontWeight.w500,
+                                                            color: Colors
+                                                                .grey.shade800,
+                                                          ),
+                                                        ),
+                                                      );
+                                                    }).toList(),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.shade200,
-                                  borderRadius: BorderRadius.circular(8),
+
+                              // Divider
+                              Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 12),
+                                child: Divider(
+                                  height: 1,
+                                  color: Colors.grey.shade300,
                                 ),
-                                child: Icon(
-                                  Icons.edit_rounded,
-                                  color: Colors.blue.shade700,
-                                  size: 16,
+                              ),
+
+                              // End Time Section
+                              Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'End Time',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.grey.shade700,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Container(
+                                      height: 80,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                            color: Colors.grey.shade300),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          // End Hour picker
+                                          Expanded(
+                                            child: Column(
+                                              children: [
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.all(6),
+                                                  child: Text(
+                                                    'Hour',
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      color:
+                                                          Colors.grey.shade600,
+                                                    ),
+                                                  ),
+                                                ),
+                                                Expanded(
+                                                  child: CupertinoPicker(
+                                                    scrollController:
+                                                        _endHourController,
+                                                    itemExtent: 24,
+                                                    onSelectedItemChanged:
+                                                        (index) {
+                                                      setState(() {
+                                                        endHour = index + 1;
+                                                      });
+                                                    },
+                                                    children: List.generate(12,
+                                                        (index) {
+                                                      return Center(
+                                                        child: Text(
+                                                          '${index + 1}',
+                                                          style: TextStyle(
+                                                            fontSize: 13,
+                                                            fontWeight:
+                                                                FontWeight.w500,
+                                                            color: Colors
+                                                                .grey.shade800,
+                                                          ),
+                                                        ),
+                                                      );
+                                                    }),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          // End Minute picker
+                                          Expanded(
+                                            child: Column(
+                                              children: [
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.all(6),
+                                                  child: Text(
+                                                    'Min',
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      color:
+                                                          Colors.grey.shade600,
+                                                    ),
+                                                  ),
+                                                ),
+                                                Expanded(
+                                                  child: CupertinoPicker(
+                                                    scrollController:
+                                                        _endMinuteController,
+                                                    itemExtent: 24,
+                                                    onSelectedItemChanged:
+                                                        (index) {
+                                                      setState(() {
+                                                        endMinute = index;
+                                                      });
+                                                    },
+                                                    children: List.generate(60,
+                                                        (index) {
+                                                      return Center(
+                                                        child: Text(
+                                                          index
+                                                              .toString()
+                                                              .padLeft(2, '0'),
+                                                          style: TextStyle(
+                                                            fontSize: 13,
+                                                            fontWeight:
+                                                                FontWeight.w500,
+                                                            color: Colors
+                                                                .grey.shade800,
+                                                          ),
+                                                        ),
+                                                      );
+                                                    }),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          // End AM/PM picker
+                                          Expanded(
+                                            child: Column(
+                                              children: [
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.all(6),
+                                                  child: Text(
+                                                    'Period',
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      color:
+                                                          Colors.grey.shade600,
+                                                    ),
+                                                  ),
+                                                ),
+                                                Expanded(
+                                                  child: CupertinoPicker(
+                                                    scrollController:
+                                                        _endPeriodController,
+                                                    itemExtent: 24,
+                                                    onSelectedItemChanged:
+                                                        (index) {
+                                                      setState(() {
+                                                        endPeriod = index == 0
+                                                            ? 'AM'
+                                                            : 'PM';
+                                                      });
+                                                    },
+                                                    children: ['AM', 'PM']
+                                                        .map((period) {
+                                                      return Center(
+                                                        child: Text(
+                                                          period,
+                                                          style: TextStyle(
+                                                            fontSize: 13,
+                                                            fontWeight:
+                                                                FontWeight.w500,
+                                                            color: Colors
+                                                                .grey.shade800,
+                                                          ),
+                                                        ),
+                                                      );
+                                                    }).toList(),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Time Selection
-                      Text(
-                        'Select Time Range',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey.shade800,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: Colors.grey.shade200),
-                        ),
-                        child: Column(
-                          children: [
-                            // Start Time Section
-                            Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Start Time',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.grey.shade700,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Container(
-                                    height: 80,
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: Colors.grey.shade300),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        // Start Hour picker
-                                        Expanded(
-                                          child: Column(
-                                            children: [
-                                              Container(
-                                                padding: const EdgeInsets.all(6),
-                                                child: Text(
-                                                  'Hour',
-                                                  style: TextStyle(
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: Colors.grey.shade600,
-                                                  ),
-                                                ),
-                                              ),
-                                              Expanded(
-                                                child: CupertinoPicker(
-                                                  scrollController: _startHourController,
-                                                  itemExtent: 24,
-                                                  onSelectedItemChanged: (index) {
-                                                    setState(() {
-                                                      startHour = index + 1;
-                                                    });
-                                                  },
-                                                  children: List.generate(12, (index) {
-                                                    return Center(
-                                                      child: Text(
-                                                        '${index + 1}',
-                                                        style: TextStyle(
-                                                          fontSize: 13,
-                                                          fontWeight: FontWeight.w500,
-                                                          color: Colors.grey.shade800,
-                                                        ),
-                                                      ),
-                                                    );
-                                                  }),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        // Start Minute picker
-                                        Expanded(
-                                          child: Column(
-                                            children: [
-                                              Container(
-                                                padding: const EdgeInsets.all(6),
-                                                child: Text(
-                                                  'Min',
-                                                  style: TextStyle(
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: Colors.grey.shade600,
-                                                  ),
-                                                ),
-                                              ),
-                                              Expanded(
-                                                child: CupertinoPicker(
-                                                  scrollController: _startMinuteController,
-                                                  itemExtent: 24,
-                                                  onSelectedItemChanged: (index) {
-                                                    setState(() {
-                                                      startMinute = index;
-                                                    });
-                                                  },
-                                                  children: List.generate(60, (index) {
-                                                    return Center(
-                                                      child: Text(
-                                                        index.toString().padLeft(2, '0'),
-                                                        style: TextStyle(
-                                                          fontSize: 13,
-                                                          fontWeight: FontWeight.w500,
-                                                          color: Colors.grey.shade800,
-                                                        ),
-                                                      ),
-                                                    );
-                                                  }),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        // Start AM/PM picker
-                                        Expanded(
-                                          child: Column(
-                                            children: [
-                                              Container(
-                                                padding: const EdgeInsets.all(6),
-                                                child: Text(
-                                                  'Period',
-                                                  style: TextStyle(
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: Colors.grey.shade600,
-                                                  ),
-                                                ),
-                                              ),
-                                              Expanded(
-                                                child: CupertinoPicker(
-                                                  scrollController: _startPeriodController,
-                                                  itemExtent: 24,
-                                                  onSelectedItemChanged: (index) {
-                                                    setState(() {
-                                                      startPeriod = index == 0 ? 'AM' : 'PM';
-                                                    });
-                                                  },
-                                                  children: ['AM', 'PM'].map((period) {
-                                                    return Center(
-                                                      child: Text(
-                                                        period,
-                                                        style: TextStyle(
-                                                          fontSize: 13,
-                                                          fontWeight: FontWeight.w500,
-                                                          color: Colors.grey.shade800,
-                                                        ),
-                                                      ),
-                                                    );
-                                                  }).toList(),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            
-                            // Divider
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
-                              child: Divider(
-                                height: 1,
-                                color: Colors.grey.shade300,
-                              ),
-                            ),
-                            
-                            // End Time Section
-                            Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'End Time',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.grey.shade700,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Container(
-                                    height: 80,
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: Colors.grey.shade300),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        // End Hour picker
-                                        Expanded(
-                                          child: Column(
-                                            children: [
-                                              Container(
-                                                padding: const EdgeInsets.all(6),
-                                                child: Text(
-                                                  'Hour',
-                                                  style: TextStyle(
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: Colors.grey.shade600,
-                                                  ),
-                                                ),
-                                              ),
-                                              Expanded(
-                                                child: CupertinoPicker(
-                                                  scrollController: _endHourController,
-                                                  itemExtent: 24,
-                                                  onSelectedItemChanged: (index) {
-                                                    setState(() {
-                                                      endHour = index + 1;
-                                                    });
-                                                  },
-                                                  children: List.generate(12, (index) {
-                                                    return Center(
-                                                      child: Text(
-                                                        '${index + 1}',
-                                                        style: TextStyle(
-                                                          fontSize: 13,
-                                                          fontWeight: FontWeight.w500,
-                                                          color: Colors.grey.shade800,
-                                                        ),
-                                                      ),
-                                                    );
-                                                  }),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        // End Minute picker
-                                        Expanded(
-                                          child: Column(
-                                            children: [
-                                              Container(
-                                                padding: const EdgeInsets.all(6),
-                                                child: Text(
-                                                  'Min',
-                                                  style: TextStyle(
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: Colors.grey.shade600,
-                                                  ),
-                                                ),
-                                              ),
-                                              Expanded(
-                                                child: CupertinoPicker(
-                                                  scrollController: _endMinuteController,
-                                                  itemExtent: 24,
-                                                  onSelectedItemChanged: (index) {
-                                                    setState(() {
-                                                      endMinute = index;
-                                                    });
-                                                  },
-                                                  children: List.generate(60, (index) {
-                                                    return Center(
-                                                      child: Text(
-                                                        index.toString().padLeft(2, '0'),
-                                                        style: TextStyle(
-                                                          fontSize: 13,
-                                                          fontWeight: FontWeight.w500,
-                                                          color: Colors.grey.shade800,
-                                                        ),
-                                                      ),
-                                                    );
-                                                  }),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        // End AM/PM picker
-                                        Expanded(
-                                          child: Column(
-                                            children: [
-                                              Container(
-                                                padding: const EdgeInsets.all(6),
-                                                child: Text(
-                                                  'Period',
-                                                  style: TextStyle(
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: Colors.grey.shade600,
-                                                  ),
-                                                ),
-                                              ),
-                                              Expanded(
-                                                child: CupertinoPicker(
-                                                  scrollController: _endPeriodController,
-                                                  itemExtent: 24,
-                                                  onSelectedItemChanged: (index) {
-                                                    setState(() {
-                                                      endPeriod = index == 0 ? 'AM' : 'PM';
-                                                    });
-                                                  },
-                                                  children: ['AM', 'PM'].map((period) {
-                                                    return Center(
-                                                      child: Text(
-                                                        period,
-                                                        style: TextStyle(
-                                                          fontSize: 13,
-                                                          fontWeight: FontWeight.w500,
-                                                          color: Colors.grey.shade800,
-                                                        ),
-                                                      ),
-                                                    );
-                                                  }).toList(),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                       ],
                     ),
                   ),

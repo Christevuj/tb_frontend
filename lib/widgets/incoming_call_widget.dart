@@ -107,9 +107,9 @@ class IncomingCallWidget extends StatelessWidget {
                 child: ElevatedButton.icon(
                   onPressed: () {
                     onDismiss();
-                    Navigator.push(
-                      context,
+                    Navigator.of(context, rootNavigator: true).push(
                       MaterialPageRoute(
+                        fullscreenDialog: true,
                         builder: (context) => VideoCallScreen(
                           appointmentId: appointmentId,
                           patientName: doctorName,

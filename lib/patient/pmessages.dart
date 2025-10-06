@@ -1258,14 +1258,7 @@ class _PmessagesState extends State<Pmessages> {
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  Text(
-                    doctorName,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
+                  // Removed sender name (doctorName) above the Archive option
                   _buildOptionTile(
                     icon: Icons.archive_rounded,
                     title: 'Archive',
@@ -1274,16 +1267,6 @@ class _PmessagesState extends State<Pmessages> {
                     onTap: () {
                       Navigator.pop(context);
                       _archiveMessage(doctorId);
-                    },
-                  ),
-                  _buildOptionTile(
-                    icon: Icons.volume_off_rounded,
-                    title: 'Mute',
-                    subtitle: 'Turn off notifications',
-                    color: Colors.orange,
-                    onTap: () {
-                      Navigator.pop(context);
-                      _muteMessage(doctorId);
                     },
                   ),
                   _buildOptionTile(

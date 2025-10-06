@@ -1123,18 +1123,11 @@ class _DmessagesState extends State<Dmessages> {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            Padding(
+             Padding(
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  Text(
-                    patientName,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
+                  // Removed sender name (doctorName) above the Archive option
                   _buildOptionTile(
                     icon: Icons.archive_rounded,
                     title: 'Archive',

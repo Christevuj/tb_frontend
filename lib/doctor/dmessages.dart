@@ -204,6 +204,9 @@ class _DmessagesState extends State<Dmessages> {
         throw Exception('No authenticated user found');
       }
 
+      // Mark messages as read when opening the chat
+      await _chatService.markMessagesAsRead(currentUser.uid, patientId);
+
       // Restore conversation if it was archived when user opens chat to reply
       await _restoreConversationOnUserReply(patientId);
 
@@ -261,6 +264,9 @@ class _DmessagesState extends State<Dmessages> {
       if (currentUser == null) {
         throw Exception('No authenticated user found');
       }
+
+      // Mark messages as read when opening the chat
+      await _chatService.markMessagesAsRead(currentUser.uid, patientId);
 
       // DO NOT restore conversation state - just open chat
 
@@ -377,11 +383,15 @@ class _DmessagesState extends State<Dmessages> {
             final patientName = await _getPatientName(patientId);
             print('Patient name: $patientName');
 
+            // Get unread messages count
+            final unreadCount = await _chatService.getUnreadMessagesCount(_currentUserId!, patientId);
+
             messagedPatients.add({
               'id': patientId,
               'name': patientName,
               'lastMessage': chatData['lastMessage'] ?? 'No messages yet',
               'lastTimestamp': chatData['lastTimestamp'],
+              'unreadCount': unreadCount,
             });
           } else {
             print('Skipping patient $patientId - conversation state: $state');
@@ -787,10 +797,10 @@ class _DmessagesState extends State<Dmessages> {
                                             Expanded(
                                               child: Text(
                                                 patientName,
-                                                style: const TextStyle(
+                                                style: TextStyle(
                                                   fontSize: 17,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: Color(0xFF1A1A1A),
+                                                  fontWeight: (patient['unreadCount'] ?? 0) > 0 ? FontWeight.w800 : FontWeight.w600,
+                                                  color: const Color(0xFF1A1A1A),
                                                 ),
                                                 overflow: TextOverflow.ellipsis,
                                               ),
@@ -815,8 +825,8 @@ class _DmessagesState extends State<Dmessages> {
                                                     'No messages yet',
                                                 style: TextStyle(
                                                   fontSize: 15,
-                                                  color: Colors.grey.shade600,
-                                                  fontWeight: FontWeight.w400,
+                                                  color: (patient['unreadCount'] ?? 0) > 0 ? const Color(0xFF1A1A1A) : Colors.grey.shade600,
+                                                  fontWeight: (patient['unreadCount'] ?? 0) > 0 ? FontWeight.w600 : FontWeight.w400,
                                                 ),
                                                 overflow: TextOverflow.ellipsis,
                                               ),

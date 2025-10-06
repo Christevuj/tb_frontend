@@ -6,6 +6,7 @@ import 'login_screens/splash_page_model.dart';
 import 'package:tb_frontend/ollama_service.dart'; // Your Ollama service
 import 'screens/tb_dots_map_view.dart';
 import 'services/presence_service.dart';
+import 'services/cloudinary_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,6 +18,9 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Initialize Cloudinary service
+  CloudinaryService.instance.init();
 
   // Start Ollama service
   final ollamaService = OllamaService();

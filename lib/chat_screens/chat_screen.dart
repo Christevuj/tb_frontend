@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 import '../services/chat_service.dart';
 import '../models/message.dart';
 import '../services/presence_service.dart';
+import '../widgets/zoomable_image_viewer.dart';
 
 class ChatScreen extends StatefulWidget {
   final String currentUserId;
@@ -37,6 +41,9 @@ class _ChatScreenState extends State<ChatScreen> {
     // Generate chatId automatically based on both users
     _chatId =
         _chatService.generateChatId(widget.currentUserId, widget.otherUserId);
+
+    // Mark messages as read when chat screen is opened
+    _chatService.markMessagesAsRead(widget.currentUserId, widget.otherUserId);
 
     // Get the other user's name
     _getOtherUserName();
@@ -445,6 +452,407 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  void _showImagePickerOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (BuildContext context) {
+        return Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.white.withOpacity(0.95),
+                Colors.white,
+              ],
+            ),
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(30),
+              topRight: Radius.circular(30),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 20,
+                offset: const Offset(0, -5),
+              ),
+            ],
+          ),
+          child: Wrap(
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+                child: Column(
+                  children: [
+                    // Modern drag handle
+                    Container(
+                      width: 50,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    
+                    Text(
+                      'Choose how you want to add an image',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    
+                    // Modern option cards
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildModernImageOption(
+                            icon: Icons.camera_alt_rounded,
+                            label: 'Camera',
+                            subtitle: 'Take a photo',
+                            gradient: [
+                              const Color(0xFF4F46E5),
+                              const Color(0xFF7C3AED),
+                            ],
+                            onTap: () {
+                              HapticFeedback.mediumImpact();
+                              Navigator.pop(context);
+                              _pickImage(ImageSource.camera);
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildModernImageOption(
+                            icon: Icons.photo_library_rounded,
+                            label: 'Gallery',
+                            subtitle: 'Choose from photos',
+                            gradient: [
+                              const Color(0xFFEC4899),
+                              const Color(0xFFEF4444),
+                            ],
+                            onTap: () {
+                              HapticFeedback.mediumImpact();
+                              Navigator.pop(context);
+                              _pickImage(ImageSource.gallery);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    
+                    // Cancel button
+                    Container(
+                      width: double.infinity,
+                      height: 50,
+                      child: TextButton(
+                        onPressed: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.pop(context);
+                        },
+                        style: TextButton.styleFrom(
+                          backgroundColor: Colors.grey.shade100,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: Text(
+                          'Cancel',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildModernImageOption({
+    required IconData icon,
+    required String label,
+    required String subtitle,
+    required List<Color> gradient,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: gradient,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: gradient[0].withOpacity(0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(
+                icon,
+                size: 32,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+                letterSpacing: -0.3,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: Colors.white.withOpacity(0.8),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      print('🔍 DEBUG: Starting image picker with source: $source');
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(
+        source: source,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+
+      print('🔍 DEBUG: Picked file: ${pickedFile?.path}');
+
+      if (pickedFile != null) {
+        print('🔍 DEBUG: Image selected successfully, file size: ${await File(pickedFile.path).length()} bytes');
+        // Show enhanced loading indicator
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Container(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Uploading image...',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                        ),
+                      ),
+                      Text(
+                        'Please wait while we process your photo',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.white.withOpacity(0.8),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            margin: const EdgeInsets.all(16),
+            duration: const Duration(seconds: 5),
+          ),
+        );
+
+        // Mark current user as active when sending an image
+        print('🔍 DEBUG: Marking user as active');
+        await _presenceService.markAsActive();
+
+        // Check Firebase Authentication first
+        print('🔍 DEBUG: Checking Firebase Authentication...');
+        final user = FirebaseAuth.instance.currentUser;
+        if (user == null) {
+          throw Exception('User not authenticated. Please log in again.');
+        }
+        print('🔍 DEBUG: User authenticated: ${user.uid}');
+
+        // Send image message
+        print('🔍 DEBUG: About to send image message');
+        print('🔍 DEBUG: Sender ID: ${widget.currentUserId}');
+        print('🔍 DEBUG: Receiver ID: ${widget.otherUserId}');
+        print('🔍 DEBUG: Image file path: ${pickedFile.path}');
+        
+        await _chatService.sendImageMessage(
+          senderId: widget.currentUserId,
+          receiverId: widget.otherUserId,
+          imageFile: File(pickedFile.path),
+        );
+        
+        print('🔍 DEBUG: Image message sent successfully!');
+
+        // Hide loading indicator and show success
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Container(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.check_circle_rounded,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Image sent successfully!',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            margin: const EdgeInsets.all(16),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+
+        // Update the other user's status after sending message
+        _updateOtherUserStatus();
+      }
+    } catch (e, stackTrace) {
+      print('❌ CHAT_SCREEN ERROR: Failed to pick/send image');
+      print('❌ CHAT_SCREEN ERROR: $e');
+      print('❌ CHAT_SCREEN STACK TRACE: $stackTrace');
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.error_outline_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Failed to send image',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                        ),
+                      ),
+                      Text(
+                        'Please try again',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.white.withOpacity(0.8),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          margin: const EdgeInsets.all(16),
+          action: SnackBarAction(
+            label: 'Retry',
+            textColor: Colors.white,
+            onPressed: () => _pickImage(ImageSource.gallery),
+          ),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -520,8 +928,8 @@ class _ChatScreenState extends State<ChatScreen> {
                           ),
                           child: Center(
                             child: Text(
-                              widget.otherUserId.isNotEmpty
-                                  ? widget.otherUserId[0].toUpperCase()
+                              _otherUserName.isNotEmpty
+                                  ? _otherUserName[0].toUpperCase()
                                   : 'U',
                               style: const TextStyle(
                                 color: Colors.white,
@@ -764,15 +1172,18 @@ class _ChatScreenState extends State<ChatScreen> {
                 return ListView.builder(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  reverse: true, // Show newest messages at bottom
                   itemCount: messages.length,
                   itemBuilder: (context, i) {
-                    final m = messages[i];
+                    // Since we're using reverse: true, we need to reverse the index
+                    final reverseIndex = messages.length - 1 - i;
+                    final m = messages[reverseIndex];
                     final isMe = m.senderId == widget.currentUserId;
-                    final showAvatar = i == messages.length - 1 ||
-                        messages[i + 1].senderId != m.senderId;
+                    final showAvatar = reverseIndex == 0 ||
+                        messages[reverseIndex - 1].senderId != m.senderId;
 
-                    // Check if we need to show date separator
-                    final previousMessage = i > 0 ? messages[i - 1] : null;
+                    // Check if we need to show date separator (previous message is now next in reversed list)
+                    final previousMessage = reverseIndex < messages.length - 1 ? messages[reverseIndex + 1] : null;
                     final showDateSeparator = _shouldShowDateSeparator(
                         m.timestamp, previousMessage?.timestamp);
 
@@ -813,8 +1224,8 @@ class _ChatScreenState extends State<ChatScreen> {
                                   ),
                                   child: Center(
                                     child: Text(
-                                      widget.otherUserId.isNotEmpty
-                                          ? widget.otherUserId[0].toUpperCase()
+                                      _otherUserName.isNotEmpty
+                                          ? _otherUserName[0].toUpperCase()
                                           : 'U',
                                       style: const TextStyle(
                                         color: Colors.white,
@@ -846,10 +1257,12 @@ class _ChatScreenState extends State<ChatScreen> {
                                         });
                                       },
                                       child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                          vertical: 12,
-                                        ),
+                                        padding: m.isImage 
+                                            ? const EdgeInsets.all(4)
+                                            : const EdgeInsets.symmetric(
+                                                horizontal: 16,
+                                                vertical: 12,
+                                              ),
                                         decoration: BoxDecoration(
                                           gradient: isMe
                                               ? LinearGradient(
@@ -884,17 +1297,73 @@ class _ChatScreenState extends State<ChatScreen> {
                                             ),
                                           ],
                                         ),
-                                        child: Text(
-                                          m.text,
-                                          style: TextStyle(
-                                            color: isMe
-                                                ? Colors.white
-                                                : const Color(0xFF2C2C2C),
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w400,
-                                            height: 1.4,
-                                          ),
-                                        ),
+                                        child: m.isImage 
+                                            ? GestureDetector(
+                                                onTap: () {
+                                                  HapticFeedback.lightImpact();
+                                                  showZoomableImage(
+                                                    context, 
+                                                    m.imageUrl!,
+                                                    heroTag: 'chat_image_${m.id}',
+                                                  );
+                                                },
+                                                child: Hero(
+                                                  tag: 'chat_image_${m.id}',
+                                                  child: ClipRRect(
+                                                    borderRadius: BorderRadius.circular(16),
+                                                    child: Image.network(
+                                                      m.imageUrl!,
+                                                      width: 200,
+                                                      height: 200,
+                                                      fit: BoxFit.cover,
+                                                      loadingBuilder: (context, child, progress) {
+                                                        if (progress == null) return child;
+                                                        return Container(
+                                                          width: 200,
+                                                          height: 200,
+                                                          decoration: BoxDecoration(
+                                                            color: Colors.grey[200],
+                                                            borderRadius: BorderRadius.circular(16),
+                                                          ),
+                                                          child: const Center(
+                                                            child: CircularProgressIndicator(
+                                                              color: Colors.redAccent,
+                                                            ),
+                                                          ),
+                                                        );
+                                                      },
+                                                      errorBuilder: (context, error, stackTrace) {
+                                                        return Container(
+                                                          width: 200,
+                                                          height: 200,
+                                                          decoration: BoxDecoration(
+                                                            color: Colors.grey[200],
+                                                            borderRadius: BorderRadius.circular(16),
+                                                          ),
+                                                          child: const Center(
+                                                            child: Icon(
+                                                              Icons.error_outline,
+                                                              color: Colors.grey,
+                                                              size: 40,
+                                                            ),
+                                                          ),
+                                                        );
+                                                      },
+                                                    ),
+                                                  ),
+                                                ),
+                                              )
+                                            : Text(
+                                                m.text,
+                                                style: TextStyle(
+                                                  color: isMe
+                                                      ? Colors.white
+                                                      : const Color(0xFF2C2C2C),
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w400,
+                                                  height: 1.4,
+                                                ),
+                                              ),
                                       ),
                                     ),
                                     // Show timestamp below bubble if expanded
@@ -947,97 +1416,105 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ),
 
-          // Modern Input Area
+          // Compact Input Area
           Container(
-            padding: const EdgeInsets.all(16),
+            margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
             decoration: BoxDecoration(
               color: Colors.white,
+              borderRadius: BorderRadius.circular(25),
+              border: Border.all(
+                color: Colors.grey.shade200,
+                width: 1,
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, -2),
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
                 ),
               ],
             ),
             child: SafeArea(
+              top: false,
               child: Row(
                 children: [
-                  // Attachment Button
+                  // Camera Button
                   Container(
-                    width: 44,
-                    height: 44,
+                    width: 36,
+                    height: 36,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF0F2F5),
-                      borderRadius: BorderRadius.circular(22),
+                      color: Colors.transparent,
+                      borderRadius: BorderRadius.circular(18),
                     ),
                     child: IconButton(
+                      padding: EdgeInsets.zero,
                       icon: const Icon(
-                        Icons.add_rounded,
-                        color: Color(0xFFFF5252), // redAccent
-                        size: 24,
+                        Icons.camera_alt_outlined,
+                        color: Color(0xFF6B7280),
+                        size: 20,
                       ),
                       onPressed: () {
                         HapticFeedback.lightImpact();
-                        // Add attachment functionality here
+                        _showImagePickerOptions();
                       },
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
 
                   // Input Field
                   Expanded(
                     child: Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF0F2F5),
-                        borderRadius: BorderRadius.circular(22),
-                      ),
+                      constraints: const BoxConstraints(minHeight: 36),
                       child: TextField(
                         controller: _controller,
                         textInputAction: TextInputAction.send,
                         onSubmitted: (_) => _send(),
-                        maxLines: null,
+                        maxLines: 4,
+                        minLines: 1,
+                        textAlignVertical: TextAlignVertical.center,
                         decoration: const InputDecoration(
                           hintText: 'Type a message...',
                           hintStyle: TextStyle(
-                            color: Color(0xFF8E8E93),
-                            fontSize: 16,
+                            color: Color(0xFF9CA3AF),
+                            fontSize: 15,
                             fontWeight: FontWeight.w400,
                           ),
                           border: InputBorder.none,
+                          isDense: true,
                           contentPadding: EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 12,
+                            horizontal: 12,
+                            vertical: 8,
                           ),
                         ),
                         style: const TextStyle(
-                          fontSize: 16,
+                          fontSize: 15,
                           fontWeight: FontWeight.w400,
-                          color: Color(0xFF2C2C2C),
+                          color: Color(0xFF1F2937),
+                          height: 1.4,
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
 
                   // Send Button
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    width: 44,
-                    height: 44,
+                  Container(
+                    width: 36,
+                    height: 36,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
                           Colors.redAccent,
-                          Colors.redAccent.withOpacity(0.8),
+                          Colors.red.shade400,
                         ],
                       ),
-                      borderRadius: BorderRadius.circular(22),
+                      borderRadius: BorderRadius.circular(18),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.redAccent.withOpacity(0.3),
+                          color: Colors.redAccent.withOpacity(0.25),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -1045,9 +1522,9 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                     child: Material(
                       color: Colors.transparent,
-                      borderRadius: BorderRadius.circular(22),
+                      borderRadius: BorderRadius.circular(18),
                       child: InkWell(
-                        borderRadius: BorderRadius.circular(22),
+                        borderRadius: BorderRadius.circular(18),
                         onTap: () {
                           HapticFeedback.lightImpact();
                           _send();
@@ -1056,7 +1533,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           child: Icon(
                             Icons.send_rounded,
                             color: Colors.white,
-                            size: 20,
+                            size: 16,
                           ),
                         ),
                       ),

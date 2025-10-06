@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:tb_frontend/doctor/dappointment.dart';
 import 'package:tb_frontend/doctor/viewpost.dart';
 
 class Dpostappointment extends StatefulWidget {
@@ -70,11 +69,7 @@ class _DpostappointmentState extends State<Dpostappointment> {
                         icon: const Icon(Icons.arrow_back_ios,
                             color: Color(0xE0F44336)),
                         onPressed: () {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => const Dappointment()),
-                          );
+                          Navigator.pop(context);
                         },
                       ),
                     ),

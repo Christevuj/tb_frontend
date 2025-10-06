@@ -28,6 +28,7 @@ dependencies:
   firebase_auth: ^6.0.1
   characters: ^1.2.0
   image_picker: ^1.1.2 
+  cloudinary: ^1.2.0
   flutter_dotenv: ^6.0.0
   dio: ^5.4.0
   youtube_player_flutter: ^9.1.2

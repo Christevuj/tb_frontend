@@ -5,6 +5,8 @@ class Message {
   final String senderId;
   final String receiverId;
   final String text;
+  final String? imageUrl; // For image messages
+  final String type; // 'text' or 'image'
   final DateTime timestamp;
 
   Message({
@@ -12,14 +14,21 @@ class Message {
     required this.senderId,
     required this.receiverId,
     required this.text,
+    this.imageUrl,
+    required this.type,
     required this.timestamp,
   });
+
+  bool get isImage => type == 'image';
+  bool get isText => type == 'text';
 
   Map<String, dynamic> toMapForSend() {
     return {
       'senderId': senderId,
       'receiverId': receiverId,
       'text': text,
+      'imageUrl': imageUrl,
+      'type': type,
       // use server timestamp on send
       'timestamp': FieldValue.serverTimestamp(),
     };
@@ -35,6 +44,8 @@ class Message {
       senderId: data['senderId'] ?? '',
       receiverId: data['receiverId'] ?? '',
       text: data['text'] ?? '',
+      imageUrl: data['imageUrl'],
+      type: data['type'] ?? 'text',
       timestamp: time,
     );
   }

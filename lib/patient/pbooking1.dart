@@ -33,6 +33,9 @@ class Pbooking1 extends StatefulWidget {
 class _Pbooking1State extends State<Pbooking1> {
   // Import AuthService
   final _authService = AuthService();
+  // Scroll controller to maintain scroll position
+  final ScrollController _scrollController = ScrollController();
+  
   // Controllers for patient details
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
@@ -46,6 +49,11 @@ class _Pbooking1State extends State<Pbooking1> {
   String? _selectedTime;
   XFile? _idImage;
   Uint8List? _webImage;
+  
+  // Doctor facility information
+  String _facilityName = '';
+  String _facilityAddress = '';
+  bool _isLoadingFacility = true;
 
   final List<String> _genders = ['Select gender', 'Male', 'Female', 'Other'];
   final List<String> _validIDs = [
@@ -83,6 +91,9 @@ class _Pbooking1State extends State<Pbooking1> {
 
     // Run debug to check doctor data in Firestore
     _debugDoctorData();
+    
+    // Load facility information
+    _loadFacilityInfo();
 
     // Pre-fill name and email from Firestore user data
     final user = FirebaseAuth.instance.currentUser;
@@ -98,6 +109,68 @@ class _Pbooking1State extends State<Pbooking1> {
         }
       });
     }
+  }
+
+  Future<void> _loadFacilityInfo() async {
+    if (!mounted) return;
+
+    try {
+      final doctorDoc = await FirebaseFirestore.instance
+          .collection('doctors')
+          .doc(widget.doctor.id)
+          .get();
+
+      if (!mounted) return;
+
+      if (doctorDoc.exists) {
+        final data = doctorDoc.data();
+        final affiliations = data?['affiliations'] as List<dynamic>?;
+
+        String facilityName = 'No facility information';
+        String facilityAddress = 'N/A';
+
+        if (affiliations != null && affiliations.isNotEmpty) {
+          final firstAffiliation = affiliations[0] as Map<String, dynamic>;
+          facilityName = firstAffiliation['name'] ?? 'N/A';
+          facilityAddress = firstAffiliation['address'] ?? 'N/A';
+        }
+
+        if (mounted) {
+          setState(() {
+            _facilityName = facilityName;
+            _facilityAddress = facilityAddress;
+            _isLoadingFacility = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _facilityName = 'No facility information';
+            _facilityAddress = 'N/A';
+            _isLoadingFacility = false;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading facility info: $e');
+      if (mounted) {
+        setState(() {
+          _facilityName = 'Error loading facility';
+          _facilityAddress = 'N/A';
+          _isLoadingFacility = false;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _ageController.dispose();
+    super.dispose();
   }
 
   Future<void> _pickImage() async {
@@ -1070,6 +1143,8 @@ class _Pbooking1State extends State<Pbooking1> {
     return Scaffold(
       backgroundColor: const Color(0xFFF2F3F5),
       body: SingleChildScrollView(
+        controller: _scrollController,
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         child: Padding(
           padding:
               const EdgeInsets.symmetric(horizontal: 16), // ✅ Global margin
@@ -1116,6 +1191,134 @@ class _Pbooking1State extends State<Pbooking1> {
                 ),
               ),
               const SizedBox(height: 20),
+
+              // DOCTOR INFO CONTAINER
+              _isLoadingFacility
+                  ? Container(
+                      margin: const EdgeInsets.symmetric(vertical: 8),
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color(0xFFE3F2FD),
+                            Color(0xFFBBDEFB),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.blue.withOpacity(0.1),
+                            spreadRadius: 1,
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Center(
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1976D2)),
+                        ),
+                      ),
+                    )
+                  : Container(
+                      margin: const EdgeInsets.symmetric(vertical: 6),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color(0xFFE3F2FD),
+                            Color(0xFFBBDEFB),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.blue.withOpacity(0.1),
+                            spreadRadius: 1,
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.9),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              Icons.person_outline,
+                              color: Color(0xFF1976D2),
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Doctor',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Color(0xFF546E7A),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  widget.doctor.name,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF1F2937),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _facilityName,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF1976D2),
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Icon(
+                                      Icons.location_on_outlined,
+                                      size: 12,
+                                      color: Color(0xFF546E7A),
+                                    ),
+                                    const SizedBox(width: 3),
+                                    Expanded(
+                                      child: Text(
+                                        _facilityAddress,
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: Color(0xFF546E7A),
+                                          height: 1.3,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+              const SizedBox(height: 12),
 
               // SELECT DATE
               Container(

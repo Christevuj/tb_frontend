@@ -8,6 +8,7 @@ import 'package:tb_frontend/chat_screens/chat_screen.dart';
 import 'package:tb_frontend/services/chat_service.dart';
 import 'package:tb_frontend/screens/video_call_screen.dart';
 import 'package:tb_frontend/services/webrtc_service.dart';
+import 'package:tb_frontend/doctor/dmenu.dart';
 
 class Viewpending extends StatefulWidget {
   final Map<String, dynamic> appointment;
@@ -763,19 +764,28 @@ class _ViewpendingState extends State<Viewpending> {
                                 .delete();
                           }
 
-                          Navigator.pop(
-                              context, 'approved'); // Return 'approved' status
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: const Text(
-                                  'Appointment approved successfully'),
-                              backgroundColor: Colors.green.shade600,
-                              behavior: SnackBarBehavior.floating,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
+                          // Navigate back to landing page (home tab)
+                          if (context.mounted) {
+                            Navigator.of(context).popUntil((route) => route.isFirst);
+                            Navigator.of(context).pushReplacement(
+                              MaterialPageRoute(
+                                builder: (_) => const DoctorMainWrapper(initialIndex: 0),
                               ),
-                            ),
-                          );
+                            );
+                            
+                            // Show success message
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Text(
+                                    'Appointment approved successfully'),
+                                backgroundColor: Colors.green.shade600,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            );
+                          }
                         } catch (e) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(

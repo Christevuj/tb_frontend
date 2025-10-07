@@ -21,7 +21,7 @@ class _DoctorMainWrapperState extends State<DoctorMainWrapper> {
   final List<Widget> _pages = const [
     Dlandingpage(),
     Dappointment(),
-    Dmessages(), // ✅ replaced UserListScreen with Dmessages
+    Dmessages(),
     Daccount(),
   ];
 
@@ -40,19 +40,7 @@ class _DoctorMainWrapperState extends State<DoctorMainWrapper> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: List.generate(_pages.length, (index) {
-          return Navigator(
-            key: GlobalKey<NavigatorState>(), // ✅ separate stack per tab
-            onGenerateRoute: (settings) {
-              return MaterialPageRoute(
-                builder: (_) => _pages[index],
-              );
-            },
-          );
-        }),
-      ),
+      body: _pages[_selectedIndex],
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Colors.white,

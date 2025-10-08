@@ -501,8 +501,9 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
     if (text.toLowerCase().contains('date')) return Icons.calendar_today;
     if (text.toLowerCase().contains('time')) return Icons.access_time;
     if (text.toLowerCase().contains('facility')) return Icons.location_on;
-    if (text.toLowerCase().contains('prescription'))
+    if (text.toLowerCase().contains('prescription')) {
       return Icons.medical_services;
+    }
     if (text.toLowerCase().contains('medicine')) return Icons.medication;
     if (text.toLowerCase().contains('gender')) return Icons.people;
     return Icons.info;

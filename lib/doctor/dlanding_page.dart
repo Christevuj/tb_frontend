@@ -194,7 +194,7 @@ class _DlandingpageState extends State<Dlandingpage> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    "Pending Appointment Details",
+                                    "Appointment Details",
                                     style: const TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
@@ -975,7 +975,7 @@ class _DlandingpageState extends State<Dlandingpage> {
                               Text(
                                 appointmentDate != null
                                     ? "${appointmentDate.day}/${appointmentDate.month}/${appointmentDate.year} at $appointmentTime"
-                                    : "$appointmentTime",
+                                    : appointmentTime,
                               ),
                               Text(
                                 "Approved",

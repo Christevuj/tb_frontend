@@ -47,62 +47,47 @@ class _DhistoryState extends State<Dhistory> {
         .asyncMap((snapshot) async {
       List<Map<String, dynamic>> allAppointments = [];
 
-      // Get appointments from appointment_history collection (primary source)
+      // Get appointments from appointment_history collection (fully completed treatments)
       for (var doc in snapshot.docs) {
         final data = doc.data();
         data['id'] = doc.id;
+        data['source'] = 'appointment_history';
         allAppointments.add(data);
       }
 
-      // If no documents found in appointment_history, try fallback collections for backward compatibility
-      if (allAppointments.isEmpty) {
-        try {
-          // Get approved appointments
-          final approvedSnapshot = await FirebaseFirestore.instance
-              .collection('approved_appointments')
-              .where('doctorId', isEqualTo: _currentDoctorId)
-              .get();
+      // Also get appointments from completed_appointments collection (post-consultation appointments)
+      final completedAppointmentsSnapshot = await FirebaseFirestore.instance
+          .collection('completed_appointments')
+          .where('doctorId', isEqualTo: _currentDoctorId)
+          .get();
 
-          for (var doc in approvedSnapshot.docs) {
-            final data = doc.data();
-            data['id'] = doc.id;
-            allAppointments.add(data);
-          }
-
-          // Get rejected appointments
-          final rejectedSnapshot = await FirebaseFirestore.instance
-              .collection('rejected_appointments')
-              .where('doctorId', isEqualTo: _currentDoctorId)
-              .get();
-
-          for (var doc in rejectedSnapshot.docs) {
-            final data = doc.data();
-            data['id'] = doc.id;
-            allAppointments.add(data);
-          }
-        } catch (e) {
-          debugPrint('Error loading from fallback collections: $e');
-        }
+      for (var doc in completedAppointmentsSnapshot.docs) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        data['source'] = 'completed_appointments';
+        allAppointments.add(data);
       }
+
+      // History shows all post-consultation appointments: both completed meetings and fully completed treatments
 
       // Sort by most relevant timestamp (prioritize treatment completed appointments)
       allAppointments.sort((a, b) {
         // Get the most relevant timestamp for each appointment
-        final timestampA = a['treatmentCompletedAt'] ?? 
-                          a['movedToHistoryAt'] ?? 
-                          a['completedAt'] ?? 
-                          a['approvedAt'] ?? 
-                          a['rejectedAt'];
-        final timestampB = b['treatmentCompletedAt'] ?? 
-                          b['movedToHistoryAt'] ?? 
-                          b['completedAt'] ?? 
-                          b['approvedAt'] ?? 
-                          b['rejectedAt'];
-        
+        final timestampA = a['treatmentCompletedAt'] ??
+            a['movedToHistoryAt'] ??
+            a['completedAt'] ??
+            a['approvedAt'] ??
+            a['rejectedAt'];
+        final timestampB = b['treatmentCompletedAt'] ??
+            b['movedToHistoryAt'] ??
+            b['completedAt'] ??
+            b['approvedAt'] ??
+            b['rejectedAt'];
+
         if (timestampA == null && timestampB == null) return 0;
         if (timestampA == null) return 1;
         if (timestampB == null) return -1;
-        
+
         // Sort descending (newest first)
         return timestampB.compareTo(timestampA);
       });
@@ -112,20 +97,92 @@ class _DhistoryState extends State<Dhistory> {
   }
 
   // ✅ Show appointment details in full screen
-  void _showAppointmentDetails(Map<String, dynamic> appointment) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
+  void _showAppointmentDetails(Map<String, dynamic> appointment) async {
+    // Fetch additional data similar to dpost.dart
+    final originalAppointmentId =
+        appointment['appointmentId'] ?? appointment['id'];
+
+    // Fetch prescription data for this appointment
+    Map<String, dynamic>? prescriptionData;
+    if (appointment['prescriptionData'] != null) {
+      // Use existing prescription data if already available
+      prescriptionData = appointment['prescriptionData'];
+    } else {
+      // Fetch prescription data from collection
+      try {
+        final prescriptionSnapshot = await FirebaseFirestore.instance
+            .collection('prescriptions')
+            .where('appointmentId', isEqualTo: originalAppointmentId)
+            .get();
+
+        if (prescriptionSnapshot.docs.isNotEmpty) {
+          prescriptionData = prescriptionSnapshot.docs.first.data();
+        }
+      } catch (e) {
+        debugPrint('Error fetching prescription data: $e');
+      }
+    }
+
+    // Fetch certificate data for this appointment
+    Map<String, dynamic>? certificateData;
+    if (appointment['certificateData'] != null) {
+      // Use existing certificate data if already available
+      certificateData = appointment['certificateData'];
+    } else {
+      // Fetch certificate data from collection
+      try {
+        final certificateSnapshot = await FirebaseFirestore.instance
+            .collection('certificates')
+            .where('appointmentId', isEqualTo: originalAppointmentId)
+            .get();
+
+        if (certificateSnapshot.docs.isNotEmpty) {
+          certificateData = certificateSnapshot.docs.first.data();
+        }
+      } catch (e) {
+        debugPrint('Error fetching certificate data: $e');
+      }
+    }
+
+    // Fetch doctor information from doctors collection
+    Map<String, dynamic>? doctorData;
+    if (appointment['doctorId'] != null) {
+      try {
+        final doctorDoc = await FirebaseFirestore.instance
+            .collection('doctors')
+            .doc(appointment['doctorId'])
+            .get();
+
+        if (doctorDoc.exists) {
+          doctorData = doctorDoc.data();
+        }
+      } catch (e) {
+        debugPrint('Error fetching doctor data: $e');
+      }
+    }
+
+    if (context.mounted) {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
-        child: Viewhistory(appointment: appointment),
-      ),
-    );
+        builder: (context) => Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: Viewhistory(
+            appointment: {
+              ...appointment,
+              'prescriptionData': prescriptionData,
+              'certificateData': certificateData,
+              'doctorData': doctorData,
+            },
+          ),
+        ),
+      );
+    }
   }
 
   @override
@@ -217,7 +274,16 @@ class _DhistoryState extends State<Dhistory> {
                                 "No appointment history yet.",
                                 style: TextStyle(
                                   color: Colors.grey,
-                                  fontSize: 16,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                "Completed consultations and treatments will appear here",
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 14,
                                 ),
                               ),
                             ],
@@ -232,54 +298,69 @@ class _DhistoryState extends State<Dhistory> {
                       itemCount: appointments.length,
                       itemBuilder: (context, index) {
                         final appointment = appointments[index];
-                        
-                        // Determine the most relevant timestamp and status
+
+                        // Determine the most relevant timestamp and status based on source
                         DateTime? historyDate;
                         String? historyTime;
                         String status = 'unknown';
                         String statusDisplayText = 'Unknown';
                         Color statusColor = Colors.orange;
-                        
-                        // Check for treatment completion first (highest priority)
-                        var treatmentCompletedAt = appointment['treatmentCompletedAt'];
-                        var movedToHistoryAt = appointment['movedToHistoryAt'];
-                        var completedAt = appointment['completedAt'];
-                        var approvedAt = appointment['approvedAt'];
-                        var rejectedAt = appointment['rejectedAt'];
-                        
+
                         var timestamp;
-                        
-                        if (treatmentCompletedAt != null) {
-                          timestamp = treatmentCompletedAt;
-                          status = 'treatment_completed';
-                          statusDisplayText = 'Treatment Completed';
-                          statusColor = Colors.purple;
-                        } else if (movedToHistoryAt != null) {
-                          timestamp = movedToHistoryAt;
-                          status = appointment['status'] ?? 'completed';
-                          statusDisplayText = 'Treatment Completed';
-                          statusColor = Colors.purple;
-                        } else if (completedAt != null) {
-                          timestamp = completedAt;
-                          status = 'consultation_completed';
-                          statusDisplayText = 'Consultation Completed';
-                          statusColor = Colors.blue;
-                        } else if (approvedAt != null) {
-                          timestamp = approvedAt;
-                          status = 'approved';
-                          statusDisplayText = 'Approved';
-                          statusColor = Colors.green;
-                        } else if (rejectedAt != null) {
-                          timestamp = rejectedAt;
-                          status = 'rejected';
-                          statusDisplayText = 'Rejected';
-                          statusColor = Colors.red;
+
+                        // Different logic based on source collection
+                        if (appointment['source'] == 'appointment_history') {
+                          // From appointment_history - treatment completed
+                          var treatmentCompletedAt =
+                              appointment['treatmentCompletedAt'];
+                          var movedToHistoryAt =
+                              appointment['movedToHistoryAt'];
+
+                          if (treatmentCompletedAt != null) {
+                            timestamp = treatmentCompletedAt;
+                            status = 'treatment_completed';
+                            statusDisplayText = 'Treatment Completed';
+                            statusColor = Colors.purple;
+                          } else if (movedToHistoryAt != null) {
+                            timestamp = movedToHistoryAt;
+                            status = 'treatment_completed';
+                            statusDisplayText = 'Treatment Completed';
+                            statusColor = Colors.purple;
+                          }
                         } else {
-                          // Fallback to appointment status
-                          status = appointment['status'] ?? 'unknown';
-                          statusDisplayText = status.replaceAll('_', ' ').toUpperCase();
+                          // From completed_appointments - consultation completed, awaiting treatment completion
+                          var completedAt = appointment['completedAt'];
+                          if (completedAt != null) {
+                            timestamp = completedAt;
+                            status = 'consultation_completed';
+                            statusDisplayText = 'Consultation Completed';
+                            statusColor = Colors.blue;
+                          }
                         }
-                        
+
+                        // Fallback logic for other statuses
+                        if (timestamp == null) {
+                          var approvedAt = appointment['approvedAt'];
+                          var rejectedAt = appointment['rejectedAt'];
+
+                          if (approvedAt != null) {
+                            timestamp = approvedAt;
+                            status = 'approved';
+                            statusDisplayText = 'Approved';
+                            statusColor = Colors.green;
+                          } else if (rejectedAt != null) {
+                            timestamp = rejectedAt;
+                            status = 'rejected';
+                            statusDisplayText = 'Rejected';
+                            statusColor = Colors.red;
+                          } else {
+                            // Final fallback to appointment status
+                            status = appointment['status'] ?? 'unknown';
+                            statusDisplayText =
+                                status.replaceAll('_', ' ').toUpperCase();
+                          }
+                        }
+
                         if (timestamp is Timestamp) {
                           historyDate = timestamp.toDate();
                           // Format time in AM/PM format
@@ -288,7 +369,8 @@ class _DhistoryState extends State<Dhistory> {
                           String period = hour >= 12 ? 'PM' : 'AM';
                           if (hour > 12) hour -= 12;
                           if (hour == 0) hour = 12;
-                          historyTime = "${hour.toString()}:${minute.toString().padLeft(2, '0')} $period";
+                          historyTime =
+                              "${hour.toString()}:${minute.toString().padLeft(2, '0')} $period";
                         } else if (timestamp is String) {
                           try {
                             historyDate = DateTime.parse(timestamp);
@@ -298,7 +380,8 @@ class _DhistoryState extends State<Dhistory> {
                             String period = hour >= 12 ? 'PM' : 'AM';
                             if (hour > 12) hour -= 12;
                             if (hour == 0) hour = 12;
-                            historyTime = "${hour.toString()}:${minute.toString().padLeft(2, '0')} $period";
+                            historyTime =
+                                "${hour.toString()}:${minute.toString().padLeft(2, '0')} $period";
                           } catch (e) {
                             historyDate = null;
                             historyTime = null;
@@ -306,9 +389,11 @@ class _DhistoryState extends State<Dhistory> {
                         }
 
                         // Check if appointment has prescription or certificate data
-                        final hasPrescription = appointment['prescriptionData'] != null;
-                        final hasCertificate = appointment['certificateData'] != null;
-                        
+                        final hasPrescription =
+                            appointment['prescriptionData'] != null;
+                        final hasCertificate =
+                            appointment['certificateData'] != null;
+
                         return Card(
                           color: Colors.white,
                           margin: const EdgeInsets.symmetric(vertical: 8),
@@ -334,12 +419,14 @@ class _DhistoryState extends State<Dhistory> {
                               children: [
                                 Expanded(
                                   child: Text(
-                                    appointment["patientName"] ?? "Unknown Patient",
-                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                    appointment["patientName"] ??
+                                        "Unknown Patient",
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold),
                                   ),
                                 ),
                                 // Show indicators for prescription and certificate
-                                if (hasPrescription) 
+                                if (hasPrescription)
                                   Container(
                                     margin: const EdgeInsets.only(left: 4),
                                     padding: const EdgeInsets.all(4),
@@ -373,13 +460,14 @@ class _DhistoryState extends State<Dhistory> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  historyDate != null 
+                                  historyDate != null
                                       ? "${historyDate.day}/${historyDate.month}/${historyDate.year} at ${historyTime ?? "No time"}"
                                       : "Date not set",
                                 ),
                                 const SizedBox(height: 4),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 2),
                                   decoration: BoxDecoration(
                                     color: statusColor.withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(12),
@@ -395,7 +483,8 @@ class _DhistoryState extends State<Dhistory> {
                                 ),
                               ],
                             ),
-                            trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                            trailing: const Icon(Icons.chevron_right,
+                                color: Colors.grey),
                             onTap: () => _showAppointmentDetails({
                               ...appointment,
                               'date': historyDate,

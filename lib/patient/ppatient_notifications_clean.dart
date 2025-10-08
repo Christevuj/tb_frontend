@@ -795,7 +795,7 @@ class _CertificatePdfViewerScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(title),
-        backgroundColor: Colors.teal,
+        backgroundColor: Colors.red.shade600,
         foregroundColor: Colors.white,
         actions: [
           IconButton(

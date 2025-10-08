@@ -93,11 +93,13 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
         await _webrtcService.startCall(
           actualRoomId,
           widget.appointmentId,
+          userId: 'doctor',
         );
       } else {
         await _webrtcService.joinCall(
           actualRoomId,
           widget.appointmentId,
+          userId: 'patient',
         );
       }
     } catch (e) {
@@ -256,7 +258,9 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
                       Text(
                         _isInitializing
                             ? 'Initializing call...'
-                            : 'Waiting for ${widget.patientName} to join...',
+                            : widget.isDoctorCalling
+                                ? 'Waiting for ${widget.patientName} to join...'
+                                : 'Joining call with doctor...',
                         style: TextStyle(color: Colors.white, fontSize: 16),
                       ),
                     ],

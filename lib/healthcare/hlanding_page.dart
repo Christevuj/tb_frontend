@@ -289,8 +289,8 @@ class _HlandingpageState extends State<Hlandingpage> {
       case 'patient':
         return {
           'label': 'Patient',
-          'color': Colors.teal,
-          'gradientColors': [Colors.teal, Colors.teal.shade400],
+          'color': Colors.red.shade600,
+          'gradientColors': [Colors.red.shade600, Colors.red.shade400],
         };
       case 'guest':
         return {
@@ -301,8 +301,8 @@ class _HlandingpageState extends State<Hlandingpage> {
       default:
         return {
           'label': null,
-          'color': Colors.teal,
-          'gradientColors': [Colors.teal, Colors.teal.shade400],
+          'color': Colors.red.shade600,
+          'gradientColors': [Colors.red.shade600, Colors.red.shade400],
         };
     }
   }

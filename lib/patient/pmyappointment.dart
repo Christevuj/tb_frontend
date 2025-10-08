@@ -102,7 +102,7 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
       case 'treatment_completed':
         return Colors.purple;
       case 'with_prescription':
-        return Colors.teal;
+        return Colors.red.shade600;
       case 'with_certificate':
         return Colors.indigo;
       default:
@@ -394,7 +394,7 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
       for (var doc in pendingSnapshot.docs) {
         final data = doc.data();
         data['status'] = 'pending';
-        data['id'] = doc.id;
+        data['appointmentId'] = doc.id; // Use appointmentId for consistency
         data['appointmentSource'] = 'pending';
         allAppointments.add(data);
       }
@@ -408,19 +408,19 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
       for (var doc in approvedSnapshot.docs) {
         final data = doc.data();
         data['status'] = 'approved';
-        data['id'] = doc.id;
+        data['appointmentId'] = doc.id; // Use appointmentId for consistency
         data['appointmentSource'] = 'approved';
         allAppointments.add(data);
       }
 
-      // Get completed appointments
+      // Get completed appointments (post-consultation)
       final completedSnapshot = await FirebaseFirestore.instance
           .collection('completed_appointments')
           .where('patientUid', isEqualTo: _currentPatientId)
           .get();
 
       for (var doc in completedSnapshot.docs) {
-        final data = doc.data();
+        var data = doc.data();
 
         // Check if certificate has been sent to determine status
         bool certificateSent = false;
@@ -439,9 +439,31 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
 
         data['status'] =
             certificateSent ? 'treatment_completed' : 'consultation_finished';
-        data['id'] = doc.id;
+        data['appointmentId'] = data['appointmentId'] ??
+            doc.id; // Preserve existing appointmentId or use doc ID
         data['appointmentSource'] = 'completed';
         data['certificateSent'] = certificateSent;
+
+        // Add data enrichment for completed appointments
+        data = await _enrichAppointmentData(data);
+        allAppointments.add(data);
+      }
+
+      // Get appointments from appointment_history collection (fully completed treatments)
+      final historySnapshot = await FirebaseFirestore.instance
+          .collection('appointment_history')
+          .where('patientUid', isEqualTo: _currentPatientId)
+          .get();
+
+      for (var doc in historySnapshot.docs) {
+        var data = doc.data();
+        data['appointmentId'] = doc.id;
+        data['appointmentSource'] = 'appointment_history';
+        data['status'] =
+            'treatment_completed'; // History appointments are fully completed
+
+        // Add data enrichment for history appointments
+        data = await _enrichAppointmentData(data);
         allAppointments.add(data);
       }
 
@@ -454,13 +476,100 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
       for (var doc in rejectedSnapshot.docs) {
         final data = doc.data();
         data['status'] = 'rejected';
-        data['id'] = doc.id;
+        data['appointmentId'] = doc.id; // Use appointmentId for consistency
         data['appointmentSource'] = 'rejected';
         allAppointments.add(data);
       }
 
+      // Sort by most relevant timestamp (prioritize treatment completed appointments)
+      allAppointments.sort((a, b) {
+        final timestampA = a['treatmentCompletedAt'] ??
+            a['movedToHistoryAt'] ??
+            a['completedAt'] ??
+            a['approvedAt'] ??
+            a['rejectedAt'] ??
+            a['createdAt'];
+        final timestampB = b['treatmentCompletedAt'] ??
+            b['movedToHistoryAt'] ??
+            b['completedAt'] ??
+            b['approvedAt'] ??
+            b['rejectedAt'] ??
+            b['createdAt'];
+
+        if (timestampA == null && timestampB == null) return 0;
+        if (timestampA == null) return 1;
+        if (timestampB == null) return -1;
+
+        // Sort descending (newest first)
+        return timestampB.compareTo(timestampA);
+      });
+
       return allAppointments;
     });
+  }
+
+  // Data enrichment method to fetch prescription and certificate data
+  Future<Map<String, dynamic>> _enrichAppointmentData(
+      Map<String, dynamic> appointment) async {
+    // Get prescription data if available
+    Map<String, dynamic>? prescriptionData;
+    if (appointment['prescriptionData'] != null) {
+      // Data already available
+      prescriptionData = appointment['prescriptionData'];
+    } else if (appointment['appointmentId'] != null) {
+      // Fetch prescription data from prescriptions collection
+      try {
+        final prescriptionSnapshot = await FirebaseFirestore.instance
+            .collection('prescriptions')
+            .where('appointmentId', isEqualTo: appointment['appointmentId'])
+            .limit(1)
+            .get();
+
+        if (prescriptionSnapshot.docs.isNotEmpty) {
+          prescriptionData = prescriptionSnapshot.docs.first.data();
+        }
+      } catch (e) {
+        debugPrint('Error fetching prescription data: $e');
+      }
+    }
+
+    // Get certificate data if available
+    Map<String, dynamic>? certificateData;
+    if (appointment['certificateData'] != null) {
+      // Data already available
+      certificateData = appointment['certificateData'];
+    } else if (appointment['appointmentId'] != null) {
+      // Fetch certificate data from certificates collection
+      try {
+        final certificateSnapshot = await FirebaseFirestore.instance
+            .collection('certificates')
+            .where('appointmentId', isEqualTo: appointment['appointmentId'])
+            .limit(1)
+            .get();
+
+        if (certificateSnapshot.docs.isNotEmpty) {
+          certificateData = certificateSnapshot.docs.first.data();
+        }
+      } catch (e) {
+        debugPrint('Error fetching certificate data: $e');
+      }
+    }
+
+    // Return enriched appointment data
+    debugPrint(
+        'Enrichment complete for appointment ${appointment['appointmentId']}:');
+    debugPrint('  - Has prescription data: ${prescriptionData != null}');
+    debugPrint('  - Has certificate data: ${certificateData != null}');
+    if (certificateData != null) {
+      debugPrint('  - Certificate pdfUrl: ${certificateData['pdfUrl']}');
+      debugPrint('  - Certificate pdfPath: ${certificateData['pdfPath']}');
+    }
+
+    return {
+      ...appointment,
+      'prescriptionData': prescriptionData,
+      'certificateData': certificateData,
+    };
   }
 
   String _formatDate(dynamic dateValue) {
@@ -512,7 +621,7 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
         // Delete from rejected_appointments collection
         await FirebaseFirestore.instance
             .collection('rejected_appointments')
-            .doc(appointment['id'])
+            .doc(appointment['appointmentId'])
             .delete();
 
         if (mounted) {
@@ -538,14 +647,17 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
   }
 
   void _showAppointmentDetails(Map<String, dynamic> appointment) async {
-    // For completed appointments, fetch additional data
-    Map<String, dynamic>? prescriptionData;
+    // Use enriched data from appointment if available, otherwise fetch manually
+    Map<String, dynamic>? prescriptionData = appointment['prescriptionData'];
+    Map<String, dynamic>? certificateData = appointment['certificateData'];
     Map<String, dynamic>? doctorData;
 
-    if (appointment['appointmentSource'] == 'completed') {
+    // If data is not available in the appointment object, fetch it manually
+    if (prescriptionData == null &&
+        appointment['appointmentSource'] == 'completed') {
       // Fetch prescription data
       try {
-        final appointmentId = appointment['appointmentId'] ?? appointment['id'];
+        final appointmentId = appointment['appointmentId'];
         debugPrint('Fetching prescription for appointmentId: $appointmentId');
 
         final prescriptionSnapshot = await FirebaseFirestore.instance
@@ -568,6 +680,29 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
         }
       } catch (e) {
         debugPrint('Error fetching prescription: $e');
+      }
+
+      // Fetch certificate data if not available
+      if (certificateData == null) {
+        try {
+          final appointmentId = appointment['appointmentId'];
+          debugPrint('Fetching certificate for appointmentId: $appointmentId');
+
+          final certificateSnapshot = await FirebaseFirestore.instance
+              .collection('certificates')
+              .where('appointmentId', isEqualTo: appointmentId)
+              .get();
+
+          if (certificateSnapshot.docs.isNotEmpty) {
+            certificateData = certificateSnapshot.docs.first.data();
+            debugPrint('Certificate data found');
+          } else {
+            debugPrint(
+                'No certificate documents found for appointmentId: $appointmentId');
+          }
+        } catch (e) {
+          debugPrint('Error fetching certificate: $e');
+        }
       }
 
       // Fetch doctor data
@@ -608,16 +743,9 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
         maxChildSize: 0.95,
         minChildSize: 0.5,
         builder: (_, controller) => Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.teal.shade50,
-                Colors.white,
-              ],
-            ),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -649,14 +777,7 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                         width: double.infinity,
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Colors.teal.shade600,
-                              Colors.teal.shade400,
-                            ],
-                          ),
+                          color: Colors.red.shade600,
                           borderRadius: const BorderRadius.vertical(
                               top: Radius.circular(24)),
                         ),
@@ -712,8 +833,11 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   // Status-based content rendering
-                                  _buildStatusBasedContent(appointment,
-                                      prescriptionData, doctorData),
+                                  _buildStatusBasedContent(
+                                      appointment,
+                                      prescriptionData,
+                                      certificateData,
+                                      doctorData),
                                 ],
                               ),
                             ),
@@ -836,6 +960,7 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
   Widget _buildStatusBasedContent(
       Map<String, dynamic> appointment,
       Map<String, dynamic>? prescriptionData,
+      Map<String, dynamic>? certificateData,
       Map<String, dynamic>? doctorData) {
     String status =
         appointment['status']?.toString().toLowerCase() ?? 'unknown';
@@ -879,7 +1004,7 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
           const SizedBox(height: 12),
           _buildPrescriptionCard(appointment, prescriptionData),
           const SizedBox(height: 12),
-          _buildCertificateCard(appointment),
+          _buildCertificateCard(appointment, certificateData),
         ] else if (status == 'rejected') ...[
           // For rejected: Show rejection information
           _buildPatientInfoCard(appointment), // Now shows doctor info
@@ -1013,7 +1138,7 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
     String status =
         appointment['status']?.toString().toLowerCase() ?? 'unknown';
     String appointmentId = appointment['appointmentId'] ??
-        appointment['id'] ??
+        appointment['appointmentId'] ??
         DateTime.now().millisecondsSinceEpoch.toString();
 
     // Check if this appointment should have a collapsible schedule card
@@ -1262,6 +1387,8 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                     child: ElevatedButton.icon(
                       onPressed: () async {
                         try {
+                          print('🎥 Join Video Call button pressed (Patient)');
+
                           // Show loading indicator
                           showDialog(
                             context: context,
@@ -1277,15 +1404,24 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                             ),
                           );
 
+                          // Small delay for patient to prevent race condition with doctor
+                          await Future.delayed(Duration(milliseconds: 500));
+
                           // Check permissions before joining video call
+                          print(
+                              '🔒 Requesting camera and microphone permissions (Patient)...');
                           final webrtcService = WebRTCService();
                           bool hasPermissions =
                               await webrtcService.requestPermissions();
+                          print(
+                              '🔒 Permission result (Patient): $hasPermissions');
 
                           // Close loading dialog
                           Navigator.pop(context);
 
                           if (!hasPermissions) {
+                            print(
+                                '❌ Permissions not granted (Patient), showing error message');
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
@@ -1300,8 +1436,8 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                                 action: SnackBarAction(
                                   label: 'Settings',
                                   textColor: Colors.white,
-                                  onPressed: () {
-                                    openAppSettings();
+                                  onPressed: () async {
+                                    await openAppSettings();
                                   },
                                 ),
                               ),
@@ -1314,7 +1450,8 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                             MaterialPageRoute(
                               fullscreenDialog: true,
                               builder: (context) => VideoCallScreen(
-                                appointmentId: appointment['id'] ?? '',
+                                appointmentId:
+                                    appointment['appointmentId'] ?? '',
                                 patientName:
                                     appointment['patientName'] ?? 'Patient',
                                 roomId: appointment['roomId'],
@@ -1371,8 +1508,8 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
             Container(
               width: 6,
               height: 40,
-              decoration: const BoxDecoration(
-                color: Colors.teal,
+              decoration: BoxDecoration(
+                color: Colors.red.shade600,
                 borderRadius: BorderRadius.all(Radius.circular(3)),
               ),
             ),
@@ -1399,16 +1536,16 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                       child: OutlinedButton.icon(
                         onPressed: () => _viewPrescriptionPdf(prescriptionData),
                         style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Colors.teal),
+                          side: BorderSide(color: Colors.red.shade600),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
                         ),
-                        icon: const Icon(Icons.visibility,
-                            color: Colors.teal, size: 16),
-                        label: const Text(
+                        icon: Icon(Icons.visibility,
+                            color: Colors.red.shade600, size: 16),
+                        label: Text(
                           'View Prescription PDF',
-                          style: TextStyle(color: Colors.teal),
+                          style: TextStyle(color: Colors.red.shade600),
                         ),
                       ),
                     ),
@@ -1423,7 +1560,23 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
   }
 
   // Certificate Card
-  Widget _buildCertificateCard(Map<String, dynamic> appointment) {
+  Widget _buildCertificateCard(Map<String, dynamic> appointment,
+      [Map<String, dynamic>? certificateData]) {
+    // Use provided certificate data if available, otherwise fall back to StreamBuilder
+    if (certificateData != null) {
+      // Debug logging
+      debugPrint('Certificate data provided: ${certificateData.toString()}');
+      debugPrint('Certificate pdfUrl: ${certificateData['pdfUrl']}');
+      debugPrint('Certificate pdfPath: ${certificateData['pdfPath']}');
+
+      // Check if certificate data actually contains valid certificate information
+      bool hasCertificate = certificateData.isNotEmpty;
+
+      debugPrint('Certificate available: $hasCertificate');
+      return _buildCertificateCardContent(
+          appointment, hasCertificate, certificateData);
+    }
+
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('certificates')
@@ -1432,69 +1585,80 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
       builder: (context, snapshot) {
         bool hasCertificate =
             snapshot.hasData && snapshot.data!.docs.isNotEmpty;
+        Map<String, dynamic>? streamCertificateData;
 
-        return Card(
-          elevation: 2,
-          color: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Container(
-                  width: 6,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: hasCertificate ? Colors.purple : Colors.grey,
-                    borderRadius: const BorderRadius.all(Radius.circular(3)),
+        if (hasCertificate) {
+          streamCertificateData =
+              snapshot.data!.docs.first.data() as Map<String, dynamic>?;
+        }
+
+        return _buildCertificateCardContent(
+            appointment, hasCertificate, streamCertificateData);
+      },
+    );
+  }
+
+  Widget _buildCertificateCardContent(Map<String, dynamic> appointment,
+      bool hasCertificate, Map<String, dynamic>? certificateData) {
+    return Card(
+      elevation: 2,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Container(
+              width: 6,
+              height: 40,
+              decoration: BoxDecoration(
+                color: hasCertificate ? Colors.purple : Colors.grey,
+                borderRadius: const BorderRadius.all(Radius.circular(3)),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Certificate of Completion",
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "Certificate of Completion",
-                        style: TextStyle(
-                            fontWeight: FontWeight.w700, fontSize: 16),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        hasCertificate
-                            ? "Certificate available for viewing"
-                            : "Certificate not available yet",
-                        style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                      ),
-                      if (hasCertificate) ...[
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: () => _viewCertificatePdf(appointment),
-                            style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: Colors.purple),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            icon: const Icon(Icons.verified,
-                                color: Colors.purple, size: 16),
-                            label: const Text(
-                              'View Certificate PDF',
-                              style: TextStyle(color: Colors.purple),
-                            ),
+                  const SizedBox(height: 4),
+                  Text(
+                    hasCertificate
+                        ? "Certificate available for viewing"
+                        : "Certificate not available yet",
+                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                  ),
+                  if (hasCertificate) ...[
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () => _viewCertificatePdf(appointment),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Colors.purple),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
                           ),
                         ),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
+                        icon: const Icon(Icons.verified,
+                            color: Colors.purple, size: 16),
+                        label: const Text(
+                          'View Certificate PDF',
+                          style: TextStyle(color: Colors.purple),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 
@@ -1570,7 +1734,7 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                   // Delete Button
                   GestureDetector(
                     onTap: () {
-                      _deleteRejectedAppointment(appointment['id']);
+                      _deleteRejectedAppointment(appointment['appointmentId']);
                     },
                     child: Container(
                       padding: const EdgeInsets.all(8),
@@ -2013,11 +2177,11 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                   calendarStyle: CalendarStyle(
                     // Today's date styling
                     todayDecoration: BoxDecoration(
-                      color: Colors.teal.shade400,
+                      color: Colors.red.shade600,
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.teal.withOpacity(0.3),
+                          color: Colors.red.shade600.withOpacity(0.3),
                           spreadRadius: 1,
                           blurRadius: 4,
                           offset: const Offset(0, 2),
@@ -2516,15 +2680,29 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
   // Method to view certificate PDF in-app
   Future<void> _viewCertificatePdf(Map<String, dynamic> appointment) async {
     try {
-      // Query the certificates collection for this appointment
-      final appointmentId = appointment['appointmentId'] ?? appointment['id'];
-      final certificateSnapshot = await FirebaseFirestore.instance
-          .collection('certificates')
-          .where('appointmentId', isEqualTo: appointmentId)
-          .get();
+      Map<String, dynamic>? certificateData;
 
-      if (certificateSnapshot.docs.isNotEmpty) {
-        final certificateData = certificateSnapshot.docs.first.data();
+      // First try to use the enriched certificate data
+      if (appointment['certificateData'] != null) {
+        certificateData =
+            appointment['certificateData'] as Map<String, dynamic>;
+        debugPrint('Using enriched certificate data');
+      } else {
+        // Fallback: Query the certificates collection for this appointment
+        final appointmentId = appointment['appointmentId'];
+        final certificateSnapshot = await FirebaseFirestore.instance
+            .collection('certificates')
+            .where('appointmentId', isEqualTo: appointmentId)
+            .get();
+
+        if (certificateSnapshot.docs.isNotEmpty) {
+          certificateData = certificateSnapshot.docs.first.data();
+          debugPrint('Queried certificate data from Firestore');
+        }
+      }
+
+      if (certificateData != null) {
+        debugPrint('Certificate data found: ${certificateData.toString()}');
 
         // Check for Cloudinary URL first
         if (certificateData['pdfUrl'] != null &&
@@ -2547,9 +2725,14 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
         }
 
         // Check for local PDF path (fallback)
-        if (certificateData['pdfPath'] != null) {
-          final file = File(certificateData['pdfPath']);
+        if (certificateData['pdfPath'] != null &&
+            certificateData['pdfPath'].toString().isNotEmpty) {
+          final pdfPath = certificateData['pdfPath'].toString();
+          debugPrint('Attempting to open PDF from path: $pdfPath');
+
+          final file = File(pdfPath);
           if (await file.exists()) {
+            debugPrint('PDF file exists, reading bytes...');
             final pdfBytes = await file.readAsBytes();
             // Show in-app PDF viewer
             Navigator.of(context).push(
@@ -2563,11 +2746,14 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
               ),
             );
             return;
+          } else {
+            debugPrint('PDF file does not exist at path: $pdfPath');
           }
         }
       }
 
       // No certificate found or no PDF available
+      debugPrint('No certificate PDF available - showing error message');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(

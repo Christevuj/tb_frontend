@@ -115,20 +115,18 @@ class _DpostappointmentState extends State<Dpostappointment> {
                     );
                   }
 
-                  // Filter out appointments that have been processed to history (treatment completed)
-                  final completedAppointments = (snapshot.data?.docs ?? [])
-                      .where((doc) {
-                        final data = doc.data() as Map<String, dynamic>;
-                        
-                        // Filter out treatment completed appointments that have been moved to history
-                        final processedToHistory = data['processedToHistory'] as bool?;
-                        final treatmentCompleted = data['treatmentCompleted'] as bool?;
-                        
-                        // Include only appointments that haven't been processed to history
-                        // or that don't have treatment completed status
-                        return processedToHistory != true && treatmentCompleted != true;
-                      })
-                      .toList();
+                  // Filter out appointments that have been processed to history
+                  final completedAppointments =
+                      (snapshot.data?.docs ?? []).where((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+
+                    // Filter out appointments that have been moved to history
+                    final processedToHistory =
+                        data['processedToHistory'] as bool?;
+
+                    // Include only appointments that haven't been processed to history
+                    return processedToHistory != true;
+                  }).toList();
 
                   // Sort appointments by completedAt timestamp (client-side to avoid index requirements)
                   completedAppointments.sort((a, b) {
@@ -162,7 +160,7 @@ class _DpostappointmentState extends State<Dpostappointment> {
                             const Text(
                               "No Active Post-Consultation Appointments",
                               style: TextStyle(
-                                color: Colors.grey, 
+                                color: Colors.grey,
                                 fontSize: 18,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -171,7 +169,7 @@ class _DpostappointmentState extends State<Dpostappointment> {
                             Text(
                               "Completed treatments are moved to history",
                               style: TextStyle(
-                                color: Colors.grey.shade600, 
+                                color: Colors.grey.shade600,
                                 fontSize: 14,
                               ),
                             ),
@@ -202,7 +200,8 @@ class _DpostappointmentState extends State<Dpostappointment> {
                           String period = hour >= 12 ? 'PM' : 'AM';
                           if (hour > 12) hour -= 12;
                           if (hour == 0) hour = 12;
-                          completedTime = "${hour.toString()}:${minute.toString().padLeft(2, '0')} $period";
+                          completedTime =
+                              "${hour.toString()}:${minute.toString().padLeft(2, '0')} $period";
                         }
                       } catch (e) {
                         debugPrint('Error converting completedAt: $e');
@@ -217,7 +216,10 @@ class _DpostappointmentState extends State<Dpostappointment> {
                         elevation: 2,
                         child: ListTile(
                           leading: CircleAvatar(
-                            backgroundColor: Colors.blue,
+                            backgroundColor:
+                                appointment['treatmentCompleted'] == true
+                                    ? Colors.purple
+                                    : Colors.blue,
                             child: Text(
                               appointment["patientName"]
                                       ?.substring(0, 1)
@@ -241,11 +243,16 @@ class _DpostappointmentState extends State<Dpostappointment> {
                                     ? "${completedDate.day}/${completedDate.month}/${completedDate.year} at ${completedTime ?? "No time"}"
                                     : "Date not set",
                               ),
-                              const Text(
-                                "Completed with Prescription",
+                              Text(
+                                appointment['treatmentCompleted'] == true
+                                    ? "Treatment Completed - Ready to Move to History"
+                                    : "Completed with Prescription",
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: Colors.blue,
+                                  color:
+                                      appointment['treatmentCompleted'] == true
+                                          ? Colors.purple
+                                          : Colors.blue,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -323,8 +330,11 @@ class _DpostappointmentState extends State<Dpostappointment> {
               'prescriptionData': prescriptionData,
               'doctorData': doctorData,
               'showCertificateButton': true,
-              // Use the completed appointment's document ID for certificate operations
-              'id': appointment['appointmentId'] ?? appointment['id'],
+              // Keep the correct document ID for deletion from completed_appointments
+              'completedAppointmentDocId': appointment[
+                  'id'], // This is the doc.id from completed_appointments
+              'id': appointment['appointmentId'] ??
+                  appointment['id'], // This is for certificate operations
             },
           ),
         ),

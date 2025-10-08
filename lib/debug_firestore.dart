@@ -70,7 +70,7 @@ class _FirestoreDebugPageState extends State<FirestoreDebugPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Firestore Debug'),
-        backgroundColor: Colors.teal,
+        backgroundColor: Colors.red.shade600,
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())

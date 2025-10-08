@@ -140,17 +140,9 @@ class _DlandingpageState extends State<Dlandingpage> {
             maxChildSize: 0.95,
             minChildSize: 0.6,
             builder: (_, controller) => Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.teal.shade50,
-                    Colors.white,
-                  ],
-                ),
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(24)),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
               ),
               child: SingleChildScrollView(
                 controller: controller,
@@ -176,14 +168,7 @@ class _DlandingpageState extends State<Dlandingpage> {
                       Container(
                         padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Colors.teal.shade600,
-                              Colors.teal.shade400,
-                            ],
-                          ),
+                          color: Colors.red.shade600,
                           borderRadius: const BorderRadius.only(
                             topLeft: Radius.circular(24),
                             topRight: Radius.circular(24),
@@ -1387,9 +1372,8 @@ class _DlandingpageState extends State<Dlandingpage> {
                             MaterialPageRoute(
                               fullscreenDialog: true,
                               builder: (context) => VideoCallScreen(
-                                appointmentId: appointment['id'] ??
-                                    appointment['appointmentId'] ??
-                                    '',
+                                appointmentId:
+                                    appointment['appointmentId'] ?? '',
                                 patientName:
                                     appointment['patientName'] ?? 'Patient',
                                 roomId: appointment['roomId'],

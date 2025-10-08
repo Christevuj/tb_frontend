@@ -29,43 +29,36 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
 
   // Helper method to collect complete appointment data for history
   Future<Map<String, dynamic>> _collectCompleteAppointmentData(
-    Map<String, dynamic> appointment, 
-    Map<String, dynamic>? prescriptionData,
-    Map<String, dynamic>? certificateData
-  ) async {
+      Map<String, dynamic> appointment,
+      Map<String, dynamic>? prescriptionData,
+      Map<String, dynamic>? certificateData) async {
     // Start with the base appointment data
     Map<String, dynamic> completeData = Map<String, dynamic>.from(appointment);
-    
+
     // Add prescription data if available
     if (prescriptionData != null) {
       completeData['prescriptionData'] = prescriptionData;
     }
-    
+
     // Add certificate data if available
     if (certificateData != null) {
       completeData['certificateData'] = certificateData;
     }
-    
+
     // Add metadata about the history transfer
     completeData['originalStatus'] = completeData['status'];
-    completeData['historyTransferredBy'] = FirebaseAuth.instance.currentUser?.uid;
+    completeData['historyTransferredBy'] =
+        FirebaseAuth.instance.currentUser?.uid;
     completeData['historyTransferredAt'] = FieldValue.serverTimestamp();
-    
+
     return completeData;
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Colors.teal.shade50,
-            Colors.white,
-          ],
-        ),
+      decoration: const BoxDecoration(
+        color: Colors.white,
       ),
       child: SingleChildScrollView(
         child: Container(
@@ -90,14 +83,7 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Colors.teal.shade600,
-                      Colors.teal.shade400,
-                    ],
-                  ),
+                  color: Colors.red.shade600,
                   borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(24),
                     topRight: Radius.circular(24),
@@ -148,7 +134,8 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                      icon: const Icon(Icons.close,
+                          color: Colors.white, size: 28),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],
@@ -161,75 +148,74 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Patient Details Section - Collapsible Card
+                    _buildCollapsibleCard(
+                      title: "Patient Information",
+                      subtitle: "Complete patient details available",
+                      isExpanded: _isPatientInfoExpanded,
+                      onToggle: () {
+                        setState(() {
+                          _isPatientInfoExpanded = !_isPatientInfoExpanded;
+                        });
+                      },
+                      bullets: [
+                        'Full Name: ${widget.appointment["patientName"] ?? "Unknown Patient"}',
+                        'Email: ${widget.appointment["patientEmail"] ?? "No email provided"}',
+                        'Phone: ${widget.appointment["patientPhone"] ?? "No phone provided"}',
+                        'Gender: ${widget.appointment["patientGender"] ?? "Not specified"} | Age: ${widget.appointment["patientAge"]?.toString() ?? "Not specified"}',
+                      ],
+                      buttonText: 'MESSAGE PATIENT',
+                      onPressed: _openChat,
+                    ),
 
-              // Patient Details Section - Collapsible Card
-              _buildCollapsibleCard(
-                title: "Patient Information",
-                subtitle: "Complete patient details available",
-                isExpanded: _isPatientInfoExpanded,
-                onToggle: () {
-                  setState(() {
-                    _isPatientInfoExpanded = !_isPatientInfoExpanded;
-                  });
-                },
-                bullets: [
-                  'Full Name: ${widget.appointment["patientName"] ?? "Unknown Patient"}',
-                  'Email: ${widget.appointment["patientEmail"] ?? "No email provided"}',
-                  'Phone: ${widget.appointment["patientPhone"] ?? "No phone provided"}',
-                  'Gender: ${widget.appointment["patientGender"] ?? "Not specified"} | Age: ${widget.appointment["patientAge"]?.toString() ?? "Not specified"}',
-                ],
-                buttonText: 'MESSAGE PATIENT',
-                onPressed: _openChat,
-              ),
+                    const SizedBox(height: 12),
 
-              const SizedBox(height: 12),
+                    // Schedule Section - Enhanced Card Design
+                    _buildScheduleCard(
+                      title: "Appointment Schedule",
+                      subtitle: "Scheduled appointment details",
+                      isExpanded: _isScheduleExpanded,
+                      onToggle: () {
+                        setState(() {
+                          _isScheduleExpanded = !_isScheduleExpanded;
+                        });
+                      },
+                      appointment: widget.appointment,
+                    ),
 
-              // Schedule Section - Enhanced Card Design
-              _buildScheduleCard(
-                title: "Appointment Schedule",
-                subtitle: "Scheduled appointment details",
-                isExpanded: _isScheduleExpanded,
-                onToggle: () {
-                  setState(() {
-                    _isScheduleExpanded = !_isScheduleExpanded;
-                  });
-                },
-                appointment: widget.appointment,
-              ),
+                    const SizedBox(height: 12),
 
-              const SizedBox(height: 12),
+                    // Electronic Prescription Section - Collapsible Card
+                    _buildCollapsibleCard(
+                      title: "Electronic Prescription",
+                      subtitle: "Prescription details and medication list",
+                      isExpanded: _isPrescriptionExpanded,
+                      onToggle: () {
+                        setState(() {
+                          _isPrescriptionExpanded = !_isPrescriptionExpanded;
+                        });
+                      },
+                      bullets: _buildPrescriptionBullets(),
+                      buttonText: 'View prescription PDF',
+                      onPressed: () {
+                        _viewPrescriptionPdf(context, widget.appointment);
+                      },
+                    ),
 
-              // Electronic Prescription Section - Collapsible Card
-              _buildCollapsibleCard(
-                title: "Electronic Prescription",
-                subtitle: "Prescription details and medication list",
-                isExpanded: _isPrescriptionExpanded,
-                onToggle: () {
-                  setState(() {
-                    _isPrescriptionExpanded = !_isPrescriptionExpanded;
-                  });
-                },
-                bullets: _buildPrescriptionBullets(),
-                buttonText: 'View prescription PDF',
-                onPressed: () {
-                  _viewPrescriptionPdf(context, widget.appointment);
-                },
-              ),
+                    const SizedBox(height: 16),
 
-              const SizedBox(height: 16),
+                    // Certificate Management Section - Updated UI
+                    _buildCertificateCard(widget.appointment),
 
-              // Certificate Management Section - Updated UI
-              _buildCertificateCard(widget.appointment),
+                    const SizedBox(height: 16),
 
-              const SizedBox(height: 16),
+                    // Patient Journey Timeline Section - Enhanced Design
+                    _buildTimelineCard(),
 
-              // Patient Journey Timeline Section - Enhanced Design
-              _buildTimelineCard(),
+                    const SizedBox(height: 32),
 
-              const SizedBox(height: 32),
-
-              // Action Buttons Section
-              _buildActionButtons(widget.appointment),
+                    // Action Buttons Section
+                    _buildActionButtons(widget.appointment),
                   ],
                 ),
               ),
@@ -303,31 +289,33 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
     }
   }
 
-
-
   // Helper method to build timeline card
   Widget _buildTimelineCard() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('prescriptions')
-          .where('appointmentId', isEqualTo: widget.appointment['appointmentId'])
+          .where('appointmentId',
+              isEqualTo: widget.appointment['appointmentId'])
           .snapshots(),
       builder: (context, prescriptionSnapshot) {
         bool hasPrescription = false;
 
-        if (prescriptionSnapshot.hasData && prescriptionSnapshot.data!.docs.isNotEmpty) {
+        if (prescriptionSnapshot.hasData &&
+            prescriptionSnapshot.data!.docs.isNotEmpty) {
           hasPrescription = true;
         }
 
         return StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance
               .collection('certificates')
-              .where('appointmentId', isEqualTo: widget.appointment['appointmentId'])
+              .where('appointmentId',
+                  isEqualTo: widget.appointment['appointmentId'])
               .snapshots(),
           builder: (context, certificateSnapshot) {
             bool hasCertificate = false;
 
-            if (certificateSnapshot.hasData && certificateSnapshot.data!.docs.isNotEmpty) {
+            if (certificateSnapshot.hasData &&
+                certificateSnapshot.data!.docs.isNotEmpty) {
               hasCertificate = true;
             }
 
@@ -420,26 +408,32 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
                             children: [
                               _buildStepInstruction(
                                 stepNumber: '1',
-                                instruction: 'Patient requested appointment with a Doctor',
+                                instruction:
+                                    'Patient requested appointment with a Doctor',
                                 isCompleted: true,
                               ),
                               const SizedBox(height: 8),
                               _buildStepInstruction(
                                 stepNumber: '2',
-                                instruction: 'Doctor confirmed and approved the appointment schedule',
+                                instruction:
+                                    'Doctor confirmed and approved the appointment schedule',
                                 isCompleted: true,
                               ),
                               const SizedBox(height: 8),
                               _buildStepInstruction(
                                 stepNumber: '3',
-                                instruction: 'Consultation completed with prescription issued',
-                                isCompleted: hasPrescription, // Now checks if prescription exists
+                                instruction:
+                                    'Consultation completed with prescription issued',
+                                isCompleted:
+                                    hasPrescription, // Now checks if prescription exists
                               ),
                               const SizedBox(height: 8),
                               _buildStepInstruction(
                                 stepNumber: '4',
-                                instruction: 'Treatment completion certificate delivered',
-                                isCompleted: hasCertificate, // Now checks if certificate exists
+                                instruction:
+                                    'Treatment completion certificate delivered',
+                                isCompleted:
+                                    hasCertificate, // Now checks if certificate exists
                               ),
                             ],
                           ),
@@ -507,7 +501,8 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
     if (text.toLowerCase().contains('date')) return Icons.calendar_today;
     if (text.toLowerCase().contains('time')) return Icons.access_time;
     if (text.toLowerCase().contains('facility')) return Icons.location_on;
-    if (text.toLowerCase().contains('prescription')) return Icons.medical_services;
+    if (text.toLowerCase().contains('prescription'))
+      return Icons.medical_services;
     if (text.toLowerCase().contains('medicine')) return Icons.medication;
     if (text.toLowerCase().contains('gender')) return Icons.people;
     return Icons.info;
@@ -579,18 +574,22 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
                       children: [
                         Text(
                           title,
-                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 16),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           subtitle,
-                          style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                          style:
+                              TextStyle(color: Colors.grey[600], fontSize: 13),
                         ),
                       ],
                     ),
                   ),
                   Icon(
-                    isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    isExpanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
                     color: const Color(0xFF0A84FF),
                     size: 24,
                   ),
@@ -612,7 +611,8 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
                   Column(
                     children: bullets
                         .map((b) => Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 6.0),
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 6.0),
                               child: Row(
                                 children: [
                                   Icon(
@@ -642,10 +642,13 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
                         ),
                       ),
                       icon: buttonText.contains('MESSAGE')
-                          ? const Icon(Icons.message, color: Color(0xFF0A84FF), size: 16)
-                          : const Icon(Icons.visibility, color: Color(0xFF0A84FF), size: 16),
+                          ? const Icon(Icons.message,
+                              color: Color(0xFF0A84FF), size: 16)
+                          : const Icon(Icons.visibility,
+                              color: Color(0xFF0A84FF), size: 16),
                       label: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12.0, vertical: 10),
                         child: Text(
                           buttonText,
                           style: const TextStyle(color: Color(0xFF0A84FF)),
@@ -713,18 +716,22 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
                       children: [
                         Text(
                           title,
-                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 16),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           subtitle,
-                          style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                          style:
+                              TextStyle(color: Colors.grey[600], fontSize: 13),
                         ),
                       ],
                     ),
                   ),
                   Icon(
-                    isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    isExpanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
                     color: const Color(0xFF0A84FF),
                     size: 24,
                   ),
@@ -774,7 +781,7 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
   List<String> _buildPrescriptionBullets() {
     final prescriptionData = widget.appointment["prescriptionData"];
     List<String> bullets = [];
-    
+
     if (prescriptionData == null) {
       bullets.add('No prescription data available');
       return bullets;
@@ -783,11 +790,13 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
     if (prescriptionData["medicines"] != null) {
       final medicines = prescriptionData["medicines"] as List;
       for (var medicine in medicines) {
-        bullets.add('${medicine['name']} - ${medicine['dosage']} (${medicine['frequency']})');
+        bullets.add(
+            '${medicine['name']} - ${medicine['dosage']} (${medicine['frequency']})');
       }
     }
 
-    if (prescriptionData["notes"] != null && prescriptionData["notes"].toString().isNotEmpty) {
+    if (prescriptionData["notes"] != null &&
+        prescriptionData["notes"].toString().isNotEmpty) {
       bullets.add('Additional notes: ${prescriptionData["notes"]}');
     }
 
@@ -838,7 +847,8 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
                     children: [
                       Text(
                         "Certificate Of Completion",
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 16),
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -860,8 +870,8 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
                                     // Create certificate if not created yet
                                     Navigator.of(context).push(
                                       MaterialPageRoute(
-                                        builder: (context) =>
-                                            Certificate(appointment: appointment),
+                                        builder: (context) => Certificate(
+                                            appointment: appointment),
                                       ),
                                     );
                                   }
@@ -869,13 +879,17 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
                               : null,
                           icon: Icon(
                             appointment["meetingCompleted"] == true
-                                ? (hasCertificate ? Icons.visibility : Icons.add)
+                                ? (hasCertificate
+                                    ? Icons.visibility
+                                    : Icons.add)
                                 : Icons.lock,
                             size: 20,
                           ),
                           label: Text(
                             appointment["meetingCompleted"] == true
-                                ? (hasCertificate ? "View Certificate" : "Add Certificate")
+                                ? (hasCertificate
+                                    ? "View Certificate"
+                                    : "Add Certificate")
                                 : "Complete Meeting First",
                             style: const TextStyle(
                               fontSize: 16,
@@ -883,9 +897,10 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
                             ),
                           ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: appointment["meetingCompleted"] == true
-                                ? Colors.orange.shade600
-                                : Colors.grey.shade400,
+                            backgroundColor:
+                                appointment["meetingCompleted"] == true
+                                    ? Colors.orange.shade600
+                                    : Colors.grey.shade400,
                             foregroundColor: Colors.white,
                             elevation: 0,
                             padding: const EdgeInsets.symmetric(vertical: 12),
@@ -917,10 +932,11 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
         bool hasPrescription = false;
         Map<String, dynamic>? prescriptionData;
 
-        if (prescriptionSnapshot.hasData && prescriptionSnapshot.data!.docs.isNotEmpty) {
+        if (prescriptionSnapshot.hasData &&
+            prescriptionSnapshot.data!.docs.isNotEmpty) {
           hasPrescription = true;
-          prescriptionData =
-              prescriptionSnapshot.data!.docs.first.data() as Map<String, dynamic>;
+          prescriptionData = prescriptionSnapshot.data!.docs.first.data()
+              as Map<String, dynamic>;
         }
 
         return StreamBuilder<QuerySnapshot>(
@@ -931,7 +947,8 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
           builder: (context, certificateSnapshot) {
             bool hasCertificate = false;
 
-            if (certificateSnapshot.hasData && certificateSnapshot.data!.docs.isNotEmpty) {
+            if (certificateSnapshot.hasData &&
+                certificateSnapshot.data!.docs.isNotEmpty) {
               hasCertificate = true;
             }
 
@@ -995,7 +1012,7 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
                         ],
                       ),
                     ),
-                  
+
                   // Certificate requirement message when prescription exists but no certificate
                   if (hasPrescription && !hasCertificate)
                     Container(
@@ -1040,7 +1057,7 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
                         ],
                       ),
                     ),
-                  
+
                   // Upload Prescription First Button
                   if (!hasPrescription)
                     Container(
@@ -1050,10 +1067,7 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
                         gradient: LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
-                          colors: [
-                            Colors.grey.shade400,
-                            Colors.grey.shade500
-                          ],
+                          colors: [Colors.grey.shade400, Colors.grey.shade500],
                         ),
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
@@ -1109,19 +1123,13 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: hasCertificate
-                              ? [
-                                  Colors.green.shade400,
-                                  Colors.green.shade600
-                                ]
-                              : [
-                                  Colors.grey.shade400,
-                                  Colors.grey.shade500
-                                ],
+                              ? [Colors.green.shade400, Colors.green.shade600]
+                              : [Colors.grey.shade400, Colors.grey.shade500],
                         ),
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: hasCertificate 
+                            color: hasCertificate
                                 ? Colors.green.withOpacity(0.3)
                                 : Colors.grey.withOpacity(0.2),
                             blurRadius: 8,
@@ -1133,103 +1141,105 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
                         color: Colors.transparent,
                         child: InkWell(
                           borderRadius: BorderRadius.circular(12),
-                          onTap: hasCertificate ? () async {
-                            try {
-                              // Get certificate data
-                              Map<String, dynamic>? certificateDataMap;
-                              try {
-                                final certificateQuery = await FirebaseFirestore.instance
-                                    .collection('certificates')
-                                    .where('appointmentId', isEqualTo: appointment['appointmentId'])
-                                    .get();
-                                
-                                if (certificateQuery.docs.isNotEmpty) {
-                                  certificateDataMap = certificateQuery.docs.first.data();
+                          onTap: hasCertificate
+                              ? () async {
+                                  try {
+                                    // Get certificate data
+                                    Map<String, dynamic>? certificateDataMap;
+                                    try {
+                                      final certificateQuery =
+                                          await FirebaseFirestore.instance
+                                              .collection('certificates')
+                                              .where('appointmentId',
+                                                  isEqualTo: appointment[
+                                                      'appointmentId'])
+                                              .get();
+
+                                      if (certificateQuery.docs.isNotEmpty) {
+                                        certificateDataMap =
+                                            certificateQuery.docs.first.data();
+                                      }
+                                    } catch (e) {
+                                      debugPrint(
+                                          'Error fetching certificate data: $e');
+                                    }
+
+                                    // Collect all appointment data including prescription and certificate
+                                    final completeAppointmentData =
+                                        await _collectCompleteAppointmentData(
+                                            appointment,
+                                            prescriptionData,
+                                            certificateDataMap);
+
+                                    // Move directly to appointment_history collection
+                                    await FirebaseFirestore.instance
+                                        .collection('appointment_history')
+                                        .add({
+                                      ...completeAppointmentData,
+                                      'status': 'treatment_completed',
+                                      'treatmentCompletedAt':
+                                          FieldValue.serverTimestamp(),
+                                      'movedToHistoryAt':
+                                          FieldValue.serverTimestamp(),
+                                      'processedToHistory': true,
+                                    });
+
+                                    // Send notification to patient about treatment completion
+                                    await FirebaseFirestore.instance
+                                        .collection('patient_notifications')
+                                        .add({
+                                      'patientUid': appointment['patientUid'] ??
+                                          appointment['patientId'],
+                                      'appointmentId':
+                                          appointment['appointmentId'],
+                                      'type': 'treatment_completed',
+                                      'title': 'Treatment Completed',
+                                      'message':
+                                          'Your TB treatment has been completed successfully. Both e-prescription and treatment certificate are available for download.',
+                                      'prescriptionData': prescriptionData,
+                                      'certificateData': certificateDataMap,
+                                      'createdAt': FieldValue.serverTimestamp(),
+                                      'isRead': false,
+                                      'doctorName': appointment['doctorName'] ??
+                                          'Your Doctor',
+                                    });
+
+                                    // Remove the appointment from completed_appointments (post appointments)
+                                    await FirebaseFirestore.instance
+                                        .collection('completed_appointments')
+                                        .doc(appointment[
+                                                'completedAppointmentDocId'] ??
+                                            appointment['id'])
+                                        .delete();
+
+                                    if (context.mounted) {
+                                      // Show success message
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                              "Treatment completed successfully! Appointment moved to history and patient notified."),
+                                          backgroundColor: Colors.green,
+                                        ),
+                                      );
+
+                                      // Navigate back to doctor dashboard
+                                      Navigator.of(context).pop();
+                                    }
+                                  } catch (e) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                              "Error completing treatment: $e"),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                    }
+                                  }
                                 }
-                              } catch (e) {
-                                debugPrint('Error fetching certificate data: $e');
-                              }
-
-                              // Collect all appointment data including prescription and certificate
-                              final completeAppointmentData = await _collectCompleteAppointmentData(
-                                appointment, 
-                                prescriptionData, 
-                                certificateDataMap
-                              );
-
-                              // Move to appointment_history collection
-                              await FirebaseFirestore.instance
-                                  .collection('appointment_history')
-                                  .add({
-                                ...completeAppointmentData,
-                                'status': 'treatment_completed',
-                                'treatmentCompletedAt': FieldValue.serverTimestamp(),
-                                'movedToHistoryAt': FieldValue.serverTimestamp(),
-                                'processedToHistory': true,
-                              });
-
-                              // Create a completed appointment record (for dpost.dart visibility)
-                              await FirebaseFirestore.instance
-                                  .collection('completed_appointments')
-                                  .add({
-                                ...appointment,
-                                'prescriptionData': prescriptionData,
-                                'certificateData': certificateDataMap,
-                                'meetingCompleted': true,
-                                'treatmentCompleted': true,
-                                'completedAt': FieldValue.serverTimestamp(),
-                                'processedToHistory': true, // Mark as processed to history
-                              });
-
-                              // Send notification to patient about treatment completion
-                              await FirebaseFirestore.instance
-                                  .collection('patient_notifications')
-                                  .add({
-                                'patientUid': appointment['patientUid'] ??
-                                    appointment['patientId'],
-                                'appointmentId': appointment['appointmentId'],
-                                'type': 'treatment_completed',
-                                'title': 'Treatment Completed',
-                                'message':
-                                    'Your TB treatment has been completed successfully. Both e-prescription and treatment certificate are available for download.',
-                                'prescriptionData': prescriptionData,
-                                'certificateData': certificateDataMap,
-                                'createdAt': FieldValue.serverTimestamp(),
-                                'isRead': false,
-                                'doctorName':
-                                    appointment['doctorName'] ?? 'Your Doctor',
-                              });
-
-                              // Remove the appointment from approved_appointments
-                              await FirebaseFirestore.instance
-                                  .collection('approved_appointments')
-                                  .doc(appointment['appointmentId'])
-                                  .delete();
-
-                              if (context.mounted) {
-                                // Show success message
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                        "Treatment completed successfully! All data moved to history. Patient notified about treatment completion."),
-                                    backgroundColor: Colors.green,
-                                  ),
-                                );
-
-                                // Navigate back to doctor dashboard
-                                Navigator.of(context).pop();
-                              }
-                            } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text("Error completing treatment: $e"),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
-                              }
-                            }
-                          } : null,
+                              : null,
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -1237,7 +1247,7 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
                                   size: 18, color: Colors.white),
                               const SizedBox(width: 8),
                               Text(
-                                hasCertificate 
+                                hasCertificate
                                     ? "Treatment Completed"
                                     : "Create Certificate First",
                                 style: const TextStyle(
@@ -1259,8 +1269,6 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
       },
     );
   }
-
-
 
   Widget ModernInfoCard({
     required IconData icon,
@@ -1325,10 +1333,6 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
       ),
     );
   }
-
-
-
-
 
   // Static method to view prescription PDF
   static void _viewPrescriptionPdf(
@@ -1413,7 +1417,8 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Prescription PDF not available. Please contact your doctor.'),
+            content: Text(
+                'Prescription PDF not available. Please contact your doctor.'),
             backgroundColor: Colors.orange,
           ),
         );
@@ -1514,23 +1519,16 @@ class SectionTitle extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.teal.shade100,
-            Colors.teal.shade50,
-          ],
-        ),
+        color: Colors.red.shade600,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.teal.shade200),
+        border: Border.all(color: Colors.red.shade200),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.teal.shade600,
+              color: Colors.red.shade600,
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Icon(
@@ -1545,7 +1543,7 @@ class SectionTitle extends StatelessWidget {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Colors.teal.shade800,
+              color: Colors.red.shade800,
             ),
           ),
         ],
@@ -1566,14 +1564,7 @@ class InfoField extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.white,
-            Colors.grey.shade50,
-          ],
-        ),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey.shade200, width: 1),
         boxShadow: [
@@ -1590,12 +1581,12 @@ class InfoField extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.teal.shade100,
+              color: Colors.red.shade100,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
-              icon, 
-              color: Colors.teal.shade700,
+              icon,
+              color: Colors.red.shade700,
               size: 22,
             ),
           ),
@@ -1635,7 +1626,8 @@ class _CertificatePdfViewerFromUrlScreen extends StatefulWidget {
       _CertificatePdfViewerFromUrlScreenState();
 }
 
-class _CertificatePdfViewerFromUrlScreenState extends State<_CertificatePdfViewerFromUrlScreen> {
+class _CertificatePdfViewerFromUrlScreenState
+    extends State<_CertificatePdfViewerFromUrlScreen> {
   pdfx.PdfController? _pdfController;
   bool _isLoading = true;
   String? _errorMessage;
@@ -1661,7 +1653,8 @@ class _CertificatePdfViewerFromUrlScreenState extends State<_CertificatePdfViewe
           _isLoading = false;
         });
       } else {
-        throw Exception('Failed to download Certificate PDF: ${response.statusCode}');
+        throw Exception(
+            'Failed to download Certificate PDF: ${response.statusCode}');
       }
     } catch (e) {
       debugPrint('Error loading Certificate PDF: $e');
@@ -1698,7 +1691,8 @@ class _CertificatePdfViewerFromUrlScreenState extends State<_CertificatePdfViewe
           filename: widget.filename,
         );
       } else {
-        throw Exception('Failed to download Certificate PDF: ${response.statusCode}');
+        throw Exception(
+            'Failed to download Certificate PDF: ${response.statusCode}');
       }
     } catch (e) {
       // Close loading dialog if still open
@@ -1740,7 +1734,8 @@ class _CertificatePdfViewerFromUrlScreenState extends State<_CertificatePdfViewe
           onLayout: (format) => pdfBytes,
         );
       } else {
-        throw Exception('Failed to download Certificate PDF: ${response.statusCode}');
+        throw Exception(
+            'Failed to download Certificate PDF: ${response.statusCode}');
       }
     } catch (e) {
       // Close loading dialog if still open
@@ -1808,7 +1803,7 @@ class _CertificatePdfViewerFromUrlScreenState extends State<_CertificatePdfViewe
               ],
             ),
           ),
-          
+
           // PDF Content with Integrated Action Buttons
           Expanded(
             child: Container(
@@ -1825,7 +1820,7 @@ class _CertificatePdfViewerFromUrlScreenState extends State<_CertificatePdfViewe
                     Expanded(
                       child: _buildBody(),
                     ),
-                    
+
                     // Integrated Action Buttons Inside Container
                     Container(
                       padding: const EdgeInsets.all(16),
@@ -1867,9 +1862,11 @@ class _CertificatePdfViewerFromUrlScreenState extends State<_CertificatePdfViewe
                                   onTap: _downloadAndSharePdf,
                                   borderRadius: BorderRadius.circular(14),
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16),
                                     child: const Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         Icon(
                                           Icons.share_rounded,
@@ -1910,7 +1907,8 @@ class _CertificatePdfViewerFromUrlScreenState extends State<_CertificatePdfViewe
                                 borderRadius: BorderRadius.circular(14),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF27AE60).withOpacity(0.3),
+                                    color: const Color(0xFF27AE60)
+                                        .withOpacity(0.3),
                                     spreadRadius: 0,
                                     blurRadius: 8,
                                     offset: const Offset(0, 3),
@@ -1923,9 +1921,11 @@ class _CertificatePdfViewerFromUrlScreenState extends State<_CertificatePdfViewe
                                   onTap: _printPdf,
                                   borderRadius: BorderRadius.circular(14),
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16),
                                     child: const Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         Icon(
                                           Icons.print_rounded,
@@ -1975,7 +1975,8 @@ class _CertificatePdfViewerFromUrlScreenState extends State<_CertificatePdfViewe
                 borderRadius: BorderRadius.circular(16),
               ),
               child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.purple.shade600),
+                valueColor:
+                    AlwaysStoppedAnimation<Color>(Colors.purple.shade600),
                 strokeWidth: 3,
               ),
             ),
@@ -2238,7 +2239,7 @@ class _CertificatePdfViewerScreen extends StatelessWidget {
               ],
             ),
           ),
-          
+
           // PDF Content with Integrated Action Buttons
           Expanded(
             child: Container(
@@ -2259,10 +2260,13 @@ class _CertificatePdfViewerScreen extends StatelessWidget {
                         child: ClipRect(
                           child: PdfPreview(
                             build: (format) => pdfBytes,
-                            allowPrinting: false, // We handle this in bottom buttons
-                            allowSharing: false,  // We handle this in bottom buttons
+                            allowPrinting:
+                                false, // We handle this in bottom buttons
+                            allowSharing:
+                                false, // We handle this in bottom buttons
                             canChangePageFormat: false,
-                            canChangeOrientation: false, // Disable orientation change
+                            canChangeOrientation:
+                                false, // Disable orientation change
                             canDebug: false,
                             initialPageFormat: PdfPageFormat.a4,
                             pdfFileName: filename,
@@ -2274,13 +2278,14 @@ class _CertificatePdfViewerScreen extends StatelessWidget {
                             // Remove any bottom decorations
                             dynamicLayout: false,
                             maxPageWidth: double.infinity,
-                            previewPageMargin: const EdgeInsets.all(8), // Small margins around pages
+                            previewPageMargin: const EdgeInsets.all(
+                                8), // Small margins around pages
                             pageFormats: const {}, // Remove page format options
                           ),
                         ),
                       ),
                     ),
-                    
+
                     // Integrated Action Buttons Inside Container
                     Container(
                       padding: const EdgeInsets.all(16),
@@ -2322,9 +2327,11 @@ class _CertificatePdfViewerScreen extends StatelessWidget {
                                   onTap: () => _sharePdf(context),
                                   borderRadius: BorderRadius.circular(14),
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16),
                                     child: const Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         Icon(
                                           Icons.share_rounded,
@@ -2365,7 +2372,8 @@ class _CertificatePdfViewerScreen extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(14),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF27AE60).withOpacity(0.3),
+                                    color: const Color(0xFF27AE60)
+                                        .withOpacity(0.3),
                                     spreadRadius: 0,
                                     blurRadius: 8,
                                     offset: const Offset(0, 3),
@@ -2378,9 +2386,11 @@ class _CertificatePdfViewerScreen extends StatelessWidget {
                                   onTap: () => _printPdf(context),
                                   borderRadius: BorderRadius.circular(14),
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16),
                                     child: const Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         Icon(
                                           Icons.print_rounded,
@@ -2437,7 +2447,8 @@ class _PrescriptionPdfViewerFromUrlScreen extends StatefulWidget {
       _PrescriptionPdfViewerFromUrlScreenState();
 }
 
-class _PrescriptionPdfViewerFromUrlScreenState extends State<_PrescriptionPdfViewerFromUrlScreen> {
+class _PrescriptionPdfViewerFromUrlScreenState
+    extends State<_PrescriptionPdfViewerFromUrlScreen> {
   pdfx.PdfController? _pdfController;
   bool _isLoading = true;
   String? _errorMessage;
@@ -2463,7 +2474,8 @@ class _PrescriptionPdfViewerFromUrlScreenState extends State<_PrescriptionPdfVie
           _isLoading = false;
         });
       } else {
-        throw Exception('Failed to download Prescription PDF: ${response.statusCode}');
+        throw Exception(
+            'Failed to download Prescription PDF: ${response.statusCode}');
       }
     } catch (e) {
       debugPrint('Error loading Prescription PDF: $e');
@@ -2500,7 +2512,8 @@ class _PrescriptionPdfViewerFromUrlScreenState extends State<_PrescriptionPdfVie
           filename: widget.filename,
         );
       } else {
-        throw Exception('Failed to download Prescription PDF: ${response.statusCode}');
+        throw Exception(
+            'Failed to download Prescription PDF: ${response.statusCode}');
       }
     } catch (e) {
       // Close loading dialog if still open
@@ -2542,7 +2555,8 @@ class _PrescriptionPdfViewerFromUrlScreenState extends State<_PrescriptionPdfVie
           onLayout: (format) => pdfBytes,
         );
       } else {
-        throw Exception('Failed to download Prescription PDF: ${response.statusCode}');
+        throw Exception(
+            'Failed to download Prescription PDF: ${response.statusCode}');
       }
     } catch (e) {
       // Close loading dialog if still open
@@ -2610,7 +2624,7 @@ class _PrescriptionPdfViewerFromUrlScreenState extends State<_PrescriptionPdfVie
               ],
             ),
           ),
-          
+
           // PDF Content with Integrated Action Buttons
           Expanded(
             child: Container(
@@ -2627,7 +2641,7 @@ class _PrescriptionPdfViewerFromUrlScreenState extends State<_PrescriptionPdfVie
                     Expanded(
                       child: _buildBody(),
                     ),
-                    
+
                     // Integrated Action Buttons Inside Container
                     Container(
                       padding: const EdgeInsets.all(16),
@@ -2656,7 +2670,8 @@ class _PrescriptionPdfViewerFromUrlScreenState extends State<_PrescriptionPdfVie
                                 borderRadius: BorderRadius.circular(14),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF4A90E2).withOpacity(0.3),
+                                    color: const Color(0xFF4A90E2)
+                                        .withOpacity(0.3),
                                     spreadRadius: 0,
                                     blurRadius: 8,
                                     offset: const Offset(0, 3),
@@ -2669,9 +2684,11 @@ class _PrescriptionPdfViewerFromUrlScreenState extends State<_PrescriptionPdfVie
                                   onTap: _downloadAndSharePdf,
                                   borderRadius: BorderRadius.circular(14),
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16),
                                     child: const Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         Icon(
                                           Icons.share_rounded,
@@ -2712,7 +2729,8 @@ class _PrescriptionPdfViewerFromUrlScreenState extends State<_PrescriptionPdfVie
                                 borderRadius: BorderRadius.circular(14),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF27AE60).withOpacity(0.3),
+                                    color: const Color(0xFF27AE60)
+                                        .withOpacity(0.3),
                                     spreadRadius: 0,
                                     blurRadius: 8,
                                     offset: const Offset(0, 3),
@@ -2725,9 +2743,11 @@ class _PrescriptionPdfViewerFromUrlScreenState extends State<_PrescriptionPdfVie
                                   onTap: _printPdf,
                                   borderRadius: BorderRadius.circular(14),
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16),
                                     child: const Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         Icon(
                                           Icons.print_rounded,
@@ -3040,7 +3060,7 @@ class _PrescriptionPdfViewerScreen extends StatelessWidget {
               ],
             ),
           ),
-          
+
           // PDF Content with Integrated Action Buttons
           Expanded(
             child: Container(
@@ -3061,10 +3081,13 @@ class _PrescriptionPdfViewerScreen extends StatelessWidget {
                         child: ClipRect(
                           child: PdfPreview(
                             build: (format) => pdfBytes,
-                            allowPrinting: false, // We handle this in bottom buttons
-                            allowSharing: false,  // We handle this in bottom buttons
+                            allowPrinting:
+                                false, // We handle this in bottom buttons
+                            allowSharing:
+                                false, // We handle this in bottom buttons
                             canChangePageFormat: false,
-                            canChangeOrientation: false, // Disable orientation change
+                            canChangeOrientation:
+                                false, // Disable orientation change
                             canDebug: false,
                             initialPageFormat: PdfPageFormat.a4,
                             pdfFileName: filename,
@@ -3076,13 +3099,14 @@ class _PrescriptionPdfViewerScreen extends StatelessWidget {
                             // Remove any bottom decorations
                             dynamicLayout: false,
                             maxPageWidth: double.infinity,
-                            previewPageMargin: const EdgeInsets.all(8), // Small margins around pages
+                            previewPageMargin: const EdgeInsets.all(
+                                8), // Small margins around pages
                             pageFormats: const {}, // Remove page format options
                           ),
                         ),
                       ),
                     ),
-                    
+
                     // Integrated Action Buttons Inside Container
                     Container(
                       padding: const EdgeInsets.all(16),
@@ -3111,7 +3135,8 @@ class _PrescriptionPdfViewerScreen extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(14),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF4A90E2).withOpacity(0.3),
+                                    color: const Color(0xFF4A90E2)
+                                        .withOpacity(0.3),
                                     spreadRadius: 0,
                                     blurRadius: 8,
                                     offset: const Offset(0, 3),
@@ -3124,9 +3149,11 @@ class _PrescriptionPdfViewerScreen extends StatelessWidget {
                                   onTap: () => _sharePdf(context),
                                   borderRadius: BorderRadius.circular(14),
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16),
                                     child: const Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         Icon(
                                           Icons.share_rounded,
@@ -3167,7 +3194,8 @@ class _PrescriptionPdfViewerScreen extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(14),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF27AE60).withOpacity(0.3),
+                                    color: const Color(0xFF27AE60)
+                                        .withOpacity(0.3),
                                     spreadRadius: 0,
                                     blurRadius: 8,
                                     offset: const Offset(0, 3),
@@ -3180,9 +3208,11 @@ class _PrescriptionPdfViewerScreen extends StatelessWidget {
                                   onTap: () => _printPdf(context),
                                   borderRadius: BorderRadius.circular(14),
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16),
                                     child: const Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         Icon(
                                           Icons.print_rounded,

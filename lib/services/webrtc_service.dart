@@ -26,6 +26,15 @@ class WebRTCService {
   bool _inCall = false;
   bool _isCaller = false;
   String? _currentRoomId;
+  String? _currentAppointmentId; // Track current appointment ID
+  bool _permissionsGranted = false;
+  DateTime? _lastPermissionCheck;
+  bool _isMediaActive = false;
+  String? _activeUserId; // Track which user has active media
+
+  // Test mode for single device development
+  static bool isTestMode = kDebugMode; // Enable in debug mode
+  bool _testModeActive = false;
 
   // Callbacks
   Function()? onLocalStream;
@@ -44,17 +53,36 @@ class WebRTCService {
   };
 
   // Request camera and microphone permissions
-  Future<bool> requestPermissions() async {
+  Future<bool> requestPermissions({bool forceCheck = false}) async {
     try {
-      if (kDebugMode) print('Requesting camera and microphone permissions...');
+      // Use cached result if recent and not forcing a new check
+      if (!forceCheck &&
+          _permissionsGranted &&
+          _lastPermissionCheck != null &&
+          DateTime.now().difference(_lastPermissionCheck!).inMinutes < 5) {
+        if (kDebugMode) print('✅ Using cached permission result');
+        return true;
+      }
+
+      if (kDebugMode)
+        print('🔐 Requesting camera and microphone permissions...');
 
       // Check current permission status first
       var cameraStatus = await Permission.camera.status;
       var micStatus = await Permission.microphone.status;
 
       if (kDebugMode) {
-        print('Current camera permission: $cameraStatus');
-        print('Current microphone permission: $micStatus');
+        print('📋 Current camera permission: $cameraStatus');
+        print('📋 Current microphone permission: $micStatus');
+      }
+
+      // If permissions are already granted, return true
+      if (cameraStatus == PermissionStatus.granted &&
+          micStatus == PermissionStatus.granted) {
+        if (kDebugMode) print('✅ Permissions already granted');
+        _permissionsGranted = true;
+        _lastPermissionCheck = DateTime.now();
+        return true;
       }
 
       // For Android 13+ (API 33+), we also need to check notification permission for better UX
@@ -64,6 +92,7 @@ class WebRTCService {
       ];
 
       // Request permissions if not already granted
+      if (kDebugMode) print('🔄 Requesting permissions...');
       Map<Permission, PermissionStatus> statuses =
           await permissionsToRequest.request();
 
@@ -73,13 +102,17 @@ class WebRTCService {
           statuses[Permission.microphone] == PermissionStatus.granted;
 
       if (kDebugMode) {
-        print('Camera permission granted: $cameraGranted');
-        print('Microphone permission granted: $micGranted');
+        print('📊 Camera permission granted: $cameraGranted');
+        print('📊 Microphone permission granted: $micGranted');
         print(
-            'Detailed status - Camera: ${statuses[Permission.camera]}, Microphone: ${statuses[Permission.microphone]}');
+            '🔍 Detailed status - Camera: ${statuses[Permission.camera]}, Microphone: ${statuses[Permission.microphone]}');
       }
 
-      if (!cameraGranted || !micGranted) {
+      bool allGranted = cameraGranted && micGranted;
+      _permissionsGranted = allGranted;
+      _lastPermissionCheck = DateTime.now();
+
+      if (!allGranted) {
         List<String> missingPermissions = [];
         List<String> deniedPermanently = [];
 
@@ -123,65 +156,173 @@ class WebRTCService {
 
   // Initialize WebRTC
   Future<void> initialize() async {
-    if (_isInitialized) return;
+    if (_isInitialized) {
+      if (kDebugMode) print('✅ WebRTC already initialized');
+      return;
+    }
 
     try {
+      if (kDebugMode) print('🔄 Initializing WebRTC renderers...');
+
+      // Initialize renderers first
       await localRenderer.initialize();
       await remoteRenderer.initialize();
+
+      if (kDebugMode) print('✅ WebRTC renderers initialized successfully');
       _isInitialized = true;
     } catch (e) {
-      if (kDebugMode) print('WebRTC initialization error: $e');
+      if (kDebugMode) print('❌ WebRTC initialization error: $e');
       onError?.call('Failed to initialize WebRTC: $e');
+      throw e; // Re-throw to handle in calling code
     }
+  }
+
+  // Check if media is available for this user
+  Future<bool> _canAccessMedia(String userId) async {
+    if (!_isMediaActive) {
+      if (kDebugMode)
+        print('✅ Media not active, access granted for user: $userId');
+      return true;
+    }
+
+    if (_activeUserId == userId) {
+      if (kDebugMode) print('✅ User $userId already has media access');
+      return true;
+    }
+
+    if (kDebugMode)
+      print(
+          '⚠️ Media already active for user: $_activeUserId, denying access to: $userId');
+    return false;
+  }
+
+  // Release media access for this user
+  void _releaseMediaAccess(String userId) {
+    if (_activeUserId == userId) {
+      _isMediaActive = false;
+      _activeUserId = null;
+      if (kDebugMode) print('✅ Media access released for user: $userId');
+    }
+  }
+
+  // Acquire media access for this user
+  void _acquireMediaAccess(String userId) {
+    _isMediaActive = true;
+    _activeUserId = userId;
+    if (kDebugMode) print('✅ Media access acquired for user: $userId');
   }
 
   // Create peer connection
   Future<void> _createPeerConnection() async {
     try {
+      if (kDebugMode) print('🔄 Creating peer connection...');
       _peerConnection = await createPeerConnection(_configuration);
 
       _peerConnection!.onIceCandidate = (RTCIceCandidate candidate) {
-        _sendSignalingMessage({
-          'type': 'ice-candidate',
-          'candidate': candidate.toMap(),
-        });
+        if (kDebugMode)
+          print('🧊 ICE candidate generated: ${candidate.candidate}');
+        // For now, we're using the simple offer/answer model
+        // In a more robust implementation, you'd exchange ICE candidates
       };
 
       _peerConnection!.onTrack = (RTCTrackEvent event) {
+        if (kDebugMode) print('📹 Remote track received: ${event.track.kind}');
         if (event.track.kind == 'video') {
           _remoteStream = event.streams[0];
-          remoteRenderer.srcObject = _remoteStream;
+
+          // Safely set remote renderer source object
+          try {
+            remoteRenderer.srcObject = _remoteStream;
+            if (kDebugMode) print('✅ Remote renderer source object set');
+          } catch (rendererError) {
+            if (kDebugMode)
+              print('⚠️ Remote renderer error, reinitializing: $rendererError');
+            remoteRenderer.initialize().then((_) {
+              remoteRenderer.srcObject = _remoteStream;
+              if (kDebugMode)
+                print(
+                    '✅ Remote renderer source object set after reinitialization');
+            });
+          }
+
           onRemoteStream?.call();
         }
       };
 
       _peerConnection!.onConnectionState = (RTCPeerConnectionState state) {
-        if (kDebugMode) print('Connection state: $state');
-        if (state == RTCPeerConnectionState.RTCPeerConnectionStateClosed ||
-            state == RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
+        if (kDebugMode) print('🔗 Connection state changed: $state');
+        if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
+          if (kDebugMode) print('✅ Peer connection established successfully!');
+        } else if (state ==
+            RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
+          if (kDebugMode) print('❌ Peer connection failed!');
+          onError?.call('Video call connection failed');
+          endCall();
+        } else if (state ==
+            RTCPeerConnectionState.RTCPeerConnectionStateClosed) {
+          if (kDebugMode) print('📴 Peer connection closed');
           endCall();
         }
       };
+
+      if (kDebugMode) print('✅ Peer connection created successfully');
     } catch (e) {
-      if (kDebugMode) print('Error creating peer connection: $e');
+      if (kDebugMode) print('❌ Error creating peer connection: $e');
       onError?.call('Failed to create peer connection: $e');
     }
   }
 
   // Start local media (camera and microphone)
-  Future<void> _startLocalMedia() async {
+  Future<void> _startLocalMedia({String? userId}) async {
     try {
-      if (kDebugMode) print('Starting local media...');
+      if (kDebugMode)
+        print('🎥 Starting local media for user: ${userId ?? "unknown"}...');
 
-      // Check permissions again to ensure they're still granted
-      bool hasPermissions = await requestPermissions();
-      if (!hasPermissions) {
-        onError?.call(
-            'Camera or microphone permissions are required for video calls');
-        return;
+      // Ensure WebRTC is properly initialized first
+      if (!_isInitialized) {
+        if (kDebugMode) print('🔄 WebRTC not initialized, initializing now...');
+        await initialize();
       }
 
-      if (kDebugMode) print('Permissions confirmed, requesting user media...');
+      // Check if media is already active for another user
+      if (_isMediaActive && _activeUserId != userId) {
+        if (kDebugMode)
+          print('⚠️ Media already active for $_activeUserId, waiting...');
+
+        // Wait a bit and try again (graceful retry)
+        await Future.delayed(Duration(milliseconds: 1000));
+
+        if (_isMediaActive && _activeUserId != userId) {
+          throw Exception(
+              'Camera/microphone is already in use by another session. Please wait for the other session to end.');
+        }
+      }
+
+      // Acquire media access for this user
+      if (userId != null) {
+        _acquireMediaAccess(userId);
+      }
+
+      // Only check permissions if we don't have a recent successful check
+      if (!_permissionsGranted ||
+          _lastPermissionCheck == null ||
+          DateTime.now().difference(_lastPermissionCheck!).inMinutes > 5) {
+        if (kDebugMode)
+          print('🔄 Re-checking permissions before media access...');
+        bool hasPermissions = await requestPermissions();
+        if (!hasPermissions) {
+          if (userId != null) _releaseMediaAccess(userId);
+          onError?.call(
+              'Camera or microphone permissions are required for video calls');
+          return;
+        }
+      } else {
+        if (kDebugMode)
+          print('✅ Using cached permissions, proceeding with media access...');
+      }
+
+      if (kDebugMode)
+        print('🔒 Permissions confirmed, requesting user media...');
 
       // Simplified media constraints that should work on most devices
       final Map<String, dynamic> mediaConstraints = {
@@ -194,12 +335,30 @@ class WebRTCService {
         }
       };
 
+      if (kDebugMode)
+        print(
+            '📋 Attempting to get user media with constraints: $mediaConstraints');
+
       _localStream =
           await navigator.mediaDevices.getUserMedia(mediaConstraints);
 
-      if (kDebugMode) print('User media obtained successfully');
+      if (kDebugMode) print('✅ User media obtained successfully');
 
-      localRenderer.srcObject = _localStream;
+      // Set the source object
+      if (kDebugMode) print('🔄 Setting local renderer source object...');
+      try {
+        localRenderer.srcObject = _localStream;
+        if (kDebugMode) print('✅ Local renderer source object set');
+      } catch (rendererError) {
+        if (kDebugMode)
+          print(
+              '⚠️ Error setting renderer source, reinitializing: $rendererError');
+        await localRenderer.initialize();
+        localRenderer.srcObject = _localStream;
+        if (kDebugMode)
+          print('✅ Local renderer source object set after reinitialization');
+      }
+
       onLocalStream?.call();
 
       if (_peerConnection != null) {
@@ -207,10 +366,14 @@ class WebRTCService {
         for (final track in _localStream!.getTracks()) {
           await _peerConnection!.addTrack(track, _localStream!);
         }
-        if (kDebugMode) print('Tracks added to peer connection');
+        if (kDebugMode) print('✅ Tracks added to peer connection');
       }
     } catch (e) {
-      if (kDebugMode) print('Error starting local media: $e');
+      if (kDebugMode) print('❌ Error starting local media: $e');
+
+      // Reset permission cache on media error
+      _permissionsGranted = false;
+      _lastPermissionCheck = null;
 
       // Provide more specific error messages based on the actual error
       String errorMessage = 'Failed to access camera/microphone';
@@ -222,6 +385,29 @@ class WebRTCService {
       } else if (e.toString().toLowerCase().contains('notfound') ||
           e.toString().toLowerCase().contains('devicenotfound')) {
         errorMessage = 'Camera or microphone not found on this device.';
+      } else if (e.toString().toLowerCase().contains('srcobject') ||
+          e.toString().toLowerCase().contains('renderer')) {
+        errorMessage =
+            'Video renderer initialization failed. Trying to reinitialize...';
+
+        // Try to reinitialize renderers and retry
+        try {
+          if (kDebugMode)
+            print('🔄 Reinitializing renderers due to srcObject error...');
+          await localRenderer.initialize();
+          await remoteRenderer.initialize();
+
+          if (_localStream != null) {
+            localRenderer.srcObject = _localStream;
+            onLocalStream?.call();
+            if (kDebugMode) print('✅ Renderer reinitialization successful');
+            return; // Success after reinitialization
+          }
+        } catch (reinitError) {
+          if (kDebugMode)
+            print('❌ Renderer reinitialization failed: $reinitError');
+          errorMessage = 'Video renderer failed to initialize: $reinitError';
+        }
       } else if (e
           .toString()
           .toLowerCase()
@@ -230,7 +416,7 @@ class WebRTCService {
 
         // Try with even simpler constraints as fallback
         try {
-          if (kDebugMode) print('Trying fallback media constraints...');
+          if (kDebugMode) print('🔄 Trying fallback media constraints...');
           final Map<String, dynamic> fallbackConstraints = {
             'audio': true,
             'video': true,
@@ -238,7 +424,15 @@ class WebRTCService {
 
           _localStream =
               await navigator.mediaDevices.getUserMedia(fallbackConstraints);
-          localRenderer.srcObject = _localStream;
+
+          // Try setting renderer source with fallback constraints
+          try {
+            localRenderer.srcObject = _localStream;
+          } catch (rendererError) {
+            await localRenderer.initialize();
+            localRenderer.srcObject = _localStream;
+          }
+
           onLocalStream?.call();
 
           if (_peerConnection != null) {
@@ -247,7 +441,7 @@ class WebRTCService {
             }
           }
 
-          if (kDebugMode) print('Fallback media constraints worked');
+          if (kDebugMode) print('✅ Fallback media constraints worked');
           return; // Success with fallback
         } catch (fallbackError) {
           if (kDebugMode) print('Fallback also failed: $fallbackError');
@@ -260,52 +454,119 @@ class WebRTCService {
         errorMessage = 'Camera/microphone access failed: ${e.toString()}';
       }
 
+      // Release media access on error
+      if (_activeUserId != null) {
+        _releaseMediaAccess(_activeUserId!);
+      }
+
       onError?.call(errorMessage);
     }
   }
 
   // Start a call
-  Future<void> startCall(String roomId, String appointmentId) async {
-    if (!_isInitialized) await initialize();
-
-    _currentRoomId = roomId;
-    _isCaller = true;
-    _inCall = true;
-
+  Future<void> startCall(String roomId, String appointmentId,
+      {String? userId}) async {
     try {
+      if (kDebugMode)
+        print(
+            '🚀 Starting call for room: $roomId by user: ${userId ?? "doctor"}');
+
+      // Ensure clean state before starting
+      if (_peerConnection != null) {
+        if (kDebugMode)
+          print('🧹 Cleaning up existing connection before start...');
+        await _peerConnection!.close();
+        _peerConnection = null;
+      }
+
+      // Ensure proper initialization
+      if (!_isInitialized) {
+        if (kDebugMode) print('🔄 Initializing WebRTC for call start...');
+        await initialize();
+      }
+
+      _currentRoomId = roomId;
+      _currentAppointmentId = appointmentId;
+      _isCaller = true;
+      _inCall = true;
+
       await _createPeerConnection();
-      await _startLocalMedia();
+      await _startLocalMedia(userId: userId ?? 'doctor');
       await _connectToSignalingServer(roomId);
 
       // Create offer
-      RTCSessionDescription offer = await _peerConnection!.createOffer();
-      await _peerConnection!.setLocalDescription(offer);
+      if (kDebugMode) print('🔄 Creating call offer...');
 
-      // Send offer through Firestore
-      await _sendOfferToFirestore(appointmentId, offer);
+      // Check peer connection state before creating offer
+      if (_peerConnection!.signalingState ==
+              RTCSignalingState.RTCSignalingStateStable ||
+          _peerConnection!.signalingState ==
+              RTCSignalingState.RTCSignalingStateHaveLocalOffer) {
+        if (kDebugMode)
+          print('🔍 Peer connection state: ${_peerConnection!.signalingState}');
+
+        RTCSessionDescription offer = await _peerConnection!.createOffer();
+        await _peerConnection!.setLocalDescription(offer);
+
+        // Send offer through Firestore
+        await _sendOfferToFirestore(appointmentId, offer);
+      } else {
+        if (kDebugMode)
+          print(
+              '⚠️ Cannot create offer, invalid state: ${_peerConnection!.signalingState}');
+      }
+
+      if (kDebugMode)
+        print('✅ Call started successfully, waiting for patient to join...');
     } catch (e) {
-      if (kDebugMode) print('Error starting call: $e');
+      if (kDebugMode) print('❌ Error starting call: $e');
       onError?.call('Failed to start call: $e');
     }
   }
 
   // Join a call
-  Future<void> joinCall(String roomId, String appointmentId) async {
-    if (!_isInitialized) await initialize();
-
-    _currentRoomId = roomId;
-    _isCaller = false;
-    _inCall = true;
-
+  Future<void> joinCall(String roomId, String appointmentId,
+      {String? userId}) async {
     try {
+      if (kDebugMode)
+        print(
+            '🚀 Joining call for room: $roomId by user: ${userId ?? "patient"}');
+
+      // Reduce delay and ensure clean state
+      if (userId == 'patient' || !_isCaller) {
+        if (kDebugMode)
+          print('⏱️ Adding small delay for patient to avoid race condition...');
+        await Future.delayed(
+            Duration(milliseconds: 500)); // Reduced from 2000ms
+      }
+
+      // Ensure clean state before joining
+      if (_peerConnection != null) {
+        if (kDebugMode)
+          print('🧹 Cleaning up existing connection before join...');
+        await _peerConnection!.close();
+        _peerConnection = null;
+      }
+
+      // Ensure proper initialization
+      if (!_isInitialized) {
+        if (kDebugMode) print('🔄 Initializing WebRTC for call join...');
+        await initialize();
+      }
+
+      _currentRoomId = roomId;
+      _currentAppointmentId = appointmentId;
+      _isCaller = false;
+      _inCall = true;
+
       await _createPeerConnection();
-      await _startLocalMedia();
+      await _startLocalMedia(userId: userId ?? 'patient');
       await _connectToSignalingServer(roomId);
 
       // Listen for offer from Firestore
       await _listenForOfferFromFirestore(appointmentId);
     } catch (e) {
-      if (kDebugMode) print('Error joining call: $e');
+      if (kDebugMode) print('❌ Error joining call: $e');
       onError?.call('Failed to join call: $e');
     }
   }
@@ -314,6 +575,9 @@ class WebRTCService {
   Future<void> _sendOfferToFirestore(
       String appointmentId, RTCSessionDescription offer) async {
     try {
+      if (kDebugMode)
+        print('📤 Sending offer to Firestore for appointment: $appointmentId');
+
       await FirebaseFirestore.instance
           .collection('webrtc_signals')
           .doc(appointmentId)
@@ -323,14 +587,22 @@ class WebRTCService {
           'sdp': offer.sdp,
         },
         'timestamp': FieldValue.serverTimestamp(),
+        'caller': 'doctor',
       });
+
+      if (kDebugMode) print('✅ Offer sent successfully to Firestore');
     } catch (e) {
-      if (kDebugMode) print('Error sending offer: $e');
+      if (kDebugMode) print('❌ Error sending offer: $e');
+      onError?.call('Failed to send call offer: $e');
     }
   }
 
   // Listen for offer from Firestore
   Future<void> _listenForOfferFromFirestore(String appointmentId) async {
+    if (kDebugMode)
+      print(
+          '👂 Listening for offer from Firestore for appointment: $appointmentId');
+
     FirebaseFirestore.instance
         .collection('webrtc_signals')
         .doc(appointmentId)
@@ -338,23 +610,32 @@ class WebRTCService {
         .listen((snapshot) async {
       if (snapshot.exists && snapshot.data() != null) {
         final data = snapshot.data()!;
+        if (kDebugMode) print('📥 Received WebRTC signal data: ${data.keys}');
 
         if (data.containsKey('offer') && !_isCaller) {
+          if (kDebugMode) print('📩 Processing offer as patient...');
           final offer = data['offer'];
           await _handleOffer(offer);
         }
 
         if (data.containsKey('answer') && _isCaller) {
+          if (kDebugMode) print('📩 Processing answer as doctor...');
           final answer = data['answer'];
           await _handleAnswer(answer);
         }
 
         if (data.containsKey('iceCandidates')) {
           final candidates = data['iceCandidates'] as List;
+          if (kDebugMode)
+            print('🧊 Processing ${candidates.length} ICE candidates...');
           for (var candidateData in candidates) {
             await _handleIceCandidate(candidateData);
           }
         }
+      } else {
+        if (kDebugMode)
+          print(
+              '📭 No WebRTC signal data found for appointment: $appointmentId');
       }
     });
   }
@@ -362,21 +643,43 @@ class WebRTCService {
   // Handle offer
   Future<void> _handleOffer(Map<String, dynamic> offerData) async {
     try {
+      if (kDebugMode) print('📥 Handling offer from doctor...');
+
       RTCSessionDescription offer = RTCSessionDescription(
         offerData['sdp'],
         offerData['type'],
       );
 
+      if (kDebugMode) print('🔄 Setting remote description...');
       await _peerConnection!.setRemoteDescription(offer);
 
-      // Create answer
-      RTCSessionDescription answer = await _peerConnection!.createAnswer();
-      await _peerConnection!.setLocalDescription(answer);
+      if (kDebugMode) print('🔄 Creating answer...');
+      if (kDebugMode)
+        print(
+            '🔍 Peer connection state before answer: ${_peerConnection!.signalingState}');
 
-      // Send answer back through Firestore
-      await _sendAnswerToFirestore(_currentRoomId!, answer);
+      // Only create answer if in the correct state
+      if (_peerConnection!.signalingState ==
+          RTCSignalingState.RTCSignalingStateHaveRemoteOffer) {
+        // Create answer
+        RTCSessionDescription answer = await _peerConnection!.createAnswer();
+        await _peerConnection!.setLocalDescription(answer);
+
+        if (kDebugMode) print('📤 Sending answer back to doctor...');
+        // Send answer back through Firestore
+        await _sendAnswerToFirestore(_currentAppointmentId!, answer);
+      } else {
+        if (kDebugMode)
+          print(
+              '⚠️ Cannot create answer, invalid state: ${_peerConnection!.signalingState}');
+        throw Exception(
+            'Invalid peer connection state for creating answer: ${_peerConnection!.signalingState}');
+      }
+
+      if (kDebugMode) print('✅ Offer handled successfully, answer sent');
     } catch (e) {
-      if (kDebugMode) print('Error handling offer: $e');
+      if (kDebugMode) print('❌ Error handling offer: $e');
+      onError?.call('Failed to process call offer: $e');
     }
   }
 
@@ -384,6 +687,9 @@ class WebRTCService {
   Future<void> _sendAnswerToFirestore(
       String appointmentId, RTCSessionDescription answer) async {
     try {
+      if (kDebugMode)
+        print('📤 Sending answer to Firestore for appointment: $appointmentId');
+
       await FirebaseFirestore.instance
           .collection('webrtc_signals')
           .doc(appointmentId)
@@ -392,23 +698,35 @@ class WebRTCService {
           'type': answer.type,
           'sdp': answer.sdp,
         },
+        'timestamp_answer': FieldValue.serverTimestamp(),
       });
+
+      if (kDebugMode) print('✅ Answer sent successfully to Firestore');
     } catch (e) {
-      if (kDebugMode) print('Error sending answer: $e');
+      if (kDebugMode) print('❌ Error sending answer: $e');
+      onError?.call('Failed to send call answer: $e');
     }
   }
 
   // Handle answer
   Future<void> _handleAnswer(Map<String, dynamic> answerData) async {
     try {
+      if (kDebugMode) print('📥 Handling answer from patient...');
+
       RTCSessionDescription answer = RTCSessionDescription(
         answerData['sdp'],
         answerData['type'],
       );
 
+      if (kDebugMode) print('🔄 Setting remote description from answer...');
       await _peerConnection!.setRemoteDescription(answer);
+
+      if (kDebugMode)
+        print(
+            '✅ Answer handled successfully, connection should be established');
     } catch (e) {
-      if (kDebugMode) print('Error handling answer: $e');
+      if (kDebugMode) print('❌ Error handling answer: $e');
+      onError?.call('Failed to process call answer: $e');
     }
   }
 
@@ -432,13 +750,6 @@ class WebRTCService {
     // In a production app, you might want to use a dedicated signaling server
     // For now, we'll use Firestore for signaling
     if (kDebugMode) print('Connected to signaling for room: $roomId');
-  }
-
-  // Send signaling message
-  void _sendSignalingMessage(Map<String, dynamic> message) {
-    // Implementation would depend on your signaling server
-    // For Firestore-based signaling, you'd update the document
-    if (kDebugMode) print('Sending signaling message: $message');
   }
 
   // Toggle camera
@@ -485,6 +796,15 @@ class WebRTCService {
       await _localStream?.dispose();
       await _remoteStream?.dispose();
       await _peerConnection?.close();
+
+      // Reset permission cache when call ends
+      _permissionsGranted = false;
+      _lastPermissionCheck = null;
+
+      // Release media access
+      if (_activeUserId != null) {
+        _releaseMediaAccess(_activeUserId!);
+      }
 
       _localStream = null;
       _remoteStream = null;

@@ -100,7 +100,7 @@ class _PlistfacilityState extends State<Plistfacility> {
     ),
     Facility(
       name: "BUNAWAN",
-      address: "Daang Maharlika Highway, Bunawan, Davao City",
+      address: "Bunawan District Health Center, Davao City",
     ),
     Facility(
       name: "CALINAN",

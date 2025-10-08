@@ -25,7 +25,7 @@ class _PmessagesState extends State<Pmessages> {
           .collection('conversation_states')
           .doc(chatId)
           .get();
-      
+
       if (stateDoc.exists) {
         return stateDoc.data();
       }
@@ -64,7 +64,8 @@ class _PmessagesState extends State<Pmessages> {
   Future<void> _restoreConversationOnUserReply(String doctorId) async {
     try {
       final conversationState = await _getConversationState(doctorId);
-      if (conversationState != null && conversationState['state'] == 'archived') {
+      if (conversationState != null &&
+          conversationState['state'] == 'archived') {
         // Only restore archived conversations when user replies, NOT muted ones
         await _setConversationState(doctorId, 'active');
         print('Archived conversation restored for doctor: $doctorId');
@@ -78,7 +79,8 @@ class _PmessagesState extends State<Pmessages> {
   Future<void> _restoreConversationOnDoctorMessage(String doctorId) async {
     try {
       final conversationState = await _getConversationState(doctorId);
-      if (conversationState != null && conversationState['state'] == 'archived') {
+      if (conversationState != null &&
+          conversationState['state'] == 'archived') {
         // Only restore archived conversations when doctor messages, NOT muted ones
         await _setConversationState(doctorId, 'active');
         print('Archived conversation restored by doctor message: $doctorId');
@@ -293,7 +295,8 @@ class _PmessagesState extends State<Pmessages> {
   }
 
   // Open chat without restoring conversation state (used in archived messages modal)
-  Future<void> _openChatWithoutRestore(String doctorId, String doctorName) async {
+  Future<void> _openChatWithoutRestore(
+      String doctorId, String doctorName) async {
     try {
       // Get current patient's ID
       final currentUser = FirebaseAuth.instance.currentUser;
@@ -395,8 +398,8 @@ class _PmessagesState extends State<Pmessages> {
       case 'patient':
         return {
           'label': 'Patient',
-          'color': Colors.teal,
-          'gradientColors': [Colors.teal, Colors.teal.shade400],
+          'color': Colors.red.shade600,
+          'gradientColors': [Colors.red.shade600, Colors.red.shade400],
         };
       case 'guest':
         return {
@@ -446,7 +449,7 @@ class _PmessagesState extends State<Pmessages> {
           // Check conversation state - exclude archived, muted, or deleted
           final conversationState = await _getConversationState(doctorId);
           final state = conversationState?['state'] ?? 'active';
-          
+
           // Only include active conversations in main chat list
           if (state == 'active') {
             print('Found doctor ID: $doctorId');
@@ -750,7 +753,6 @@ class _PmessagesState extends State<Pmessages> {
                             ),
                           ),
                           const SizedBox(height: 12),
-                          
                         ],
                       ),
                     ),
@@ -1012,7 +1014,7 @@ class _PmessagesState extends State<Pmessages> {
         if (doctorId.isNotEmpty) {
           final conversationState = await _getConversationState(doctorId);
           final state = conversationState?['state'] ?? 'active';
-          
+
           // Only include archived and muted conversations (NOT deleted)
           if (state == 'archived' || state == 'muted') {
             final doctorName = await _getDoctorName(doctorId);
@@ -1118,10 +1120,10 @@ class _PmessagesState extends State<Pmessages> {
                     itemBuilder: (context, index) {
                       final conversation = archivedConversations[index];
                       final state = conversation['state'];
-                      
+
                       Color stateColor;
                       IconData stateIcon;
-                      
+
                       switch (state) {
                         case 'archived':
                           stateColor = Colors.blue;
@@ -1204,7 +1206,8 @@ class _PmessagesState extends State<Pmessages> {
                           ),
                           trailing: TextButton(
                             onPressed: () {
-                              _setConversationState(conversation['id'], 'active');
+                              _setConversationState(
+                                  conversation['id'], 'active');
                               Navigator.pop(context);
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
@@ -1217,7 +1220,8 @@ class _PmessagesState extends State<Pmessages> {
                           ),
                           onTap: () {
                             Navigator.pop(context);
-                            _openChatWithoutRestore(conversation['id'], conversation['name']);
+                            _openChatWithoutRestore(
+                                conversation['id'], conversation['name']);
                           },
                         ),
                       );
@@ -1387,13 +1391,14 @@ class _PmessagesState extends State<Pmessages> {
   void _deleteMessage(String doctorId) async {
     try {
       final chatId = _getChatId(_currentUserId!, doctorId);
-      
+
       // Show confirmation dialog
       bool? confirmDelete = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('Delete Conversation'),
-          content: const Text('This conversation will be permanently deleted. This action cannot be undone.'),
+          content: const Text(
+              'This conversation will be permanently deleted. This action cannot be undone.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -1410,9 +1415,15 @@ class _PmessagesState extends State<Pmessages> {
 
       if (confirmDelete == true) {
         // Permanently delete the chat document and conversation state
-        await FirebaseFirestore.instance.collection('chats').doc(chatId).delete();
-        await FirebaseFirestore.instance.collection('conversation_states').doc(chatId).delete();
-        
+        await FirebaseFirestore.instance
+            .collection('chats')
+            .doc(chatId)
+            .delete();
+        await FirebaseFirestore.instance
+            .collection('conversation_states')
+            .doc(chatId)
+            .delete();
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(

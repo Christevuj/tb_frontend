@@ -60,10 +60,7 @@ class _ViewpendingState extends State<Viewpending> {
           .collection('rejected_appointments')
           .add(rejectedAppointmentData);
 
-      // Also add to appointment history for proper tracking in dhistory.dart
-      await firestore
-          .collection('appointment_history')
-          .add(rejectedAppointmentData);
+      // Note: Rejected appointments will be moved to history only if needed for reporting
 
       // Also update the patient's profile with this rejected appointment
       if (widget.appointment['patientUid'] != null) {
@@ -297,15 +294,8 @@ class _ViewpendingState extends State<Viewpending> {
     }
 
     return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Colors.teal.shade50,
-            Colors.white,
-          ],
-        ),
+      decoration: const BoxDecoration(
+        color: Colors.white,
       ),
       child: SingleChildScrollView(
         child: Container(
@@ -330,14 +320,7 @@ class _ViewpendingState extends State<Viewpending> {
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Colors.teal.shade600,
-                      Colors.teal.shade400,
-                    ],
-                  ),
+                  color: Colors.red.shade600,
                   borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(24),
                     topRight: Radius.circular(24),
@@ -734,14 +717,7 @@ class _ViewpendingState extends State<Viewpending> {
                           debugPrint(
                               'Created approved appointment: ${approvedRef.id}');
 
-                          // Also save to history
-                          await firestore
-                              .collection('appointment_history')
-                              .add({
-                            ...appointment,
-                            'status': 'approved',
-                            'approvedAt': FieldValue.serverTimestamp(),
-                          });
+                          // Note: Appointment will be moved to history only after treatment completion
 
                           // Also update the patient's profile with this appointment
                           if (appointment['patientUid'] != null) {
@@ -766,13 +742,15 @@ class _ViewpendingState extends State<Viewpending> {
 
                           // Navigate back to landing page (home tab)
                           if (context.mounted) {
-                            Navigator.of(context).popUntil((route) => route.isFirst);
+                            Navigator.of(context)
+                                .popUntil((route) => route.isFirst);
                             Navigator.of(context).pushReplacement(
                               MaterialPageRoute(
-                                builder: (_) => const DoctorMainWrapper(initialIndex: 0),
+                                builder: (_) =>
+                                    const DoctorMainWrapper(initialIndex: 0),
                               ),
                             );
-                            
+
                             // Show success message
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(

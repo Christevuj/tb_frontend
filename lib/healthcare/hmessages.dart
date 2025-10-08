@@ -60,6 +60,11 @@ class _HmessagesState extends State<Hmessages> {
       _currentFacilityId = facilityId;
     });
 
+    debugPrint('Healthcare user details set:');
+    debugPrint('  User ID: $_currentUserId');
+    debugPrint('  User Name: $_currentUserName');
+    debugPrint('  Facility ID: $_currentFacilityId');
+
     try {
       await _chatService.createUserDoc(
         userId: user.uid,
@@ -73,6 +78,7 @@ class _HmessagesState extends State<Hmessages> {
 
   Future<String?> _getCurrentUserFacility(String userId) async {
     try {
+      debugPrint('Getting facility for healthcare user: $userId');
       final healthcareDoc = await FirebaseFirestore.instance
           .collection('healthcare')
           .doc(userId)
@@ -80,17 +86,26 @@ class _HmessagesState extends State<Hmessages> {
 
       if (healthcareDoc.exists) {
         final data = healthcareDoc.data();
+        debugPrint('Healthcare doc data: $data');
         if (data != null && data['facility'] != null) {
           if (data['facility'] is Map) {
-            return data['facility']['id'] ?? data['facility']['name'];
+            final facilityId =
+                data['facility']['id'] ?? data['facility']['name'];
+            debugPrint('Extracted facility ID from map: $facilityId');
+            return facilityId;
           } else if (data['facility'] is String) {
+            debugPrint(
+                'Extracted facility ID from string: ${data['facility']}');
             return data['facility'];
           }
         }
+      } else {
+        debugPrint('Healthcare document does not exist for user: $userId');
       }
     } catch (e) {
       debugPrint('Error getting healthcare facility: $e');
     }
+    debugPrint('No facility found for healthcare user: $userId');
     return null;
   }
 
@@ -215,67 +230,70 @@ class _HmessagesState extends State<Hmessages> {
 
   Future<List<Map<String, dynamic>>>
       _getApprovedPatientsFromSameFacility() async {
+    debugPrint('=== Starting _getApprovedPatientsFromSameFacility ===');
+
     if (_currentFacilityId == null) {
+      debugPrint('Current facility ID is null');
       return [];
     }
 
+    debugPrint('Current facility ID: $_currentFacilityId');
+
     try {
-      // Get all doctors from the same facility
-      final doctorsQuery =
-          await FirebaseFirestore.instance.collection('doctors').get();
+      // Direct approach: Query approved_appointments by facility field
+      debugPrint('Querying approved_appointments directly by facility...');
+      final approvedAppointmentsQuery = await FirebaseFirestore.instance
+          .collection('approved_appointments')
+          .where('facility', isEqualTo: _currentFacilityId)
+          .get();
 
-      final sameFacilityDoctors = <String>[];
+      debugPrint(
+          'Found ${approvedAppointmentsQuery.docs.length} approved appointments for facility $_currentFacilityId');
 
-      for (var doctorDoc in doctorsQuery.docs) {
-        final doctorData = doctorDoc.data();
-        final affiliations = doctorData['affiliations'];
-
-        if (affiliations is List) {
-          for (var affiliation in affiliations) {
-            if (affiliation is Map) {
-              final facilityId = affiliation['id'] ?? affiliation['name'];
-              if (facilityId == _currentFacilityId) {
-                sameFacilityDoctors.add(doctorDoc.id);
-                break;
-              }
-            }
-          }
-        }
-      }
-
-      if (sameFacilityDoctors.isEmpty) {
+      if (approvedAppointmentsQuery.docs.isEmpty) {
+        debugPrint('No approved appointments found for this facility');
         return [];
       }
 
-      // Get approved appointments from these doctors
-      final approvedPatients = <Map<String, dynamic>>[];
+      // Build list of unique patients
+      final patientMap = <String, Map<String, dynamic>>{};
 
-      for (String doctorId in sameFacilityDoctors) {
-        final appointmentsQuery = await FirebaseFirestore.instance
-            .collection('approved_appointments')
-            .where('doctorUid', isEqualTo: doctorId)
-            .get();
+      for (var appointmentDoc in approvedAppointmentsQuery.docs) {
+        final appointmentData = appointmentDoc.data();
+        // The patient ID in Firebase appears to be in the 'id' field based on the screenshot
+        final patientId = appointmentData['id'];
+        final patientName = appointmentData['patientName'] ?? 'Unknown Patient';
+        final doctorName = appointmentData['doctorName'] ?? 'Unknown Doctor';
 
-        for (var appointmentDoc in appointmentsQuery.docs) {
-          final appointmentData = appointmentDoc.data();
-          final patientId = appointmentData['patientUid'];
-          final patientName =
-              appointmentData['patientName'] ?? 'Unknown Patient';
+        debugPrint(
+            'Processing appointment: patientId=$patientId, patientName=$patientName, doctorName=$doctorName');
+        debugPrint('Full appointment data: $appointmentData');
 
-          // Check if patient is already in the list
-          if (!approvedPatients.any((p) => p['id'] == patientId)) {
-            approvedPatients.add({
-              'id': patientId,
-              'name': patientName,
-              'doctorId': doctorId,
-              'appointmentDate': appointmentData['appointmentDate'],
-              'status': appointmentData['status'] ?? 'approved',
-            });
-          }
+        if (patientId != null &&
+            patientId.toString().isNotEmpty &&
+            patientName != 'Unknown Patient') {
+          patientMap[patientId] = {
+            'id': patientId,
+            'name': patientName,
+            'doctorName': doctorName,
+            'appointmentDate':
+                appointmentData['date'] ?? appointmentData['appointmentDate'],
+            'status': 'Approved',
+            'facility': appointmentData['facility'],
+          };
+          debugPrint('Added patient to map: $patientId -> $patientName');
+        } else {
+          debugPrint(
+              'Skipping appointment due to missing patient info: patientId=$patientId, patientName=$patientName');
         }
       }
 
-      return approvedPatients;
+      debugPrint(
+          'Final patient map contains ${patientMap.length} unique patients');
+      final result = patientMap.values.toList();
+      debugPrint('Returning approved patients: $result');
+
+      return result;
     } catch (e) {
       debugPrint('Error getting approved patients: $e');
       return [];
@@ -283,7 +301,10 @@ class _HmessagesState extends State<Hmessages> {
   }
 
   void _showApprovedPatientsDialog() async {
+    debugPrint('=== Showing approved patients dialog ===');
     final patients = await _getApprovedPatientsFromSameFacility();
+
+    debugPrint('Dialog received ${patients.length} patients: $patients');
 
     if (!mounted) return;
 
@@ -917,7 +938,7 @@ class _HmessagesState extends State<Hmessages> {
                       final String? roleValue =
                           (patient['role'] as String?)?.toLowerCase();
                       String? roleLabel;
-                      Color roleColor = Colors.teal;
+                      Color roleColor = Colors.red.shade600;
                       if (roleValue == 'healthcare') {
                         roleLabel = 'Health Worker';
                         roleColor = Colors.redAccent;
@@ -926,7 +947,7 @@ class _HmessagesState extends State<Hmessages> {
                         roleColor = Colors.blueAccent;
                       } else if (roleValue == 'patient') {
                         roleLabel = 'Patient';
-                        roleColor = Colors.teal;
+                        roleColor = Colors.red.shade600;
                       } else if (roleValue == 'guest') {
                         roleLabel = 'Guest';
                         roleColor = Colors.orange;

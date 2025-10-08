@@ -282,7 +282,14 @@ class _PtbfacilityPageState extends State<PtbfacilityPage> {
   }
 
   Future<void> _loadFacilities() async {
+    debugPrint('🏥 Loading facilities...');
     final f = await FacilityRepository.getFacilitiesWithCoordinates();
+
+    debugPrint('📍 Loaded ${f.length} facilities:');
+    for (int i = 0; i < f.length; i++) {
+      debugPrint('   [$i] ${f[i].name} - "${f[i].address}"');
+    }
+
     setState(() {
       _facilities = f;
       _filteredFacilities = f; // Initialize filtered list
@@ -492,30 +499,80 @@ class _PtbfacilityPageState extends State<PtbfacilityPage> {
 
   Future<int> _getTotalWorkersByAddress(String address) async {
     try {
+      debugPrint('🏥 Checking workers for address: "$address"');
+
       // Count healthcare workers with matching facility.address
       final healthcareSnap = await FirebaseFirestore.instance
           .collection('healthcare')
           .where('facility.address', isEqualTo: address)
           .get();
       int healthcareCount = healthcareSnap.docs.length;
+      debugPrint(
+          '👩‍⚕️ Found $healthcareCount healthcare workers for address: "$address"');
 
       // Count doctors with matching address in any affiliation
       final doctorsSnap =
           await FirebaseFirestore.instance.collection('doctors').get();
       int doctorCount = 0;
+
+      debugPrint(
+          '👨‍⚕️ Checking ${doctorsSnap.docs.length} doctors for address matches...');
+
       for (var doc in doctorsSnap.docs) {
         final data = doc.data();
+        final doctorName = data['fullName'] ?? data['name'] ?? 'Unknown Doctor';
+
         if (data['affiliations'] is List) {
-          for (var aff in data['affiliations']) {
-            if (aff is Map && aff['address'] == address) {
-              doctorCount++;
+          List affiliations = data['affiliations'];
+          debugPrint(
+              '📋 Doctor "$doctorName" has ${affiliations.length} affiliations:');
+
+          for (int i = 0; i < affiliations.length; i++) {
+            var aff = affiliations[i];
+            if (aff is Map) {
+              String affAddress = aff['address'] ?? 'No address';
+              debugPrint('   [$i] Address: "$affAddress"');
+
+              // Normalize both addresses for comparison
+              String normalizedAffAddress = affAddress.trim().toLowerCase();
+              String normalizedTargetAddress = address.trim().toLowerCase();
+
+              // Also try partial matching for common address variations
+              bool isMatch = normalizedAffAddress == normalizedTargetAddress;
+              if (!isMatch) {
+                // Try partial matching (in case one address is abbreviated)
+                isMatch =
+                    normalizedAffAddress.contains(normalizedTargetAddress) ||
+                        normalizedTargetAddress.contains(normalizedAffAddress);
+              }
+
+              if (isMatch) {
+                doctorCount++;
+                debugPrint(
+                    '   ✅ MATCH! Doctor "$doctorName" assigned to "$address"');
+                break; // Don't count the same doctor multiple times
+              } else {
+                debugPrint(
+                    '   ❌ No match. Expected: "$address", Got: "$affAddress"');
+                debugPrint(
+                    '   🔍 Normalized - Expected: "$normalizedTargetAddress", Got: "$normalizedAffAddress"');
+              }
+            } else {
+              debugPrint(
+                  '   ⚠️ Invalid affiliation format for doctor "$doctorName"');
             }
           }
+        } else {
+          debugPrint(
+              '⚠️ Doctor "$doctorName" has no affiliations or invalid format');
         }
       }
+
+      debugPrint(
+          '📊 Final count for "$address": $healthcareCount healthcare + $doctorCount doctors = ${healthcareCount + doctorCount} total');
       return healthcareCount + doctorCount;
     } catch (e) {
-      debugPrint('Error getting worker count: $e');
+      debugPrint('❌ Error getting worker count: $e');
       return 0;
     }
   }
@@ -936,30 +993,60 @@ class _PtbfacilityPageState extends State<PtbfacilityPage> {
                           // Add doctors who have this facility in their affiliations
                           for (var doc in doctorsSnapshot.data!.docs) {
                             final data = doc.data() as Map<String, dynamic>;
+                            final doctorName = data['fullName'] ??
+                                data['name'] ??
+                                'Unknown Doctor';
                             final affiliations =
                                 data['affiliations'] as List? ?? [];
+
+                            debugPrint(
+                                '🩺 Checking doctor "$doctorName" for facility "${facility.address}"');
+                            debugPrint(
+                                '   Doctor has ${affiliations.length} affiliations');
+
                             for (var affiliation in affiliations) {
-                              if (affiliation is Map &&
-                                  affiliation['address'] == facility.address) {
-                                allStaff.add({
-                                  'name': data['fullName'] ??
-                                      data['name'] ??
-                                      'No info',
-                                  'fullName': data['fullName'] ?? 'No info',
-                                  'email': data['email'] ?? 'No info',
-                                  'role': data['role'] ?? 'No info',
-                                  'specialization':
-                                      data['specialization'] ?? 'No info',
-                                  'profilePicture':
-                                      data['profilePicture'] ?? '',
-                                  'phone': affiliation['phone'] ??
-                                      data['phone'] ??
-                                      'No info',
-                                  'position': data['role'] ?? 'Doctor',
-                                  'id': doc.id,
-                                  'type': 'Doctor',
-                                  'schedules': affiliation['schedules'] ?? [],
-                                });
+                              if (affiliation is Map) {
+                                String affAddress =
+                                    affiliation['address'] ?? 'No address';
+                                debugPrint(
+                                    '   Checking affiliation address: "$affAddress"');
+
+                                // Normalize both addresses for comparison
+                                String normalizedAffAddress =
+                                    affAddress.trim().toLowerCase();
+                                String normalizedFacilityAddress =
+                                    facility.address.trim().toLowerCase();
+
+                                if (normalizedAffAddress ==
+                                    normalizedFacilityAddress) {
+                                  debugPrint(
+                                      '   ✅ MATCH! Adding doctor "$doctorName" to facility "${facility.address}"');
+                                  allStaff.add({
+                                    'name': data['fullName'] ??
+                                        data['name'] ??
+                                        'No info',
+                                    'fullName': data['fullName'] ?? 'No info',
+                                    'email': data['email'] ?? 'No info',
+                                    'role': data['role'] ?? 'No info',
+                                    'specialization':
+                                        data['specialization'] ?? 'No info',
+                                    'profilePicture':
+                                        data['profilePicture'] ?? '',
+                                    'phone': affiliation['phone'] ??
+                                        data['phone'] ??
+                                        'No info',
+                                    'position': data['role'] ?? 'Doctor',
+                                    'id': doc.id,
+                                    'type': 'Doctor',
+                                    'schedules': affiliation['schedules'] ?? [],
+                                  });
+                                  break; // Don't add the same doctor multiple times
+                                } else {
+                                  debugPrint(
+                                      '   ❌ No match. Expected: "${facility.address}", Got: "$affAddress"');
+                                  debugPrint(
+                                      '   🔍 Normalized - Expected: "$normalizedFacilityAddress", Got: "$normalizedAffAddress"');
+                                }
                               }
                             }
                           }

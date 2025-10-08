@@ -93,7 +93,7 @@ class _GListFacilityState extends State<GListFacility> {
     ),
     Facility(
       name: "BUNAWAN",
-      address: "Daang Maharlika Highway, Bunawan, Davao City",
+      address: "Bunawan District Health Center, Davao City",
     ),
     Facility(
       name: "CALINAN",

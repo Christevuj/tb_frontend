@@ -22,20 +22,29 @@ class _ViewhistoryState extends State<Viewhistory> {
   bool _isScheduleExpanded = false;
   bool _isPrescriptionExpanded = false;
   bool _isCertificateExpanded = false;
+  bool _isUploadedIdExpanded = false;
+
+  // Helper method to determine if prescription and certificate sections should be shown
+  bool _shouldShowPrescriptionAndCertificate() {
+    final status = widget.appointment["status"]?.toString().toLowerCase();
+
+    // Show for appointments that have completed consultation or treatment
+    return status == "approved" ||
+        status == "completed" ||
+        status == "consultation_completed" ||
+        status == "treatment_completed" ||
+        widget.appointment["source"] == "completed_appointments" ||
+        widget.appointment["source"] == "appointment_history" ||
+        widget.appointment["prescriptionData"] != null ||
+        widget.appointment["completedAt"] != null ||
+        widget.appointment["treatmentCompletedAt"] != null;
+  }
 
   @override
   Widget build(BuildContext context) {
-
     return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Colors.teal.shade50,
-            Colors.white,
-          ],
-        ),
+      decoration: const BoxDecoration(
+        color: Colors.white,
       ),
       child: SingleChildScrollView(
         child: Container(
@@ -60,14 +69,7 @@ class _ViewhistoryState extends State<Viewhistory> {
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Colors.teal.shade600,
-                      Colors.teal.shade400,
-                    ],
-                  ),
+                  color: Colors.red.shade600,
                   borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(24),
                     topRight: Radius.circular(24),
@@ -118,7 +120,8 @@ class _ViewhistoryState extends State<Viewhistory> {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                      icon: const Icon(Icons.close,
+                          color: Colors.white, size: 28),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],
@@ -153,6 +156,22 @@ class _ViewhistoryState extends State<Viewhistory> {
 
                     const SizedBox(height: 12),
 
+                    // Uploaded ID Section - Collapsible Card
+                    _buildUploadedIdCard(
+                      title: "Uploaded ID",
+                      subtitle: "Patient identification document",
+                      isExpanded: _isUploadedIdExpanded,
+                      onToggle: () {
+                        setState(() {
+                          _isUploadedIdExpanded = !_isUploadedIdExpanded;
+                        });
+                      },
+                      appointment: widget.appointment,
+                      context: context,
+                    ),
+
+                    const SizedBox(height: 12),
+
                     // Schedule Section - Enhanced Card Design
                     _buildScheduleCard(
                       title: "Appointment Schedule",
@@ -166,10 +185,8 @@ class _ViewhistoryState extends State<Viewhistory> {
                       appointment: widget.appointment,
                     ),
 
-
-
-                    // Show prescription info for approved appointments
-                    if (widget.appointment["status"]?.toString().toLowerCase() == "approved") ...[
+                    // Show prescription info for completed consultations and treatments
+                    if (_shouldShowPrescriptionAndCertificate()) ...[
                       const SizedBox(height: 12),
                       _buildCollapsibleCard(
                         title: "Electronic Prescription",
@@ -195,21 +212,23 @@ class _ViewhistoryState extends State<Viewhistory> {
 
                     const SizedBox(height: 16),
 
-                    // Patient Journey Timeline Section - Enhanced Design (only show for approved appointments)
-                    if (widget.appointment["status"]?.toString().toLowerCase() == "approved") ...[
+                    // Patient Journey Timeline Section - Enhanced Design (show for completed consultations and treatments)
+                    if (_shouldShowPrescriptionAndCertificate()) ...[
                       _buildTimelineCard(),
                     ],
 
-
-
                     // Rejection Information Section (only show for rejected appointments)
-                    if (widget.appointment["status"]?.toString().toLowerCase() == "rejected") ...[
+                    if (widget.appointment["status"]
+                            ?.toString()
+                            .toLowerCase() ==
+                        "rejected") ...[
                       Card(
                         margin: const EdgeInsets.symmetric(vertical: 8),
                         elevation: 3,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
-                          side: BorderSide(color: Colors.grey.shade200, width: 1),
+                          side:
+                              BorderSide(color: Colors.grey.shade200, width: 1),
                         ),
                         color: Colors.white,
                         child: Column(
@@ -250,7 +269,8 @@ class _ViewhistoryState extends State<Viewhistory> {
                                     ),
                                     const SizedBox(width: 12),
                                     const Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           'Appointment Rejected',
@@ -274,7 +294,7 @@ class _ViewhistoryState extends State<Viewhistory> {
                                 ),
                               ),
                             ),
-                            
+
                             // Rejection Content
                             Padding(
                               padding: const EdgeInsets.all(20),
@@ -287,14 +307,18 @@ class _ViewhistoryState extends State<Viewhistory> {
                                     decoration: BoxDecoration(
                                       color: Colors.red.shade50,
                                       borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: Colors.red.shade200),
+                                      border: Border.all(
+                                          color: Colors.red.shade200),
                                     ),
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Row(
                                           children: [
-                                            Icon(Icons.info_outline, color: Colors.red.shade600, size: 20),
+                                            Icon(Icons.info_outline,
+                                                color: Colors.red.shade600,
+                                                size: 20),
                                             const SizedBox(width: 8),
                                             Text(
                                               "Rejection Reason:",
@@ -308,7 +332,9 @@ class _ViewhistoryState extends State<Viewhistory> {
                                         ),
                                         const SizedBox(height: 12),
                                         Text(
-                                          widget.appointment["rejectionReason"] ?? "No specific reason provided",
+                                          widget.appointment[
+                                                  "rejectionReason"] ??
+                                              "No specific reason provided",
                                           style: TextStyle(
                                             fontSize: 14,
                                             color: Colors.red.shade700,
@@ -404,124 +430,128 @@ class _ViewhistoryState extends State<Viewhistory> {
   Widget _buildTimelineCard() {
     // For history view, all steps are completed since these are past appointments
     return Card(
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              elevation: 3,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(color: Colors.grey.shade200, width: 1),
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      elevation: 3,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade200, width: 1),
+      ),
+      color: Colors.white,
+      child: Column(
+        children: [
+          // Card Header with Blue Accent Strip
+          Container(
+            decoration: const BoxDecoration(
+              color: Color(0xFF0A84FF),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
               ),
-              color: Colors.white,
-              child: Column(
+            ),
+            child: Container(
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(12),
+                ),
+              ),
+              margin: const EdgeInsets.only(left: 4),
+              padding: const EdgeInsets.all(16),
+              child: Row(
                 children: [
-                  // Card Header with Blue Accent Strip
                   Container(
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF0A84FF),
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(12),
-                        topRight: Radius.circular(12),
-                      ),
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0A84FF).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Container(
-                      width: double.infinity,
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.only(
-                          topLeft: Radius.circular(12),
-                          topRight: Radius.circular(12),
-                        ),
-                      ),
-                      margin: const EdgeInsets.only(left: 4),
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF0A84FF).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(
-                              Icons.timeline,
-                              color: Color(0xFF0A84FF),
-                              size: 20,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          const Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Patient Journey Timeline',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                'Complete treatment history',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+                    child: const Icon(
+                      Icons.timeline,
+                      color: Color(0xFF0A84FF),
+                      size: 20,
                     ),
                   ),
-                  // Timeline Content
-                  Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Step-by-step Instructions Container
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.green.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.green.shade200),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildStepInstruction(
-                                stepNumber: '1',
-                                instruction: 'Patient requested appointment with a Doctor',
-                                isCompleted: true,
-                              ),
-                              const SizedBox(height: 8),
-                              _buildStepInstruction(
-                                stepNumber: '2',
-                                instruction: 'Doctor confirmed and approved the appointment schedule',
-                                isCompleted: true,
-                              ),
-                              const SizedBox(height: 8),
-                              _buildStepInstruction(
-                                stepNumber: '3',
-                                instruction: 'Consultation completed with prescription issued',
-                                isCompleted: true,
-                              ),
-                              const SizedBox(height: 8),
-                              _buildStepInstruction(
-                                stepNumber: '4',
-                                instruction: 'Treatment completion certificate delivered',
-                                isCompleted: true,
-                              ),
-                            ],
-                          ),
+                  const SizedBox(width: 12),
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Patient Journey Timeline',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
                         ),
-                      ],
-                    ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Complete treatment history',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            );
+            ),
+          ),
+          // Timeline Content
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Step-by-step Instructions Container
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.green.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildStepInstruction(
+                        stepNumber: '1',
+                        instruction:
+                            'Patient requested appointment with a Doctor',
+                        isCompleted: true,
+                      ),
+                      const SizedBox(height: 8),
+                      _buildStepInstruction(
+                        stepNumber: '2',
+                        instruction:
+                            'Doctor confirmed and approved the appointment schedule',
+                        isCompleted: true,
+                      ),
+                      const SizedBox(height: 8),
+                      _buildStepInstruction(
+                        stepNumber: '3',
+                        instruction:
+                            'Consultation completed with prescription issued',
+                        isCompleted: true,
+                      ),
+                      const SizedBox(height: 8),
+                      _buildStepInstruction(
+                        stepNumber: '4',
+                        instruction:
+                            'Treatment completion certificate delivered',
+                        isCompleted: true,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   // Helper method to build schedule card (read-only for approved appointments)
@@ -575,18 +605,22 @@ class _ViewhistoryState extends State<Viewhistory> {
                       children: [
                         Text(
                           title,
-                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 16),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           subtitle,
-                          style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                          style:
+                              TextStyle(color: Colors.grey[600], fontSize: 13),
                         ),
                       ],
                     ),
                   ),
                   Icon(
-                    isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    isExpanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
                     color: const Color(0xFF0A84FF),
                     size: 24,
                   ),
@@ -840,7 +874,8 @@ class _ViewhistoryState extends State<Viewhistory> {
     if (text.toLowerCase().contains('date')) return Icons.calendar_today;
     if (text.toLowerCase().contains('time')) return Icons.access_time;
     if (text.toLowerCase().contains('facility')) return Icons.location_on;
-    if (text.toLowerCase().contains('prescription')) return Icons.medical_services;
+    if (text.toLowerCase().contains('prescription'))
+      return Icons.medical_services;
     if (text.toLowerCase().contains('medicine')) return Icons.medication;
     if (text.toLowerCase().contains('gender')) return Icons.people;
     return Icons.info;
@@ -912,18 +947,22 @@ class _ViewhistoryState extends State<Viewhistory> {
                       children: [
                         Text(
                           title,
-                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 16),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           subtitle,
-                          style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                          style:
+                              TextStyle(color: Colors.grey[600], fontSize: 13),
                         ),
                       ],
                     ),
                   ),
                   Icon(
-                    isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    isExpanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
                     color: const Color(0xFF0A84FF),
                     size: 24,
                   ),
@@ -945,7 +984,8 @@ class _ViewhistoryState extends State<Viewhistory> {
                   Column(
                     children: bullets
                         .map((b) => Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 6.0),
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 6.0),
                               child: Row(
                                 children: [
                                   Icon(
@@ -976,10 +1016,13 @@ class _ViewhistoryState extends State<Viewhistory> {
                           ),
                         ),
                         icon: buttonText.contains('MESSAGE')
-                            ? const Icon(Icons.message, color: Color(0xFF0A84FF), size: 16)
-                            : const Icon(Icons.visibility, color: Color(0xFF0A84FF), size: 16),
+                            ? const Icon(Icons.message,
+                                color: Color(0xFF0A84FF), size: 16)
+                            : const Icon(Icons.visibility,
+                                color: Color(0xFF0A84FF), size: 16),
                         label: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12.0, vertical: 10),
                           child: Text(
                             buttonText,
                             style: const TextStyle(color: Color(0xFF0A84FF)),
@@ -1001,7 +1044,7 @@ class _ViewhistoryState extends State<Viewhistory> {
   List<String> _buildPrescriptionBullets() {
     final prescriptionData = widget.appointment["prescriptionData"];
     List<String> bullets = [];
-    
+
     if (prescriptionData == null) {
       bullets.add('No prescription data available');
       return bullets;
@@ -1010,11 +1053,13 @@ class _ViewhistoryState extends State<Viewhistory> {
     if (prescriptionData["medicines"] != null) {
       final medicines = prescriptionData["medicines"] as List;
       for (var medicine in medicines) {
-        bullets.add('${medicine['name']} - ${medicine['dosage']} (${medicine['frequency']})');
+        bullets.add(
+            '${medicine['name']} - ${medicine['dosage']} (${medicine['frequency']})');
       }
     }
 
-    if (prescriptionData["notes"] != null && prescriptionData["notes"].toString().isNotEmpty) {
+    if (prescriptionData["notes"] != null &&
+        prescriptionData["notes"].toString().isNotEmpty) {
       bullets.add('Additional notes: ${prescriptionData["notes"]}');
     }
 
@@ -1030,7 +1075,8 @@ class _ViewhistoryState extends State<Viewhistory> {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('certificates')
-          .where('appointmentId', isEqualTo: widget.appointment['appointmentId'])
+          .where('appointmentId',
+              isEqualTo: widget.appointment['appointmentId'])
           .snapshots(),
       builder: (context, snapshot) {
         bool hasCertificate = false;
@@ -1084,18 +1130,22 @@ class _ViewhistoryState extends State<Viewhistory> {
                           children: [
                             Text(
                               "Certificate of Completion",
-                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w700, fontSize: 16),
                             ),
                             const SizedBox(height: 4),
                             Text(
                               "TB treatment completion certificate",
-                              style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                              style: TextStyle(
+                                  color: Colors.grey[600], fontSize: 13),
                             ),
                           ],
                         ),
                       ),
                       Icon(
-                        _isCertificateExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                        _isCertificateExpanded
+                            ? Icons.keyboard_arrow_up
+                            : Icons.keyboard_arrow_down,
                         color: const Color(0xFF0A84FF),
                         size: 24,
                       ),
@@ -1117,13 +1167,18 @@ class _ViewhistoryState extends State<Viewhistory> {
                       Column(
                         children: bullets
                             .map((b) => Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 6.0),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 6.0),
                                   child: Row(
                                     children: [
                                       Icon(
-                                        hasCertificate ? Icons.verified : _iconForBullet(b),
+                                        hasCertificate
+                                            ? Icons.verified
+                                            : _iconForBullet(b),
                                         size: 18,
-                                        color: hasCertificate ? Colors.green : const Color(0xFF0A84FF),
+                                        color: hasCertificate
+                                            ? Colors.green
+                                            : const Color(0xFF0A84FF),
                                       ),
                                       const SizedBox(width: 10),
                                       Expanded(
@@ -1149,9 +1204,11 @@ class _ViewhistoryState extends State<Viewhistory> {
                                 borderRadius: BorderRadius.circular(28),
                               ),
                             ),
-                            icon: const Icon(Icons.visibility, color: Color(0xFF0A84FF), size: 16),
+                            icon: const Icon(Icons.visibility,
+                                color: Color(0xFF0A84FF), size: 16),
                             label: const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 10),
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 12.0, vertical: 10),
                               child: Text(
                                 'View certificate PDF',
                                 style: TextStyle(color: Color(0xFF0A84FF)),
@@ -1171,7 +1228,240 @@ class _ViewhistoryState extends State<Viewhistory> {
     );
   }
 
-
+  // Helper method to build uploaded ID card
+  Widget _buildUploadedIdCard({
+    required String title,
+    required String subtitle,
+    required bool isExpanded,
+    required VoidCallback onToggle,
+    required Map<String, dynamic> appointment,
+    required BuildContext context,
+  }) {
+    return Card(
+      elevation: 2,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: Column(
+        children: [
+          // Header - Always visible
+          InkWell(
+            onTap: onToggle,
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 6,
+                    height: 40,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF0A84FF),
+                      borderRadius: BorderRadius.all(Radius.circular(3)),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 16),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle,
+                          style:
+                              TextStyle(color: Colors.grey[600], fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    isExpanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
+                    color: const Color(0xFF0A84FF),
+                    size: 24,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Expandable content
+          if (isExpanded) ...[
+            const Divider(height: 1),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ID Type information
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6.0),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.badge,
+                          size: 18,
+                          color: const Color(0xFF0A84FF),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _buildStyledBulletText(
+                            'ID Type: ${appointment["idType"] ?? "Not specified"}',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // ID Image container
+                  Container(
+                    width: double.infinity,
+                    height: 200,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: appointment["idImageUrl"] != null &&
+                            appointment["idImageUrl"].toString().isNotEmpty
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.network(
+                              appointment["idImageUrl"],
+                              fit: BoxFit.contain,
+                              loadingBuilder:
+                                  (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return Center(
+                                  child: CircularProgressIndicator(
+                                    value: loadingProgress.expectedTotalBytes !=
+                                            null
+                                        ? loadingProgress
+                                                .cumulativeBytesLoaded /
+                                            loadingProgress.expectedTotalBytes!
+                                        : null,
+                                  ),
+                                );
+                              },
+                              errorBuilder: (context, error, stackTrace) {
+                                return Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.error_outline,
+                                        color: Colors.red.shade400,
+                                        size: 48,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'Failed to load ID image',
+                                        style: TextStyle(
+                                          color: Colors.red.shade600,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          )
+                        : Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.image_not_supported_outlined,
+                                  color: Colors.grey.shade400,
+                                  size: 48,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'No ID image provided',
+                                  style: TextStyle(
+                                    color: Colors.grey.shade600,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                  ),
+                  if (appointment["idImageUrl"] != null &&
+                      appointment["idImageUrl"].toString().isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          // Open image in full screen or show in dialog
+                          showDialog(
+                            context: context,
+                            builder: (dialogContext) => Dialog(
+                              backgroundColor: Colors.black,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  AppBar(
+                                    backgroundColor: Colors.black,
+                                    foregroundColor: Colors.white,
+                                    title: const Text('ID Document'),
+                                    leading: IconButton(
+                                      icon: const Icon(Icons.close),
+                                      onPressed: () =>
+                                          Navigator.of(dialogContext).pop(),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: InteractiveViewer(
+                                      child: Image.network(
+                                        appointment["idImageUrl"],
+                                        fit: BoxFit.contain,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFF0A84FF)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(28),
+                          ),
+                        ),
+                        icon: const Icon(Icons.zoom_in,
+                            color: Color(0xFF0A84FF), size: 16),
+                        label: const Padding(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 12.0, vertical: 10),
+                          child: Text(
+                            'VIEW FULL SIZE',
+                            style: TextStyle(color: Color(0xFF0A84FF)),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 }
 
 class _PdfViewerScreen extends StatelessWidget {
@@ -1190,7 +1480,7 @@ class _PdfViewerScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(title),
-        backgroundColor: Colors.teal,
+        backgroundColor: Colors.red.shade600,
         foregroundColor: Colors.white,
         actions: [
           IconButton(
@@ -1292,23 +1582,16 @@ class SectionTitle extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.teal.shade100,
-            Colors.teal.shade50,
-          ],
-        ),
+        color: Colors.red.shade600,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.teal.shade200),
+        border: Border.all(color: Colors.red.shade200),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.teal.shade600,
+              color: Colors.red.shade600,
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Icon(
@@ -1323,7 +1606,7 @@ class SectionTitle extends StatelessWidget {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Colors.teal.shade800,
+              color: Colors.red.shade800,
             ),
           ),
         ],
@@ -1368,12 +1651,12 @@ class InfoField extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.teal.shade100,
+              color: Colors.red.shade100,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
-              icon, 
-              color: Colors.teal.shade700,
+              icon,
+              color: Colors.red.shade700,
               size: 22,
             ),
           ),
@@ -1390,6 +1673,31 @@ class InfoField extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  // Helper method to build styled text with bold labels
+  Widget _buildStyledBulletText(String text) {
+    final colonIndex = text.indexOf(':');
+    if (colonIndex != -1 && colonIndex < text.length - 1) {
+      final label = text.substring(0, colonIndex + 1);
+      final value = text.substring(colonIndex + 1);
+      return RichText(
+        text: TextSpan(
+          style: const TextStyle(fontSize: 14, color: Colors.black87),
+          children: [
+            TextSpan(
+              text: label,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            TextSpan(text: value),
+          ],
+        ),
+      );
+    }
+    return Text(
+      text,
+      style: const TextStyle(fontSize: 14),
     );
   }
 }

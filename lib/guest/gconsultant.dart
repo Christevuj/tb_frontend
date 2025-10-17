@@ -379,6 +379,56 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             ),
           ),
 
+          // Warning Banner
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.orange.shade300,
+                width: 1.5,
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.info_outline_rounded,
+                  color: Colors.orange.shade700,
+                  size: 24,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: RichText(
+                    text: TextSpan(
+                      style: TextStyle(
+                        color: Colors.orange.shade900,
+                        fontSize: 13,
+                        height: 1.4,
+                      ),
+                      children: [
+                        TextSpan(
+                          text: 'Attention! ',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900, // Extra bold
+                          ),
+                        ),
+                        TextSpan(
+                          text: 'The responses do not guarantee accurate diagnosis. Please see your doctor for proper diagnosis and treatment recommendations.',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w400, // Light bold
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
           // Chat content
           Expanded(
             child: ShaderMask(

@@ -26,7 +26,7 @@ class _GmessagesState extends State<Gmessages> {
           .collection('conversation_states')
           .doc(chatId)
           .get();
-
+      
       if (stateDoc.exists) {
         return stateDoc.data();
       }
@@ -65,8 +65,7 @@ class _GmessagesState extends State<Gmessages> {
   Future<void> _restoreConversationOnUserReply(String patientId) async {
     try {
       final conversationState = await _getConversationState(patientId);
-      if (conversationState != null &&
-          conversationState['state'] == 'archived') {
+      if (conversationState != null && conversationState['state'] == 'archived') {
         // Only restore archived conversations when user replies, NOT muted ones
         await _setConversationState(patientId, 'active');
         debugPrint('Archived conversation restored for patient: $patientId');
@@ -80,12 +79,10 @@ class _GmessagesState extends State<Gmessages> {
   Future<void> _restoreConversationOnPatientMessage(String patientId) async {
     try {
       final conversationState = await _getConversationState(patientId);
-      if (conversationState != null &&
-          conversationState['state'] == 'archived') {
+      if (conversationState != null && conversationState['state'] == 'archived') {
         // Only restore archived conversations when patient messages, NOT muted ones
         await _setConversationState(patientId, 'active');
-        debugPrint(
-            'Archived conversation restored by patient message: $patientId');
+        debugPrint('Archived conversation restored by patient message: $patientId');
       }
     } catch (e) {
       debugPrint('Error restoring conversation on patient message: $e');
@@ -455,12 +452,12 @@ class _GmessagesState extends State<Gmessages> {
       case 'patient':
         return {
           'label': 'Patient',
-          'color': Colors.red.shade600,
+          'color': Colors.teal,
         };
       default:
         return {
           'label': null,
-          'color': Colors.red.shade600,
+          'color': Colors.teal,
         };
     }
   }
@@ -521,7 +518,7 @@ class _GmessagesState extends State<Gmessages> {
           // Check conversation state - exclude archived, muted, or deleted
           final conversationState = await _getConversationState(patientId);
           final state = conversationState?['state'] ?? 'active';
-
+          
           // Only include active conversations in main chat list
           if (state == 'active') {
             final patientName = await _getPatientName(patientId);
@@ -551,8 +548,7 @@ class _GmessagesState extends State<Gmessages> {
               'profilePicture': profilePicture,
             });
           } else {
-            debugPrint(
-                'Skipping patient $patientId - conversation state: $state');
+            debugPrint('Skipping patient $patientId - conversation state: $state');
           }
         }
       }
@@ -809,8 +805,8 @@ class _GmessagesState extends State<Gmessages> {
                 final filteredPatients = searchQuery.isEmpty
                     ? patients
                     : patients.where((patient) {
-                        final name =
-                            (patient['name'] as String? ?? '').toLowerCase();
+                        final name = (patient['name'] as String? ?? '')
+                            .toLowerCase();
                         final lastMessage =
                             (patient['lastMessage'] as String? ?? '')
                                 .toLowerCase();
@@ -821,221 +817,221 @@ class _GmessagesState extends State<Gmessages> {
                 return SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
-                      final patient = filteredPatients[index];
-                      final patientName =
-                          patient['name'] as String? ?? 'Unknown Patient';
-                      final patientId = patient['id'] as String? ?? '';
-                      final profilePicture =
-                          patient['profilePicture'] as String?;
-                      final String? roleValue =
-                          (patient['role'] as String?)?.toLowerCase();
+                        final patient = filteredPatients[index];
+                        final patientName =
+                            patient['name'] as String? ?? 'Unknown Patient';
+                        final patientId = patient['id'] as String? ?? '';
+                        final profilePicture =
+                            patient['profilePicture'] as String?;
+                        final String? roleValue =
+                            (patient['role'] as String?)?.toLowerCase();
 
-                      // Get role information using helper method
-                      final roleInfo =
-                          _getRoleInfo(roleValue, name: patientName);
-                      final String? roleLabel = roleInfo['label'] as String?;
-                      final Color roleColor = roleInfo['color'] as Color;
+                        // Get role information using helper method
+                        final roleInfo =
+                            _getRoleInfo(roleValue, name: patientName);
+                        final String? roleLabel = roleInfo['label'] as String?;
+                        final Color roleColor = roleInfo['color'] as Color;
 
-                      return Container(
-                        margin: const EdgeInsets.symmetric(vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.04),
-                              blurRadius: 15,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Material(
-                          color: Colors.transparent,
-                          borderRadius: BorderRadius.circular(16),
-                          child: InkWell(
+                        return Container(
+                          margin: const EdgeInsets.symmetric(vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
                             borderRadius: BorderRadius.circular(16),
-                            splashColor: Colors.redAccent.withOpacity(0.1),
-                            highlightColor: Colors.redAccent.withOpacity(0.05),
-                            onTap: () {
-                              HapticFeedback.lightImpact();
-                              _openChat(patientId, patientName, profilePicture);
-                            },
-                            onLongPress: () {
-                              HapticFeedback.mediumImpact();
-                              _showMessageOptions(patientId, patientName);
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.all(14),
-                              child: Row(
-                                children: [
-                                  // Avatar
-                                  Container(
-                                    width: 44,
-                                    height: 44,
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                        colors:
-                                            _generatePastelColors(patientId),
-                                      ),
-                                      borderRadius: BorderRadius.circular(12),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: _generatePastelColors(
-                                                  patientId)[0]
-                                              .withOpacity(0.3),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 2),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.04),
+                                blurRadius: 15,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            borderRadius: BorderRadius.circular(16),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(16),
+                              splashColor: Colors.redAccent.withOpacity(0.1),
+                              highlightColor:
+                                  Colors.redAccent.withOpacity(0.05),
+                              onTap: () {
+                                HapticFeedback.lightImpact();
+                                _openChat(
+                                    patientId, patientName, profilePicture);
+                              },
+                              onLongPress: () {
+                                HapticFeedback.mediumImpact();
+                                _showMessageOptions(patientId, patientName);
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.all(14),
+                                child: Row(
+                                  children: [
+                                    // Avatar
+                                    Container(
+                                      width: 44,
+                                      height: 44,
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                          colors:
+                                              _generatePastelColors(patientId),
                                         ),
-                                      ],
-                                    ),
-                                    child: profilePicture != null &&
-                                            profilePicture.isNotEmpty
-                                        ? ClipRRect(
-                                            borderRadius:
-                                                BorderRadius.circular(12),
-                                            child: Image.network(
-                                              profilePicture,
-                                              fit: BoxFit.cover,
-                                              errorBuilder:
-                                                  (context, error, stackTrace) {
-                                                return Center(
-                                                  child: Text(
-                                                    patientName.isNotEmpty
-                                                        ? patientName[0]
-                                                            .toUpperCase()
-                                                        : 'P',
-                                                    style: TextStyle(
-                                                      color: _generatePastelColors(
-                                                                      patientId)[0]
-                                                                  .computeLuminance() >
-                                                              0.5
-                                                          ? Colors.black87
-                                                          : Colors.white,
-                                                      fontSize: 22,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                    ),
-                                                  ),
-                                                );
-                                              },
-                                            ),
-                                          )
-                                        : Center(
-                                            child: Text(
-                                              patientName.isNotEmpty
-                                                  ? patientName[0].toUpperCase()
-                                                  : 'P',
-                                              style: TextStyle(
-                                                color: _generatePastelColors(
-                                                                patientId)[0]
-                                                            .computeLuminance() >
-                                                        0.5
-                                                    ? Colors.black87
-                                                    : Colors.white,
-                                                fontSize: 22,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
+                                        borderRadius: BorderRadius.circular(12),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: _generatePastelColors(
+                                                    patientId)[0]
+                                                .withOpacity(0.3),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 2),
                                           ),
-                                  ),
-                                  const SizedBox(width: 16),
-
-                                  // Chat info
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Expanded(
-                                              child: Row(
-                                                children: [
-                                                  Flexible(
+                                        ],
+                                      ),
+                                      child: profilePicture != null &&
+                                              profilePicture.isNotEmpty
+                                          ? ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              child: Image.network(
+                                                profilePicture,
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (context, error,
+                                                    stackTrace) {
+                                                  return Center(
                                                     child: Text(
-                                                      patientName,
-                                                      style: const TextStyle(
-                                                        fontSize: 17,
+                                                      patientName.isNotEmpty
+                                                          ? patientName[0]
+                                                              .toUpperCase()
+                                                          : 'P',
+                                                      style: TextStyle(
+                                                        color: _generatePastelColors(
+                                                                        patientId)[0]
+                                                                    .computeLuminance() >
+                                                                0.5
+                                                            ? Colors.black87
+                                                            : Colors.white,
+                                                        fontSize: 22,
                                                         fontWeight:
                                                             FontWeight.w600,
-                                                        color:
-                                                            Color(0xFF1A1A1A),
                                                       ),
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
                                                     ),
-                                                  ),
-                                                  if (roleLabel != null) ...[
-                                                    const SizedBox(width: 8),
-                                                    Container(
-                                                      padding: const EdgeInsets
-                                                          .symmetric(
-                                                        horizontal: 8,
-                                                        vertical: 2,
-                                                      ),
-                                                      decoration: BoxDecoration(
-                                                        color: roleColor
-                                                            .withOpacity(0.1),
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(8),
-                                                      ),
+                                                  );
+                                                },
+                                              ),
+                                            )
+                                          : Center(
+                                              child: Text(
+                                                patientName.isNotEmpty
+                                                    ? patientName[0]
+                                                        .toUpperCase()
+                                                    : 'P',
+                                                style: TextStyle(
+                                                  color: _generatePastelColors(
+                                                                  patientId)[0]
+                                                              .computeLuminance() >
+                                                          0.5
+                                                      ? Colors.black87
+                                                      : Colors.white,
+                                                  fontSize: 22,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ),
+                                    ),
+                                    const SizedBox(width: 16),
+
+                                    // Chat info
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Expanded(
+                                                child: Row(
+                                                  children: [
+                                                    Flexible(
                                                       child: Text(
-                                                        roleLabel,
-                                                        style: TextStyle(
-                                                          fontSize: 10,
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                          color: roleColor,
+                                                        patientName,
+                                                        style: const TextStyle(
+                                                          fontSize: 17,
+                                                          fontWeight: FontWeight.w600,
+                                                          color: Color(0xFF1A1A1A),
+                                                        ),
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                    ),
+                                                    if (roleLabel != null) ...[
+                                                      const SizedBox(width: 8),
+                                                      Container(
+                                                        padding: const EdgeInsets
+                                                            .symmetric(
+                                                          horizontal: 8,
+                                                          vertical: 2,
+                                                        ),
+                                                        decoration: BoxDecoration(
+                                                          color: roleColor
+                                                              .withOpacity(0.1),
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                  8),
+                                                        ),
+                                                        child: Text(
+                                                          roleLabel,
+                                                          style: TextStyle(
+                                                            fontSize: 10,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                            color: roleColor,
+                                                          ),
                                                         ),
                                                       ),
-                                                    ),
+                                                    ],
                                                   ],
-                                                ],
-                                              ),
-                                            ),
-                                            Text(
-                                              _formatTimeDetailed(
-                                                  patient['lastTimestamp']),
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                color: Colors.grey.shade500,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Row(
-                                          children: [
-                                            Expanded(
-                                              child: Text(
-                                                patient['lastMessage'] ??
-                                                    'No messages yet',
-                                                style: TextStyle(
-                                                  fontSize: 15,
-                                                  color: Colors.grey.shade600,
-                                                  fontWeight: FontWeight.w400,
                                                 ),
-                                                overflow: TextOverflow.ellipsis,
                                               ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
+                                              Text(
+                                                _formatTimeDetailed(
+                                                    patient['lastTimestamp']),
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color: Colors.grey.shade500,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  patient['lastMessage'] ??
+                                                      'No messages yet',
+                                                  style: TextStyle(
+                                                    fontSize: 15,
+                                                    color: Colors.grey.shade600,
+                                                    fontWeight: FontWeight.w400,
+                                                  ),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
                     childCount: filteredPatients.length,
                   ),
                 );
@@ -1072,11 +1068,11 @@ class _GmessagesState extends State<Gmessages> {
         if (patientId.isNotEmpty) {
           final conversationState = await _getConversationState(patientId);
           final state = conversationState?['state'] ?? 'active';
-
+          
           // Only include archived conversations (NOT deleted)
           if (state == 'archived') {
             final patientName = await _getPatientName(patientId);
-
+            
             // Get profile picture if available
             String? profilePicture;
             try {
@@ -1122,208 +1118,225 @@ class _GmessagesState extends State<Gmessages> {
 
   // Show archived messages
   void _showArchivedMessages() {
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.8,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  const Text(
-                    'Archived Messages',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Container(
+            width: 500,
+            height: 600,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.orange,
+                        Colors.orange.withOpacity(0.8),
+                      ],
+                    ),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(20),
+                      topRight: Radius.circular(20),
                     ),
                   ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: StreamBuilder<List<Map<String, dynamic>>>(
-                stream: _streamArchivedConversations(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(
-                      child: CircularProgressIndicator(),
-                    );
-                  }
-
-                  if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                    return const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.archive_outlined,
-                            size: 64,
-                            color: Colors.grey,
-                          ),
-                          SizedBox(height: 16),
-                          Text(
-                            'No archived messages yet',
-                            style: TextStyle(
-                              color: Colors.grey,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ],
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.archive_rounded,
+                        color: Colors.white,
+                        size: 24,
                       ),
-                    );
-                  }
-
-                  final archivedConversations = snapshot.data!;
-
-                  return ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    itemCount: archivedConversations.length,
-                    itemBuilder: (context, index) {
-                      final conversation = archivedConversations[index];
-                      final profilePicture =
-                          conversation['profilePicture'] as String?;
-
-                      Color stateColor = Colors.blue;
-                      IconData stateIcon = Icons.archive_rounded;
-
-                      return Container(
-                        margin: const EdgeInsets.symmetric(vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: stateColor.withOpacity(0.3),
-                            width: 1,
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Archived Messages',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                        child: ListTile(
-                          leading: Stack(
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(
+                          Icons.close,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Content
+                Expanded(
+                  child: StreamBuilder<List<Map<String, dynamic>>>(
+                    stream: _streamArchivedConversations(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(40),
+                            child: CircularProgressIndicator(
+                              color: Colors.orange,
+                            ),
+                          ),
+                        );
+                      }
+
+                      if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                        return const Padding(
+                          padding: EdgeInsets.all(40),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: _generatePastelColors(
-                                        conversation['id']),
-                                  ),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: profilePicture != null &&
-                                        profilePicture.isNotEmpty
-                                    ? ClipRRect(
-                                        borderRadius: BorderRadius.circular(20),
-                                        child: Image.network(
-                                          profilePicture,
-                                          fit: BoxFit.cover,
-                                          errorBuilder:
-                                              (context, error, stackTrace) {
-                                            return Center(
-                                              child: Text(
-                                                conversation['name'].isNotEmpty
-                                                    ? conversation['name'][0]
-                                                        .toUpperCase()
-                                                    : 'P',
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.white,
-                                                ),
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                      )
-                                    : Center(
-                                        child: Text(
-                                          conversation['name'].isNotEmpty
-                                              ? conversation['name'][0]
-                                                  .toUpperCase()
-                                              : 'P',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ),
+                              Icon(
+                                Icons.archive_outlined,
+                                size: 64,
+                                color: Colors.grey,
                               ),
-                              Positioned(
-                                bottom: 0,
-                                right: 0,
-                                child: Container(
-                                  width: 16,
-                                  height: 16,
-                                  decoration: BoxDecoration(
-                                    color: stateColor,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: Colors.white,
-                                      width: 2,
-                                    ),
-                                  ),
-                                  child: Icon(
-                                    stateIcon,
-                                    size: 8,
-                                    color: Colors.white,
-                                  ),
+                              SizedBox(height: 16),
+                              Text(
+                                'No archived messages yet',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                'Archived conversations will appear here.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.grey,
                                 ),
                               ),
                             ],
                           ),
-                          title: Text(
-                            conversation['name'],
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
+                        );
+                      }
+
+                      final archivedConversations = snapshot.data!;
+
+                      return ListView.builder(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.all(16),
+                        itemCount: archivedConversations.length,
+                        itemBuilder: (context, index) {
+                          final conversation = archivedConversations[index];
+                          final String? roleValue = (conversation['role'] as String?)?.toLowerCase();
+                          
+                          List<Color> avatarGradient;
+                          if (roleValue == 'healthcare') {
+                            avatarGradient = [Colors.redAccent, Colors.deepOrange.shade400];
+                          } else if (roleValue == 'doctor') {
+                            avatarGradient = [Colors.blueAccent, Colors.blue.shade400];
+                          } else {
+                            avatarGradient = [Colors.orange, Colors.deepOrange.shade400];
+                          }
+
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Colors.grey.shade200,
+                              ),
                             ),
-                          ),
-                          subtitle: Text(
-                            conversation['lastMessage'],
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          trailing: TextButton(
-                            onPressed: () {
-                              _setConversationState(
-                                  conversation['id'], 'active');
-                              Navigator.pop(context);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Conversation restored'),
-                                  backgroundColor: Colors.green,
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.all(16),
+                              leading: Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: avatarGradient,
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
-                              );
-                            },
-                            child: const Text('Restore'),
-                          ),
-                          onTap: () {
-                            Navigator.pop(context);
-                            _openChatWithoutRestore(
-                                conversation['id'],
+                                child: Center(
+                                  child: Text(
+                                    conversation['name'].isNotEmpty
+                                        ? conversation['name'][0].toUpperCase()
+                                        : 'P',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              title: Text(
                                 conversation['name'],
-                                conversation['profilePicture']);
-                          },
-                        ),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              subtitle: Text(
+                                conversation['lastMessage'],
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                              trailing: ElevatedButton(
+                                onPressed: () async {
+                                  await _setConversationState(conversation['id'], 'active');
+                                  if (mounted) {
+                                    Navigator.of(context).pop();
+                                    setState(() {}); // Trigger rebuild to show in main list
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Conversation restored'),
+                                        backgroundColor: Colors.green,
+                                      ),
+                                    );
+                                  }
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.orange,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                child: const Text('Restore'),
+                              ),
+                              onTap: () {
+                                Navigator.pop(context);
+                                _openChatWithoutRestore(
+                                  conversation['id'], 
+                                  conversation['name'], 
+                                  conversation['profilePicture']
+                                );
+                              },
+                            ),
+                          );
+                        },
                       );
                     },
-                  );
-                },
-              ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -1423,6 +1436,7 @@ class _GmessagesState extends State<Gmessages> {
     try {
       await _setConversationState(patientId, 'archived');
       if (mounted) {
+        setState(() {}); // Trigger rebuild to remove from main list
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('Conversation archived'),
@@ -1431,7 +1445,12 @@ class _GmessagesState extends State<Gmessages> {
             action: SnackBarAction(
               label: 'Undo',
               textColor: Colors.white,
-              onPressed: () => _setConversationState(patientId, 'active'),
+              onPressed: () async {
+                await _setConversationState(patientId, 'active');
+                if (mounted) {
+                  setState(() {}); // Trigger rebuild to show in main list again
+                }
+              },
             ),
           ),
         );
@@ -1452,14 +1471,13 @@ class _GmessagesState extends State<Gmessages> {
   void _deleteMessage(String patientId) async {
     try {
       final chatId = _getChatId(_currentUserId!, patientId);
-
+      
       // Show confirmation dialog
       bool? confirmDelete = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('Delete Conversation'),
-          content: const Text(
-              'This conversation will be permanently deleted. This action cannot be undone.'),
+          content: const Text('This conversation will be permanently deleted. This action cannot be undone.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -1476,15 +1494,9 @@ class _GmessagesState extends State<Gmessages> {
 
       if (confirmDelete == true) {
         // Permanently delete the chat document and conversation state
-        await FirebaseFirestore.instance
-            .collection('chats')
-            .doc(chatId)
-            .delete();
-        await FirebaseFirestore.instance
-            .collection('conversation_states')
-            .doc(chatId)
-            .delete();
-
+        await FirebaseFirestore.instance.collection('chats').doc(chatId).delete();
+        await FirebaseFirestore.instance.collection('conversation_states').doc(chatId).delete();
+        
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(

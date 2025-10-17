@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../services/chat_service.dart';
+import '../services/alias_service.dart';
 import '../models/message.dart';
 import '../services/presence_service.dart';
 import '../widgets/zoomable_image_viewer.dart';
@@ -31,10 +32,12 @@ class PatientHealthWorkerChatScreen extends StatefulWidget {
 class _PatientHealthWorkerChatScreenState
     extends State<PatientHealthWorkerChatScreen> {
   final ChatService _chatService = ChatService();
+  final AliasService _aliasService = AliasService();
   final TextEditingController _controller = TextEditingController();
   final PresenceService _presenceService = PresenceService();
 
   late final String _chatId;
+  String? _myAliasFromHealthcare; // The name healthcare worker uses for current user
   bool _isHealthWorkerOnline = false;
   String _healthWorkerStatus = 'Offline';
   final Map<String, bool> _expandedTimestamps = {};
@@ -45,11 +48,47 @@ class _PatientHealthWorkerChatScreenState
     _chatId = _chatService.generateChatId(
         widget.currentUserId, widget.healthWorkerId);
     _monitorHealthWorkerPresence();
+    _monitorMyAlias(); // Changed to use stream instead of one-time check
 
     debugPrint('Patient-HealthWorker Chat initialized:');
     debugPrint('Patient (Current User): ${widget.currentUserId}');
     debugPrint('Health Worker: ${widget.healthWorkerId}');
     debugPrint('Chat ID: $_chatId');
+  }
+
+  void _monitorMyAlias() {
+    // Listen to real-time updates of the alias
+    debugPrint('🔍 MONITORING ALIAS - Starting stream listener');
+    debugPrint('🔍 Healthcare ID: ${widget.healthWorkerId}');
+    debugPrint('🔍 Patient ID: ${widget.currentUserId}');
+    
+    _aliasService
+        .streamPatientAlias(
+          healthcareId: widget.healthWorkerId,
+          patientId: widget.currentUserId,
+        )
+        .listen((alias) {
+      debugPrint('🔍 STREAM UPDATE - Received alias: $alias');
+      
+      if (mounted) {
+        setState(() {
+          _myAliasFromHealthcare = alias;
+        });
+        
+        // Debug print to confirm updates
+        if (alias != null) {
+          debugPrint('🏷️ ✅ Alias updated for patient: $alias');
+          debugPrint('🏷️ Banner should now be visible!');
+        } else {
+          debugPrint('🏷️ ❌ No alias set for patient');
+          debugPrint('🏷️ Banner should be hidden');
+        }
+      } else {
+        debugPrint('⚠️ Widget not mounted, skipping update');
+      }
+    }, onError: (error) {
+      debugPrint('❌ ERROR in alias stream: $error');
+    });
   }
 
   void _monitorHealthWorkerPresence() {
@@ -784,6 +823,10 @@ class _PatientHealthWorkerChatScreenState
 
   @override
   Widget build(BuildContext context) {
+    // Debug: Print the alias state
+    debugPrint('🔍 BUILD - _myAliasFromHealthcare: $_myAliasFromHealthcare');
+    debugPrint('🔍 BUILD - Should show banner: ${_myAliasFromHealthcare != null}');
+    
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FD),
       body: Column(
@@ -996,6 +1039,207 @@ class _PatientHealthWorkerChatScreenState
               ),
             ),
           ),
+
+          // 🔹 Healthcare Worker Nickname Notice (Pinned Warning)
+          if (_myAliasFromHealthcare != null)
+            Container(
+              margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.amber.shade50,
+                    Colors.orange.shade50,
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.orange.shade200,
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.orange.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  // Header with pin icon
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade100.withOpacity(0.3),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(15),
+                        topRight: Radius.circular(15),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade600,
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.orange.withOpacity(0.3),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.push_pin_rounded,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          'PRIVACY NOTICE',
+                          style: TextStyle(
+                            color: Colors.orange.shade900,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Content
+                  Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.orange.shade400,
+                                Colors.orange.shade600,
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.orange.withOpacity(0.3),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.badge_rounded,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Your Healthcare ID',
+                                style: TextStyle(
+                                  color: Colors.orange.shade900,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: -0.2,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              RichText(
+                                text: TextSpan(
+                                  style: TextStyle(
+                                    color: Colors.grey.shade800,
+                                    fontSize: 13,
+                                    height: 1.4,
+                                  ),
+                                  children: [
+                                    const TextSpan(
+                                      text: 'The healthcare worker ',
+                                    ),
+                                    TextSpan(
+                                      text: widget.healthWorkerName,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const TextSpan(
+                                      text: ' identifies you as ',
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Colors.orange.shade600,
+                                      Colors.deepOrange.shade600,
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(8),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.orange.withOpacity(0.3),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.person_outline_rounded,
+                                      color: Colors.white,
+                                      size: 16,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      '"$_myAliasFromHealthcare"',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.2,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'This helps protect your identity and privacy.',
+                                style: TextStyle(
+                                  color: Colors.grey.shade700,
+                                  fontSize: 11,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
           // Messages List
           Expanded(

@@ -195,6 +195,7 @@ class TBisitaLoginScreen extends StatelessWidget {
     }
 
     return Scaffold(
+      backgroundColor: Colors.white,
       resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: LayoutBuilder(

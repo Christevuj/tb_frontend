@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../services/chat_service.dart';
+import '../services/alias_service.dart';
 import '../chat_screens/chat_screen.dart';
 
 class Hlandingpage extends StatefulWidget {
@@ -15,9 +16,53 @@ class Hlandingpage extends StatefulWidget {
 
 class _HlandingpageState extends State<Hlandingpage> {
   final ChatService _chatService = ChatService();
+  final AliasService _aliasService = AliasService();
   String? _currentUserId;
   String? _currentUserName;
   String _searchQuery = '';
+
+  // Method to get conversation state (archived, muted, deleted)
+  Future<Map<String, dynamic>?> _getConversationState(String patientId) async {
+    try {
+      final chatId = _getChatId(_currentUserId!, patientId);
+      final stateDoc = await FirebaseFirestore.instance
+          .collection('conversation_states')
+          .doc(chatId)
+          .get();
+      
+      if (stateDoc.exists) {
+        return stateDoc.data();
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error getting conversation state: $e');
+      return null;
+    }
+  }
+
+  // Method to set conversation state
+  Future<void> _setConversationState(String patientId, String state) async {
+    try {
+      final chatId = _getChatId(_currentUserId!, patientId);
+      await FirebaseFirestore.instance
+          .collection('conversation_states')
+          .doc(chatId)
+          .set({
+        'state': state, // 'archived', 'muted', 'deleted', or 'active'
+        'timestamp': Timestamp.now(),
+        'healthcareId': _currentUserId,
+        'patientId': patientId,
+      });
+    } catch (e) {
+      debugPrint('Error setting conversation state: $e');
+    }
+  }
+
+  // Generate consistent chat ID
+  String _getChatId(String userId1, String userId2) {
+    final sortedIds = [userId1, userId2]..sort();
+    return '${sortedIds[0]}_${sortedIds[1]}';
+  }
 
   @override
   void initState() {
@@ -289,8 +334,8 @@ class _HlandingpageState extends State<Hlandingpage> {
       case 'patient':
         return {
           'label': 'Patient',
-          'color': Colors.red.shade600,
-          'gradientColors': [Colors.red.shade600, Colors.red.shade400],
+          'color': Colors.teal,
+          'gradientColors': [Colors.teal, Colors.teal.shade400],
         };
       case 'guest':
         return {
@@ -301,8 +346,8 @@ class _HlandingpageState extends State<Hlandingpage> {
       default:
         return {
           'label': null,
-          'color': Colors.red.shade600,
-          'gradientColors': [Colors.red.shade600, Colors.red.shade400],
+          'color': Colors.teal,
+          'gradientColors': [Colors.teal, Colors.teal.shade400],
         };
     }
   }
@@ -313,16 +358,319 @@ class _HlandingpageState extends State<Hlandingpage> {
       return Stream.value([]);
     }
 
-    debugPrint('Streaming chats for healthcare user: $_currentUserId');
+    debugPrint('📥 LANDING PAGE: Streaming ALL incoming messages for healthcare user: $_currentUserId');
 
     return FirebaseFirestore.instance
         .collection('chats')
         .where('participants', arrayContains: _currentUserId)
         .snapshots()
         .asyncMap((chatsSnapshot) async {
-      debugPrint(
-          'Found ${chatsSnapshot.docs.length} chats for healthcare user');
-      final messagedPatients = <Map<String, dynamic>>[];
+      debugPrint('📥 LANDING PAGE: Found ${chatsSnapshot.docs.length} total chats');
+      final incomingMessages = <Map<String, dynamic>>[];
+
+      // Get list of approved patients that healthcare worker initiated chat with
+      final approvedPatientIds = await _getApprovedPatientIds();
+      debugPrint('📥 LANDING PAGE: Approved patients (initiated by healthcare): ${approvedPatientIds.length}');
+
+      for (var chatDoc in chatsSnapshot.docs) {
+        final chatData = chatDoc.data();
+        final participants = List<String>.from(chatData['participants'] ?? []);
+
+        final contactId = participants.firstWhere(
+          (id) => id != _currentUserId,
+          orElse: () => '',
+        );
+
+        if (contactId.isNotEmpty) {
+          // Check conversation state
+          final conversationState = await _getConversationState(contactId);
+          final state = conversationState?['state'] ?? null;
+          
+          // LANDING PAGE shows:
+          // 1. ALL conversations WITHOUT a state (new incoming messages from patients/guests)
+          // 2. Conversations NOT in the approved patients list (patients/guests who messaged first)
+          // 3. Exclude archived/deleted conversations
+          
+          final isApprovedPatient = approvedPatientIds.contains(contactId);
+          final shouldShowInLanding = (state == null || state == 'active') && !isApprovedPatient;
+          
+          if (shouldShowInLanding) {
+            final contactName = await _getPatientName(contactId);
+            final contactRole = await _chatService.getUserRole(contactId) ?? 'patient';
+            
+            // Get or create alias for patients
+            String displayName;
+            if (contactRole == 'patient') {
+              displayName = await _aliasService.getOrCreatePatientAlias(
+                healthcareId: _currentUserId!,
+                patientId: contactId,
+              );
+            } else {
+              // For doctors, healthcare, and guests, show real names
+              displayName = contactName;
+            }
+            
+            debugPrint('📥 LANDING PAGE: Including $displayName (role: $contactRole, state: $state)');
+            
+            incomingMessages.add({
+              'id': contactId,
+              'name': displayName,
+              'realName': contactName,
+              'lastMessage': chatData['lastMessage'] ?? 'No messages yet',
+              'lastTimestamp': chatData['lastTimestamp'],
+              'role': contactRole,
+            });
+          } else {
+            debugPrint('📤 SKIP for LANDING: $contactId (approved: $isApprovedPatient, state: $state) - Should be in hmessages.dart');
+          }
+        }
+      }
+
+      incomingMessages.sort((a, b) {
+        final aTime = a['lastTimestamp'] as Timestamp?;
+        final bTime = b['lastTimestamp'] as Timestamp?;
+
+        if (aTime == null && bTime == null) return 0;
+        if (aTime == null) return 1;
+        if (bTime == null) return -1;
+
+        return bTime.compareTo(aTime);
+      });
+
+      debugPrint('📥 LANDING PAGE: Showing ${incomingMessages.length} incoming conversations');
+      return incomingMessages;
+    }).handleError((error) {
+      debugPrint('❌ LANDING PAGE: Stream error: $error');
+      return <Map<String, dynamic>>[];
+    });
+  }
+
+  // Get list of approved patient IDs that healthcare worker has initiated chat with
+  Future<Set<String>> _getApprovedPatientIds() async {
+    if (_currentUserId == null) {
+      return {};
+    }
+
+    try {
+      // Get all patients that have 'active' conversation state set by this healthcare worker
+      // This means the healthcare worker initiated the chat (from approved patients list)
+      final approvedIds = <String>{};
+      
+      final statesQuery = await FirebaseFirestore.instance
+          .collection('conversation_states')
+          .where('healthcareId', isEqualTo: _currentUserId)
+          .where('state', isEqualTo: 'active')
+          .get();
+
+      for (var doc in statesQuery.docs) {
+        final data = doc.data();
+        final patientId = data['patientId'] as String?;
+        if (patientId != null) {
+          approvedIds.add(patientId);
+        }
+      }
+
+      debugPrint('📋 Found ${approvedIds.length} approved patients with active state');
+      return approvedIds;
+    } catch (e) {
+      debugPrint('Error getting approved patient IDs: $e');
+      return {};
+    }
+  }
+
+  // Show message options (archive, delete)
+  void _showMessageOptions(String patientId, String patientName) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 10),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  _buildOptionTile(
+                    icon: Icons.archive_rounded,
+                    title: 'Archive',
+                    subtitle: 'Hide this conversation',
+                    color: Colors.blue,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _archiveMessage(patientId);
+                    },
+                  ),
+                  _buildOptionTile(
+                    icon: Icons.delete_rounded,
+                    title: 'Delete',
+                    subtitle: 'Remove this conversation',
+                    color: Colors.red,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _deleteMessage(patientId);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOptionTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      leading: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, color: color, size: 22),
+      ),
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: 16,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(
+          color: Colors.grey.shade600,
+          fontSize: 14,
+        ),
+      ),
+      onTap: onTap,
+    );
+  }
+
+  // Archive message functionality
+  void _archiveMessage(String patientId) async {
+    try {
+      await _setConversationState(patientId, 'archived');
+      if (mounted) {
+        setState(() {}); // Trigger rebuild to remove from main list
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Conversation archived'),
+            duration: const Duration(seconds: 2),
+            backgroundColor: Colors.blue,
+            action: SnackBarAction(
+              label: 'Undo',
+              textColor: Colors.white,
+              onPressed: () async {
+                await _setConversationState(patientId, 'active');
+                if (mounted) {
+                  setState(() {}); // Trigger rebuild to show in main list again
+                }
+              },
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error archiving conversation: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // Delete message functionality - permanently remove
+  void _deleteMessage(String patientId) async {
+    try {
+      final chatId = _getChatId(_currentUserId!, patientId);
+      
+      // Show confirmation dialog
+      bool? confirmDelete = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text('Delete Conversation'),
+          content: const Text('This conversation will be permanently deleted. This action cannot be undone.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Delete'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmDelete == true) {
+        // Permanently delete the chat document and conversation state
+        await FirebaseFirestore.instance.collection('chats').doc(chatId).delete();
+        await FirebaseFirestore.instance.collection('conversation_states').doc(chatId).delete();
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Conversation permanently deleted'),
+              duration: Duration(seconds: 2),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error deleting conversation: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // Get archived conversations
+  Stream<List<Map<String, dynamic>>> _streamArchivedConversations() {
+    if (_currentUserId == null) {
+      return Stream.value([]);
+    }
+
+    return FirebaseFirestore.instance
+        .collection('chats')
+        .where('participants', arrayContains: _currentUserId)
+        .snapshots()
+        .asyncMap((chatsSnapshot) async {
+      final archivedConversations = <Map<String, dynamic>>[];
 
       for (var chatDoc in chatsSnapshot.docs) {
         final chatData = chatDoc.data();
@@ -334,22 +682,43 @@ class _HlandingpageState extends State<Hlandingpage> {
         );
 
         if (patientId.isNotEmpty) {
-          final patientName = await _getPatientName(patientId);
-          final contactRole =
-              await _chatService.getUserRole(patientId) ?? 'patient';
-          messagedPatients.add({
-            'id': patientId,
-            'name': patientName,
-            'lastMessage': chatData['lastMessage'] ?? 'No messages yet',
-            'lastTimestamp': chatData['lastTimestamp'],
-            'role': contactRole,
-          });
+          final conversationState = await _getConversationState(patientId);
+          final state = conversationState?['state'] ?? 'active';
+          
+          // Only include archived conversations (NOT deleted)
+          if (state == 'archived') {
+            final patientName = await _getPatientName(patientId);
+            final contactRole = await _chatService.getUserRole(patientId) ?? 'patient';
+            
+            // Get display name with alias
+            String displayName;
+            if (contactRole == 'patient') {
+              displayName = await _aliasService.getOrCreatePatientAlias(
+                healthcareId: _currentUserId!,
+                patientId: patientId,
+              );
+            } else {
+              displayName = patientName;
+            }
+            
+            archivedConversations.add({
+              'id': patientId,
+              'name': displayName,
+              'realName': patientName,
+              'lastMessage': chatData['lastMessage'] ?? 'No messages yet',
+              'lastTimestamp': chatData['lastTimestamp'],
+              'state': state,
+              'archivedAt': conversationState?['timestamp'],
+              'role': contactRole,
+            });
+          }
         }
       }
 
-      messagedPatients.sort((a, b) {
-        final aTime = a['lastTimestamp'] as Timestamp?;
-        final bTime = b['lastTimestamp'] as Timestamp?;
+      // Sort by archived timestamp
+      archivedConversations.sort((a, b) {
+        final aTime = a['archivedAt'] as Timestamp?;
+        final bTime = b['archivedAt'] as Timestamp?;
 
         if (aTime == null && bTime == null) return 0;
         if (aTime == null) return 1;
@@ -358,11 +727,228 @@ class _HlandingpageState extends State<Hlandingpage> {
         return bTime.compareTo(aTime);
       });
 
-      return messagedPatients;
-    }).handleError((error) {
-      debugPrint('Stream error for healthcare chats: $error');
-      return <Map<String, dynamic>>[];
+      return archivedConversations;
     });
+  }
+
+  // Show archived messages
+  void _showArchivedMessages() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Container(
+            width: 500,
+            height: 600,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.redAccent,
+                        Colors.redAccent.withOpacity(0.8),
+                      ],
+                    ),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(20),
+                      topRight: Radius.circular(20),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.archive_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Archived Messages',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(
+                          Icons.close,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Content
+                Expanded(
+                  child: StreamBuilder<List<Map<String, dynamic>>>(
+                    stream: _streamArchivedConversations(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(40),
+                            child: CircularProgressIndicator(
+                              color: Colors.redAccent,
+                            ),
+                          ),
+                        );
+                      }
+
+                      if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                        return const Padding(
+                          padding: EdgeInsets.all(40),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.archive_outlined,
+                                size: 64,
+                                color: Colors.grey,
+                              ),
+                              SizedBox(height: 16),
+                              Text(
+                                'No archived messages yet',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                'Archived conversations will appear here.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+
+                      final archivedConversations = snapshot.data!;
+
+                      return ListView.builder(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.all(16),
+                        itemCount: archivedConversations.length,
+                        itemBuilder: (context, index) {
+                          final conversation = archivedConversations[index];
+                          final String? roleValue = (conversation['role'] as String?)?.toLowerCase();
+                          
+                          List<Color> avatarGradient;
+                          if (roleValue == 'healthcare') {
+                            avatarGradient = [Colors.redAccent, Colors.deepOrange.shade400];
+                          } else if (roleValue == 'doctor') {
+                            avatarGradient = [Colors.blueAccent, Colors.blue.shade400];
+                          } else {
+                            avatarGradient = [Colors.teal, Colors.teal.shade400];
+                          }
+
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Colors.grey.shade200,
+                              ),
+                            ),
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.all(16),
+                              leading: Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: avatarGradient,
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    conversation['name'].isNotEmpty
+                                        ? conversation['name'][0].toUpperCase()
+                                        : 'P',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              title: Text(
+                                conversation['name'],
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              subtitle: Text(
+                                conversation['lastMessage'],
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                              trailing: ElevatedButton(
+                                onPressed: () async {
+                                  await _setConversationState(conversation['id'], 'active');
+                                  if (mounted) {
+                                    Navigator.of(context).pop();
+                                    setState(() {}); // Trigger rebuild to show in main list
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Conversation restored'),
+                                        backgroundColor: Colors.green,
+                                      ),
+                                    );
+                                  }
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.redAccent,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                child: const Text('Restore'),
+                              ),
+                              onTap: () {
+                                Navigator.pop(context);
+                                _openChat(conversation['id'], conversation['name']);
+                              },
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -384,13 +970,48 @@ class _HlandingpageState extends State<Hlandingpage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Logo Header
+            // Logo Header with Archive Icon
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Image.asset(
-                "assets/images/tbisita_logo2.png",
-                height: 44,
-                alignment: Alignment.centerLeft,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Image.asset(
+                    "assets/images/tbisita_logo2.png",
+                    height: 44,
+                    alignment: Alignment.centerLeft,
+                  ),
+                  // Archive Icon (moved down)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16),
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(
+                          color: Colors.redAccent.withOpacity(0.2),
+                          width: 1,
+                        ),
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(22),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(22),
+                          onTap: _showArchivedMessages,
+                          child: const Icon(
+                            Icons.archive_rounded,
+                            color: Colors.redAccent,
+                            size: 22,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 3),
@@ -493,8 +1114,7 @@ class _HlandingpageState extends State<Hlandingpage> {
                     }
 
                     if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                      return SizedBox(
-                        height: 400,
+                      return Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -519,6 +1139,7 @@ class _HlandingpageState extends State<Hlandingpage> {
                             const SizedBox(height: 24),
                             const Text(
                               'No conversations yet',
+                              textAlign: TextAlign.center,
                               style: TextStyle(
                                 color: Color(0xFF2C2C2C),
                                 fontSize: 22,
@@ -526,27 +1147,6 @@ class _HlandingpageState extends State<Hlandingpage> {
                               ),
                             ),
                             const SizedBox(height: 12),
-                            Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 40),
-                              child: Text(
-                                'Patient conversations will appear here once you start exchanging messages.',
-                                style: TextStyle(
-                                  color: Colors.grey.shade600,
-                                  fontSize: 16,
-                                  height: 1.4,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            Text(
-                              'Current User: ${_currentUserId ?? "Not logged in"}',
-                              style: TextStyle(
-                                color: Colors.grey.shade500,
-                                fontSize: 12,
-                              ),
-                            ),
                           ],
                         ),
                       );
@@ -608,6 +1208,10 @@ class _HlandingpageState extends State<Hlandingpage> {
                               onTap: () {
                                 HapticFeedback.selectionClick();
                                 _openChat(patientId, patientName);
+                              },
+                              onLongPress: () {
+                                HapticFeedback.mediumImpact();
+                                _showMessageOptions(patientId, patientName);
                               },
                               child: Padding(
                                 padding: const EdgeInsets.all(14),

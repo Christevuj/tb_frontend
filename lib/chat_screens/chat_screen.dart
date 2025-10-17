@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../services/chat_service.dart';
+import '../services/alias_service.dart';
 import '../models/message.dart';
 import '../services/presence_service.dart';
 import '../widgets/zoomable_image_viewer.dart';
@@ -25,11 +26,14 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final ChatService _chatService = ChatService();
+  final AliasService _aliasService = AliasService();
   final TextEditingController _controller = TextEditingController();
   final PresenceService _presenceService = PresenceService();
 
   late final String _chatId;
   String _otherUserName = '';
+  String? _myAliasFromHealthcare; // The name healthcare worker uses for current user
+  String? _otherUserRole; // Track if other user is healthcare
   bool _isOtherUserOnline = false;
   String _otherUserStatus = 'Offline';
   final Map<String, bool> _expandedTimestamps =
@@ -45,8 +49,10 @@ class _ChatScreenState extends State<ChatScreen> {
     // Mark messages as read when chat screen is opened
     _chatService.markMessagesAsRead(widget.currentUserId, widget.otherUserId);
 
-    // Get the other user's name
+    // Get the other user's name and role
     _getOtherUserName();
+    _getOtherUserRole();
+    _initializeAliasMonitoring();
 
     // Start monitoring other user's presence
     _monitorOtherUserPresence();
@@ -56,6 +62,71 @@ class _ChatScreenState extends State<ChatScreen> {
     print('Current User: ${widget.currentUserId}');
     print('Other User: ${widget.otherUserId}');
     print('Chat ID: $_chatId');
+  }
+
+  Future<void> _getOtherUserRole() async {
+    final role = await _chatService.getUserRole(widget.otherUserId);
+    if (mounted) {
+      setState(() {
+        _otherUserRole = role;
+      });
+      // After getting role, check aliases
+      _checkAliases();
+    }
+  }
+
+  Future<void> _initializeAliasMonitoring() async {
+    // Wait a bit for role to be determined
+    await Future.delayed(const Duration(milliseconds: 500));
+    _checkAliases();
+  }
+
+  Future<void> _checkAliases() async {
+    final currentUserRole = await _chatService.getUserRole(widget.currentUserId);
+    
+    // If current user is PATIENT and other user is HEALTHCARE
+    // Monitor if healthcare worker has given me an alias
+    if (currentUserRole == 'patient' && _otherUserRole == 'healthcare') {
+      debugPrint('🔍 PATIENT MODE - Monitoring alias from healthcare worker');
+      _aliasService
+          .streamPatientAlias(
+            healthcareId: widget.otherUserId,
+            patientId: widget.currentUserId,
+          )
+          .listen((alias) {
+        if (mounted) {
+          setState(() {
+            _myAliasFromHealthcare = alias;
+          });
+          if (alias != null) {
+            debugPrint('🏷️ Patient received alias update: $alias');
+          }
+        }
+      });
+    }
+    
+    // If current user is HEALTHCARE and other user is PATIENT
+    // Monitor the alias I've given to the patient
+    if (currentUserRole == 'healthcare' && _otherUserRole == 'patient') {
+      debugPrint('🔍 HEALTHCARE MODE - Monitoring alias for patient');
+      _aliasService
+          .streamPatientAlias(
+            healthcareId: widget.currentUserId,
+            patientId: widget.otherUserId,
+          )
+          .listen((alias) {
+        if (mounted) {
+          setState(() {
+            if (alias != null) {
+              _otherUserName = alias;
+            }
+          });
+          if (alias != null) {
+            debugPrint('🏷️ Healthcare worker - patient alias updated: $alias');
+          }
+        }
+      });
+    }
   }
 
   void _monitorOtherUserPresence() {
@@ -257,11 +328,694 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  // Check if current user is a healthcare worker
+  Future<bool> _isCurrentUserHealthcare() async {
+    try {
+      final role = await _chatService.getUserRole(widget.currentUserId);
+      return role == 'healthcare';
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // Get other user's profile picture
+  Future<String?> _getOtherUserProfilePicture() async {
+    try {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.otherUserId)
+          .get();
+      return userDoc.data()?['profilePicture'] as String?;
+    } catch (e) {
+      print('Error getting profile picture: $e');
+      return null;
+    }
+  }
+
+  // Show menu options dialog with avatar, rename, view photos, delete
+  void _showMenuOptions() async {
+    final isHealthcare = await _isCurrentUserHealthcare();
+    final profilePicture = await _getOtherUserProfilePicture();
+    
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.5),
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 340),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 30,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header Section with Avatar and Name
+                Container(
+                  padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+                  child: Column(
+                    children: [
+                      // Avatar with gradient border
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.red.shade400,
+                              Colors.red.shade600,
+                            ],
+                          ),
+                        ),
+                        child: Container(
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white,
+                          ),
+                          padding: const EdgeInsets.all(3),
+                          child: CircleAvatar(
+                            radius: 48,
+                            backgroundColor: Colors.red.shade100,
+                            backgroundImage: profilePicture != null
+                                ? NetworkImage(profilePicture)
+                                : null,
+                            child: profilePicture == null
+                                ? Text(
+                                    _otherUserName.isNotEmpty
+                                        ? _otherUserName[0].toUpperCase()
+                                        : '?',
+                                    style: TextStyle(
+                                      fontSize: 36,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.red.shade700,
+                                    ),
+                                  )
+                                : null,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // Name
+                      Text(
+                        _otherUserName.isEmpty ? widget.otherUserId : _otherUserName,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1C1C1E),
+                          letterSpacing: -0.5,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 6),
+                      // Status indicator
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: _isOtherUserOnline 
+                                  ? Colors.green.shade500 
+                                  : Colors.grey.shade400,
+                              boxShadow: _isOtherUserOnline
+                                  ? [
+                                      BoxShadow(
+                                        color: Colors.green.withOpacity(0.4),
+                                        blurRadius: 4,
+                                        spreadRadius: 1,
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            _otherUserStatus,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade600,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // Divider
+                Container(
+                  height: 1,
+                  margin: const EdgeInsets.symmetric(horizontal: 20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.transparent,
+                        Colors.grey.shade200,
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                ),
+                
+                // Menu options
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Column(
+                    children: [
+                      if (isHealthcare) ...[
+                        _buildModernMenuOption(
+                          icon: Icons.edit_rounded,
+                          label: 'Rename Patient',
+                          subtitle: 'Set a custom name',
+                          gradient: [Colors.blue.shade400, Colors.blue.shade600],
+                          onTap: () {
+                            Navigator.pop(context);
+                            _showRenameDialog();
+                          },
+                        ),
+                      ],
+                      _buildModernMenuOption(
+                        icon: Icons.photo_library_rounded,
+                        label: 'View Photos',
+                        subtitle: 'See all shared images',
+                        gradient: [Colors.purple.shade400, Colors.purple.shade600],
+                        onTap: () {
+                          Navigator.pop(context);
+                          _showPhotoGallery();
+                        },
+                      ),
+                      _buildModernMenuOption(
+                        icon: Icons.delete_outline_rounded,
+                        label: 'Delete Chat',
+                        subtitle: 'Remove conversation',
+                        gradient: [Colors.red.shade400, Colors.red.shade600],
+                        onTap: () {
+                          Navigator.pop(context);
+                          _showDeleteConversationDialog();
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // Close button
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: TextButton.styleFrom(
+                      backgroundColor: Colors.grey.shade100,
+                      foregroundColor: Colors.grey.shade700,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      minimumSize: const Size(double.infinity, 50),
+                    ),
+                    child: const Text(
+                      'Close',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+  
+  // Modern menu option widget (Messenger style)
+  Widget _buildModernMenuOption({
+    required IconData icon,
+    required String label,
+    required String subtitle,
+    required List<Color> gradient,
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            HapticFeedback.mediumImpact();
+            onTap();
+          },
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              color: Colors.grey.shade50,
+            ),
+            child: Row(
+              children: [
+                // Icon with gradient background
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: gradient,
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: gradient[0].withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    icon,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                // Text content
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1C1C1E),
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Arrow icon
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 16,
+                  color: Colors.grey.shade400,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMenuOption({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onTap();
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 22),
+            const SizedBox(width: 16),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Show rename patient dialog (healthcare workers only)
+  void _showRenameDialog() async {
+    final controller = TextEditingController();
+    final currentAlias = await _aliasService.getPatientAlias(
+      healthcareId: widget.currentUserId,
+      patientId: widget.otherUserId,
+    );
+    
+    if (currentAlias != null) {
+      controller.text = currentAlias;
+    }
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.edit_rounded, color: Colors.blue, size: 24),
+              SizedBox(width: 12),
+              Text(
+                'Rename Patient',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF2C2C2C),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Set a privacy-friendly name for this patient (e.g., "Patient 1", "John", etc.)',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey.shade600,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: 'Enter patient name',
+                  filled: true,
+                  fillColor: Colors.grey.shade100,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.blue, width: 2),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                Navigator.of(context).pop();
+              },
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: Colors.grey.shade600,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                HapticFeedback.lightImpact();
+                final newName = controller.text.trim();
+                if (newName.isNotEmpty) {
+                  debugPrint('🔍 Updating patient alias to: $newName');
+                  final success = await _aliasService.updatePatientAlias(
+                    healthcareId: widget.currentUserId,
+                    patientId: widget.otherUserId,
+                    newAlias: newName,
+                  );
+                  
+                  if (mounted) {
+                    Navigator.of(context).pop();
+                    if (success) {
+                      // Don't manually set _otherUserName here
+                      // The stream listener will automatically update it
+                      debugPrint('✅ Alias update successful, waiting for stream update...');
+                      
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Row(
+                            children: [
+                              const Icon(Icons.check_circle, color: Colors.white),
+                              const SizedBox(width: 12),
+                              Text('Patient renamed to "$newName"'),
+                            ],
+                          ),
+                          backgroundColor: Colors.green,
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          margin: const EdgeInsets.all(16),
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Row(
+                            children: [
+                              Icon(Icons.error_outline, color: Colors.white),
+                              SizedBox(width: 12),
+                              Text('Failed to rename patient'),
+                            ],
+                          ),
+                          backgroundColor: Colors.red,
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          margin: const EdgeInsets.all(16),
+                        ),
+                      );
+                    }
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 10,
+                ),
+              ),
+              child: const Text(
+                'Save',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Show photo gallery of all images in conversation
+  void _showPhotoGallery() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(20),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.red.shade400, Colors.red.shade600],
+                    ),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(20),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Shared Photos',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close, color: Colors.white),
+                      ),
+                    ],
+                  ),
+                ),
+                // Photos grid
+                Expanded(
+                  child: StreamBuilder<List<Message>>(
+                    stream: _chatService.getMessages(
+                      widget.currentUserId,
+                      widget.otherUserId,
+                    ),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) {
+                        return const Center(
+                          child: CircularProgressIndicator(),
+                        );
+                      }
+
+                      final messages = snapshot.data!
+                          .where((msg) => msg.type == 'image')
+                          .toList();
+
+                      if (messages.isEmpty) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.photo_library_outlined,
+                                size: 64,
+                                color: Colors.grey.shade300,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No photos shared yet',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+
+                      return GridView.builder(
+                        padding: const EdgeInsets.all(16),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          crossAxisSpacing: 8,
+                          mainAxisSpacing: 8,
+                        ),
+                        itemCount: messages.length,
+                        itemBuilder: (context, index) {
+                          final message = messages[index];
+                          return GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ZoomableImageViewer(
+                                    imageUrl: message.imageUrl ?? '',
+                                  ),
+                                ),
+                              );
+                            },
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.network(
+                                message.imageUrl ?? '',
+                                fit: BoxFit.cover,
+                                loadingBuilder: (context, child, progress) {
+                                  if (progress == null) return child;
+                                  return Container(
+                                    color: Colors.grey.shade200,
+                                    child: const Center(
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                  );
+                                },
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    color: Colors.grey.shade200,
+                                    child: Icon(
+                                      Icons.broken_image,
+                                      color: Colors.grey.shade400,
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   void _showDeleteConversationDialog() {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
+          backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -855,6 +1609,11 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Debug: Print the alias state
+    debugPrint('🔍 CHAT_SCREEN BUILD - _myAliasFromHealthcare: $_myAliasFromHealthcare');
+    debugPrint('🔍 CHAT_SCREEN BUILD - _otherUserRole: $_otherUserRole');
+    debugPrint('🔍 CHAT_SCREEN BUILD - Should show banner: ${_myAliasFromHealthcare != null && _otherUserRole == 'healthcare'}');
+    
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FD),
       body: Column(
@@ -1002,47 +1761,17 @@ class _ChatScreenState extends State<ChatScreen> {
                         color: Colors.white.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: PopupMenuButton<String>(
+                      child: IconButton(
                         padding: EdgeInsets.zero,
                         icon: const Icon(
                           Icons.more_vert_rounded,
                           color: Colors.white,
                           size: 20,
                         ),
-                        color: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 8,
-                        onSelected: (value) {
+                        onPressed: () {
                           HapticFeedback.lightImpact();
-                          if (value == 'delete') {
-                            _showDeleteConversationDialog();
-                          }
+                          _showMenuOptions();
                         },
-                        itemBuilder: (BuildContext context) => [
-                          PopupMenuItem<String>(
-                            value: 'delete',
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.delete_outline_rounded,
-                                  color: Colors.red.shade400,
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  'Delete Conversation',
-                                  style: TextStyle(
-                                    color: Colors.red.shade400,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
                       ),
                     ),
                   ],
@@ -1050,6 +1779,197 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
           ),
+          // 🔹 Healthcare Worker Nickname Notice (Pinned Warning)
+          if (_myAliasFromHealthcare != null && _otherUserRole == 'healthcare')
+            Container(
+              margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.amber.shade50,
+                    Colors.orange.shade50,
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.orange.shade200,
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.orange.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  // Header with pin icon
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade100.withOpacity(0.3),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(15),
+                        topRight: Radius.circular(15),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade600,
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.orange.withOpacity(0.3),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.push_pin_rounded,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          'PRIVACY NOTICE',
+                          style: TextStyle(
+                            color: Colors.orange.shade900,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Content
+                  Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.orange.shade400,
+                                Colors.orange.shade600,
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.orange.withOpacity(0.3),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.badge_rounded,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Your Healthcare ID',
+                                style: TextStyle(
+                                  color: Colors.orange.shade900,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: -0.2,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              RichText(
+                                text: TextSpan(
+                                  style: TextStyle(
+                                    color: Colors.grey.shade800,
+                                    fontSize: 13,
+                                    height: 1.4,
+                                  ),
+                                  children: [
+                                    const TextSpan(
+                                      text: 'The healthcare worker identifies you as ',
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Colors.orange.shade600,
+                                      Colors.deepOrange.shade600,
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(8),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.orange.withOpacity(0.3),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.person_outline_rounded,
+                                      color: Colors.white,
+                                      size: 16,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      '"$_myAliasFromHealthcare"',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.2,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'This helps protect your identity and privacy.',
+                                style: TextStyle(
+                                  color: Colors.grey.shade700,
+                                  fontSize: 11,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           // 🔹 Messages List
           Expanded(
             child: StreamBuilder<List<Message>>(

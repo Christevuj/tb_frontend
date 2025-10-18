@@ -31,6 +31,14 @@ class WebRTCService {
   DateTime? _lastPermissionCheck;
   bool _isMediaActive = false;
   String? _activeUserId; // Track which user has active media
+  bool _offerProcessed = false; // Track if offer has been processed
+  bool _answerProcessed = false; // Track if answer has been processed
+  int _processedIceCandidatesCount =
+      0; // Track how many ICE candidates have been processed
+  List<RTCIceCandidate> _pendingIceCandidates =
+      []; // Queue for ICE candidates received before remote description
+  bool _remoteDescriptionSet =
+      false; // Track if remote description has been set
 
   // Test mode for single device development
   static bool isTestMode = kDebugMode; // Enable in debug mode
@@ -39,6 +47,7 @@ class WebRTCService {
   // Callbacks
   Function()? onLocalStream;
   Function()? onRemoteStream;
+  Function()? onConnectionEstablished;
   Function()? onCallEnded;
   Function(String)? onError;
 
@@ -156,17 +165,45 @@ class WebRTCService {
 
   // Initialize WebRTC
   Future<void> initialize() async {
-    if (_isInitialized) {
-      if (kDebugMode) print('✅ WebRTC already initialized');
-      return;
-    }
-
     try {
       if (kDebugMode) print('🔄 Initializing WebRTC renderers...');
 
-      // Initialize renderers first
-      await localRenderer.initialize();
-      await remoteRenderer.initialize();
+      // Check if renderers are already initialized and valid
+      bool localNeedsInit = false;
+      bool remoteNeedsInit = false;
+
+      try {
+        // Test if renderer is valid by checking its internal state
+        if (localRenderer.srcObject == null && !_isInitialized) {
+          localNeedsInit = true;
+        }
+      } catch (e) {
+        localNeedsInit = true;
+      }
+
+      try {
+        if (remoteRenderer.srcObject == null && !_isInitialized) {
+          remoteNeedsInit = true;
+        }
+      } catch (e) {
+        remoteNeedsInit = true;
+      }
+
+      // Initialize only if needed
+      if (localNeedsInit) {
+        if (kDebugMode) print('🔄 Initializing local renderer...');
+        await localRenderer.initialize();
+      }
+
+      if (remoteNeedsInit) {
+        if (kDebugMode) print('🔄 Initializing remote renderer...');
+        await remoteRenderer.initialize();
+        // Ensure remote renderer is explicitly set to null until we get actual remote stream
+        remoteRenderer.srcObject = null;
+        if (kDebugMode)
+          print(
+              '🔒 Remote renderer explicitly set to null until remote stream arrives');
+      }
 
       if (kDebugMode) print('✅ WebRTC renderers initialized successfully');
       _isInitialized = true;
@@ -221,31 +258,119 @@ class WebRTCService {
       _peerConnection!.onIceCandidate = (RTCIceCandidate candidate) {
         if (kDebugMode)
           print('🧊 ICE candidate generated: ${candidate.candidate}');
-        // For now, we're using the simple offer/answer model
-        // In a more robust implementation, you'd exchange ICE candidates
+
+        // Send ICE candidate to Firestore for the other peer
+        if (_currentAppointmentId != null && candidate.candidate != null) {
+          _sendIceCandidate(_currentAppointmentId!, candidate);
+        }
       };
 
-      _peerConnection!.onTrack = (RTCTrackEvent event) {
-        if (kDebugMode) print('📹 Remote track received: ${event.track.kind}');
-        if (event.track.kind == 'video') {
-          _remoteStream = event.streams[0];
+      // Monitor ICE gathering state changes
+      _peerConnection!.onIceGatheringState = (RTCIceGatheringState state) {
+        if (kDebugMode) {
+          print('🧊 ICE gathering state changed: $state');
+        }
+      };
 
-          // Safely set remote renderer source object
-          try {
-            remoteRenderer.srcObject = _remoteStream;
-            if (kDebugMode) print('✅ Remote renderer source object set');
-          } catch (rendererError) {
-            if (kDebugMode)
-              print('⚠️ Remote renderer error, reinitializing: $rendererError');
-            remoteRenderer.initialize().then((_) {
-              remoteRenderer.srcObject = _remoteStream;
-              if (kDebugMode)
-                print(
-                    '✅ Remote renderer source object set after reinitialization');
-            });
+      // Monitor ICE connection state changes
+      _peerConnection!.onIceConnectionState = (RTCIceConnectionState state) {
+        if (kDebugMode) {
+          print('🧊 ICE connection state changed: $state');
+        }
+      };
+
+      // Use onAddStream (older but more reliable API, especially on Android)
+      _peerConnection!.onAddStream = (MediaStream stream) {
+        if (kDebugMode) {
+          print('═══════════════════════════════════════════════════');
+          print('📹 ON ADD STREAM EVENT FIRED (Legacy API)');
+          print('   Stream id: ${stream.id}');
+          print('   Audio tracks: ${stream.getAudioTracks().length}');
+          print('   Video tracks: ${stream.getVideoTracks().length}');
+
+          // Log track details
+          for (var track in stream.getTracks()) {
+            print(
+                '   Track: ${track.kind} - enabled: ${track.enabled}, muted: ${track.muted}, id: ${track.id}');
           }
+          print('═══════════════════════════════════════════════════');
+        }
 
-          onRemoteStream?.call();
+        _remoteStream = stream;
+
+        // Ensure all remote tracks are enabled
+        for (var track in stream.getTracks()) {
+          track.enabled = true;
+          if (kDebugMode) {
+            print('✅ Enabled remote ${track.kind} track');
+          }
+        }
+
+        // Safely set remote renderer source object
+        try {
+          remoteRenderer.srcObject = _remoteStream;
+          if (kDebugMode)
+            print('✅ Remote renderer source object set via onAddStream');
+        } catch (rendererError) {
+          if (kDebugMode) {
+            print('⚠️ Remote renderer error, reinitializing: $rendererError');
+          }
+          remoteRenderer.initialize().then((_) {
+            remoteRenderer.srcObject = _remoteStream;
+            if (kDebugMode) {
+              print(
+                  '✅ Remote renderer source object set after reinitialization');
+            }
+          });
+        }
+
+        onRemoteStream?.call();
+      };
+
+      // Also keep onTrack for newer implementations
+      _peerConnection!.onTrack = (RTCTrackEvent event) {
+        if (kDebugMode) {
+          print('📹 Remote track received via onTrack:');
+          print('   Kind: ${event.track.kind}');
+          print('   Enabled: ${event.track.enabled}');
+          print('   Muted: ${event.track.muted}');
+          print('   Streams: ${event.streams.length}');
+        }
+
+        // Process all tracks, not just video
+        if (event.streams.isNotEmpty) {
+          final stream = event.streams[0];
+
+          // Update remote stream if not set or if it's a different stream
+          if (_remoteStream == null || _remoteStream!.id != stream.id) {
+            if (kDebugMode) print('🔄 Setting remote stream from onTrack');
+            _remoteStream = stream;
+
+            // Enable the track
+            event.track.enabled = true;
+            if (kDebugMode) print('✅ Enabled ${event.track.kind} track');
+
+            // Set remote renderer source object (only for video)
+            if (event.track.kind == 'video') {
+              try {
+                remoteRenderer.srcObject = _remoteStream;
+                if (kDebugMode)
+                  print('✅ Remote renderer source object set via onTrack');
+              } catch (rendererError) {
+                if (kDebugMode)
+                  print(
+                      '⚠️ Remote renderer error, reinitializing: $rendererError');
+                remoteRenderer.initialize().then((_) {
+                  remoteRenderer.srcObject = _remoteStream;
+                  if (kDebugMode)
+                    print(
+                        '✅ Remote renderer source object set after reinitialization');
+                });
+              }
+
+              onRemoteStream?.call();
+            }
+          }
         }
       };
 
@@ -253,6 +378,7 @@ class WebRTCService {
         if (kDebugMode) print('🔗 Connection state changed: $state');
         if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
           if (kDebugMode) print('✅ Peer connection established successfully!');
+          onConnectionEstablished?.call();
         } else if (state ==
             RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
           if (kDebugMode) print('❌ Peer connection failed!');
@@ -266,6 +392,15 @@ class WebRTCService {
       };
 
       if (kDebugMode) print('✅ Peer connection created successfully');
+
+      // Wait for native initialization to complete
+      // On some Android devices, the signaling state property isn't immediately available
+      await Future.delayed(const Duration(milliseconds: 200));
+
+      if (kDebugMode) {
+        final state = _peerConnection?.signalingState;
+        print('🔍 Signaling state after initialization: $state');
+      }
     } catch (e) {
       if (kDebugMode) print('❌ Error creating peer connection: $e');
       onError?.call('Failed to create peer connection: $e');
@@ -344,6 +479,17 @@ class WebRTCService {
 
       if (kDebugMode) print('✅ User media obtained successfully');
 
+      // Explicitly enable all tracks
+      if (_localStream != null) {
+        for (final track in _localStream!.getTracks()) {
+          track.enabled = true;
+          if (kDebugMode) {
+            print(
+                '✅ Track enabled: ${track.kind} - enabled: ${track.enabled}, muted: ${track.muted}');
+          }
+        }
+      }
+
       // Set the source object
       if (kDebugMode) print('🔄 Setting local renderer source object...');
       try {
@@ -365,8 +511,12 @@ class WebRTCService {
         // Add tracks individually for Unified Plan
         for (final track in _localStream!.getTracks()) {
           await _peerConnection!.addTrack(track, _localStream!);
+          if (kDebugMode) {
+            print(
+                '✅ Added ${track.kind} track to peer connection - enabled: ${track.enabled}');
+          }
         }
-        if (kDebugMode) print('✅ Tracks added to peer connection');
+        if (kDebugMode) print('✅ All tracks added to peer connection');
       }
     } catch (e) {
       if (kDebugMode) print('❌ Error starting local media: $e');
@@ -386,16 +536,27 @@ class WebRTCService {
           e.toString().toLowerCase().contains('devicenotfound')) {
         errorMessage = 'Camera or microphone not found on this device.';
       } else if (e.toString().toLowerCase().contains('srcobject') ||
-          e.toString().toLowerCase().contains('renderer')) {
-        errorMessage =
-            'Video renderer initialization failed. Trying to reinitialize...';
+          e.toString().toLowerCase().contains('renderer') ||
+          e.toString().toLowerCase().contains('disposed')) {
+        errorMessage = 'Video renderer was disposed. Reinitializing...';
 
-        // Try to reinitialize renderers and retry
+        // Renderer was disposed, need to dispose and reinitialize
         try {
           if (kDebugMode)
-            print('🔄 Reinitializing renderers due to srcObject error...');
+            print('🔄 Disposing and reinitializing disposed renderers...');
+
+          // Dispose existing renderers
+          try {
+            await localRenderer.dispose();
+          } catch (_) {}
+          try {
+            await remoteRenderer.dispose();
+          } catch (_) {}
+
+          // Initialize them again
           await localRenderer.initialize();
           await remoteRenderer.initialize();
+          _isInitialized = true;
 
           if (_localStream != null) {
             localRenderer.srcObject = _localStream;
@@ -406,7 +567,7 @@ class WebRTCService {
         } catch (reinitError) {
           if (kDebugMode)
             print('❌ Renderer reinitialization failed: $reinitError');
-          errorMessage = 'Video renderer failed to initialize: $reinitError';
+          errorMessage = 'Video renderer failed to reinitialize: $reinitError';
         }
       } else if (e
           .toString()
@@ -471,6 +632,10 @@ class WebRTCService {
         print(
             '🚀 Starting call for room: $roomId by user: ${userId ?? "doctor"}');
 
+      // Check if we need to clear old Firestore data
+      // This allows either party to start the call first
+      await _clearFirestoreSignalingIfNeeded(appointmentId);
+
       // Ensure clean state before starting
       if (_peerConnection != null) {
         if (kDebugMode)
@@ -489,32 +654,137 @@ class WebRTCService {
       _currentAppointmentId = appointmentId;
       _isCaller = true;
       _inCall = true;
+      _offerProcessed = false; // Reset for new call
+      _answerProcessed = false; // Reset for new call
+      _processedIceCandidatesCount = 0; // Reset ICE candidate counter
+      _remoteDescriptionSet = false; // Reset remote description flag
+      _pendingIceCandidates.clear(); // Clear any pending ICE candidates
 
       await _createPeerConnection();
       await _startLocalMedia(userId: userId ?? 'doctor');
       await _connectToSignalingServer(roomId);
 
+      // Ensure local tracks are present before creating offer
+      if (_localStream != null && _peerConnection != null) {
+        final senders = await _peerConnection!.getSenders();
+        if (kDebugMode) {
+          print('🔍 Verifying local tracks before creating offer:');
+          print(
+              '   - Local stream has ${_localStream!.getVideoTracks().length} video tracks');
+          print(
+              '   - Local stream has ${_localStream!.getAudioTracks().length} audio tracks');
+          print('   - Peer connection has ${senders.length} senders');
+        }
+
+        // If no senders, add tracks
+        if (senders.isEmpty) {
+          if (kDebugMode) print('⚠️ No senders found! Adding local tracks...');
+          for (final track in _localStream!.getTracks()) {
+            await _peerConnection!.addTrack(track, _localStream!);
+          }
+          if (kDebugMode) print('✅ Local tracks added to peer connection');
+        }
+      }
+
       // Create offer
       if (kDebugMode) print('🔄 Creating call offer...');
 
-      // Check peer connection state before creating offer
-      if (_peerConnection!.signalingState ==
-              RTCSignalingState.RTCSignalingStateStable ||
-          _peerConnection!.signalingState ==
-              RTCSignalingState.RTCSignalingStateHaveLocalOffer) {
-        if (kDebugMode)
-          print('🔍 Peer connection state: ${_peerConnection!.signalingState}');
+      // Check if peer connection is valid
+      if (_peerConnection == null) {
+        if (kDebugMode) print('❌ Peer connection is null, cannot create offer');
+        throw Exception('Peer connection not initialized');
+      }
 
+      // Try to create offer directly - don't rely on signalingState check
+      // as it can be null on some Android devices even when the peer connection is valid
+      if (kDebugMode) print('🔄 Attempting to create offer...');
+
+      try {
+        // Create offer with proper media constraints
+        Map<String, dynamic> offerOptions = {
+          'offerToReceiveAudio': true,
+          'offerToReceiveVideo': true,
+        };
+
+        RTCSessionDescription offer =
+            await _peerConnection!.createOffer(offerOptions);
+        await _peerConnection!.setLocalDescription(offer);
+
+        if (kDebugMode) {
+          print('✅ Offer created:');
+          print('   Type: ${offer.type}');
+          print('   Has video: ${offer.sdp?.contains('m=video') ?? false}');
+          print('   Has audio: ${offer.sdp?.contains('m=audio') ?? false}');
+          print(
+              '   ICE gathering state after setLocalDescription: ${_peerConnection!.iceGatheringState}');
+        }
+
+        // ⏳ CRITICAL: Wait for ICE gathering to complete before sending offer
+        // This ensures all ICE candidates are generated and sent to Firestore
+        if (kDebugMode) print('⏳ Waiting for ICE gathering to complete...');
+
+        // Wait up to 3 seconds for ICE gathering to complete (balanced for speed and reliability)
+        final gatheringStartTime = DateTime.now();
+        while (_peerConnection!.iceGatheringState !=
+            RTCIceGatheringState.RTCIceGatheringStateComplete) {
+          await Future.delayed(Duration(
+              milliseconds: 50)); // Check every 50ms for faster response
+          final elapsed = DateTime.now().difference(gatheringStartTime);
+
+          if (elapsed.inMilliseconds >= 3000) {
+            if (kDebugMode) {
+              print(
+                  '⚠️ ICE gathering timeout after ${elapsed.inMilliseconds}ms, proceeding anyway...');
+              print('   Current state: ${_peerConnection!.iceGatheringState}');
+            }
+            break;
+          }
+        }
+
+        if (kDebugMode) {
+          print(
+              '✅ ICE gathering wait complete. State: ${_peerConnection!.iceGatheringState}');
+          print(
+              '   Time elapsed: ${DateTime.now().difference(gatheringStartTime).inMilliseconds}ms');
+        }
+
+        // Send offer through Firestore
+        await _sendOfferToFirestore(appointmentId, offer);
+        if (kDebugMode) print('✅ Offer created and sent to Firestore');
+        
+        // Give a brief moment for any remaining ICE candidates to be sent
+        await Future.delayed(Duration(milliseconds: 500));
+        if (kDebugMode) print('✅ Ready for patient to join');
+      } catch (offerError) {
+        // If offer creation fails, try recreating the peer connection
+        if (kDebugMode)
+          print(
+              '⚠️ Offer creation failed: $offerError, recreating peer connection...');
+
+        await _createPeerConnection();
+
+        // Re-add tracks after recreation
+        if (_localStream != null) {
+          if (kDebugMode)
+            print('🔄 Re-adding local tracks to new peer connection...');
+          for (final track in _localStream!.getTracks()) {
+            await _peerConnection!.addTrack(track, _localStream!);
+          }
+          if (kDebugMode) print('✅ Local tracks re-added successfully');
+        }
+
+        // Try creating offer again
         RTCSessionDescription offer = await _peerConnection!.createOffer();
         await _peerConnection!.setLocalDescription(offer);
 
         // Send offer through Firestore
         await _sendOfferToFirestore(appointmentId, offer);
-      } else {
         if (kDebugMode)
-          print(
-              '⚠️ Cannot create offer, invalid state: ${_peerConnection!.signalingState}');
+          print('✅ Offer created and sent to Firestore after recreation');
       }
+
+      // Doctor must also listen for the patient's answer
+      await _listenForOfferFromFirestore(appointmentId);
 
       if (kDebugMode)
         print('✅ Call started successfully, waiting for patient to join...');
@@ -532,13 +802,9 @@ class WebRTCService {
         print(
             '🚀 Joining call for room: $roomId by user: ${userId ?? "patient"}');
 
-      // Reduce delay and ensure clean state
-      if (userId == 'patient' || !_isCaller) {
-        if (kDebugMode)
-          print('⏱️ Adding small delay for patient to avoid race condition...');
-        await Future.delayed(
-            Duration(milliseconds: 500)); // Reduced from 2000ms
-      }
+      // Check if we need to clear old Firestore data
+      // This allows either party to join first
+      await _clearFirestoreSignalingIfNeeded(appointmentId);
 
       // Ensure clean state before joining
       if (_peerConnection != null) {
@@ -558,6 +824,11 @@ class WebRTCService {
       _currentAppointmentId = appointmentId;
       _isCaller = false;
       _inCall = true;
+      _offerProcessed = false; // Reset for new call
+      _answerProcessed = false; // Reset for new call
+      _processedIceCandidatesCount = 0; // Reset ICE candidate counter
+      _remoteDescriptionSet = false; // Reset remote description flag
+      _pendingIceCandidates.clear(); // Clear any pending ICE candidates
 
       await _createPeerConnection();
       await _startLocalMedia(userId: userId ?? 'patient');
@@ -568,6 +839,62 @@ class WebRTCService {
     } catch (e) {
       if (kDebugMode) print('❌ Error joining call: $e');
       onError?.call('Failed to join call: $e');
+    }
+  }
+
+  // Clear Firestore signaling document only if needed (for flexible join order)
+  Future<void> _clearFirestoreSignalingIfNeeded(String appointmentId) async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('webrtc_signals')
+          .doc(appointmentId)
+          .get();
+
+      if (!doc.exists) {
+        if (kDebugMode)
+          print(
+              '📭 No existing Firestore signaling data (first person to join)');
+        return; // No data to clear
+      }
+
+      // Check if document is recent (within last 30 seconds to allow for slower networks)
+      final data = doc.data();
+      if (data != null && data.containsKey('timestamp')) {
+        final timestamp = data['timestamp'] as Timestamp?;
+        if (timestamp != null) {
+          final age = DateTime.now().difference(timestamp.toDate());
+          if (kDebugMode) {
+            print('🔍 Checking Firestore data freshness:');
+            print('   - Document age: ${age.inSeconds}s');
+            print('   - Threshold: 30s');
+            print('   - Contains offer: ${data.containsKey('offer')}');
+            print('   - Contains answer: ${data.containsKey('answer')}');
+            print('   - Caller: ${data['caller']}');
+          }
+          if (age.inSeconds < 30) {
+            if (kDebugMode)
+              print(
+                  '✅ Firestore signaling is fresh (${age.inSeconds}s old), keeping it (second person joining)');
+            return; // Recent data, don't clear (second person joining)
+          }
+        }
+      }
+
+      // Old or invalid data, clear it
+      if (kDebugMode)
+        print(
+            '🧹 Clearing old Firestore signaling data (age > 30s) for appointment: $appointmentId');
+
+      await FirebaseFirestore.instance
+          .collection('webrtc_signals')
+          .doc(appointmentId)
+          .delete();
+
+      if (kDebugMode) print('✅ Old Firestore signaling data cleared');
+    } catch (e) {
+      if (kDebugMode)
+        print('⚠️ Error checking/clearing Firestore signaling: $e');
+      // Non-critical error, continue anyway
     }
   }
 
@@ -610,26 +937,43 @@ class WebRTCService {
         .listen((snapshot) async {
       if (snapshot.exists && snapshot.data() != null) {
         final data = snapshot.data()!;
-        if (kDebugMode) print('📥 Received WebRTC signal data: ${data.keys}');
+        if (kDebugMode) {
+          print('📥 Received WebRTC signal data: ${data.keys}');
+          print('   - _isCaller: $_isCaller');
+          print('   - _offerProcessed: $_offerProcessed');
+          print('   - _answerProcessed: $_answerProcessed');
+          print('   - has offer: ${data.containsKey('offer')}');
+          print('   - has answer: ${data.containsKey('answer')}');
+        }
 
-        if (data.containsKey('offer') && !_isCaller) {
+        if (data.containsKey('offer') && !_isCaller && !_offerProcessed) {
           if (kDebugMode) print('📩 Processing offer as patient...');
+          _offerProcessed = true; // Mark as processed to prevent loop
           final offer = data['offer'];
           await _handleOffer(offer);
         }
 
-        if (data.containsKey('answer') && _isCaller) {
+        if (data.containsKey('answer') && _isCaller && !_answerProcessed) {
           if (kDebugMode) print('📩 Processing answer as doctor...');
+          _answerProcessed = true; // Mark as processed to prevent loop
           final answer = data['answer'];
           await _handleAnswer(answer);
         }
 
         if (data.containsKey('iceCandidates')) {
           final candidates = data['iceCandidates'] as List;
-          if (kDebugMode)
-            print('🧊 Processing ${candidates.length} ICE candidates...');
-          for (var candidateData in candidates) {
-            await _handleIceCandidate(candidateData);
+          // Only process new ICE candidates
+          if (candidates.length > _processedIceCandidatesCount) {
+            final newCandidates =
+                candidates.sublist(_processedIceCandidatesCount);
+            if (kDebugMode)
+              print(
+                  '🧊 Processing ${newCandidates.length} new ICE candidates (total: ${candidates.length})...');
+
+            for (var candidateData in newCandidates) {
+              await _handleIceCandidate(candidateData);
+              _processedIceCandidatesCount++;
+            }
           }
         }
       } else {
@@ -652,22 +996,98 @@ class WebRTCService {
 
       if (kDebugMode) print('🔄 Setting remote description...');
       await _peerConnection!.setRemoteDescription(offer);
+      _remoteDescriptionSet = true; // Mark that remote description is now set
+
+      if (kDebugMode)
+        print('✅ Remote description set, processing queued ICE candidates...');
+      await _processPendingIceCandidates(); // Process any ICE candidates that arrived early
 
       if (kDebugMode) print('🔄 Creating answer...');
       if (kDebugMode)
         print(
             '🔍 Peer connection state before answer: ${_peerConnection!.signalingState}');
 
+      // Ensure local tracks are still present before creating answer
+      if (_localStream != null && _peerConnection != null) {
+        final senders = await _peerConnection!.getSenders();
+        if (kDebugMode) {
+          print('🔍 Verifying local tracks before creating answer:');
+          print(
+              '   - Local stream has ${_localStream!.getVideoTracks().length} video tracks');
+          print(
+              '   - Local stream has ${_localStream!.getAudioTracks().length} audio tracks');
+          print('   - Peer connection has ${senders.length} senders');
+        }
+
+        // If no senders, re-add tracks
+        if (senders.isEmpty) {
+          if (kDebugMode)
+            print('⚠️ No senders found! Re-adding local tracks...');
+          for (final track in _localStream!.getTracks()) {
+            await _peerConnection!.addTrack(track, _localStream!);
+          }
+          if (kDebugMode) print('✅ Local tracks re-added to peer connection');
+        }
+      }
+
       // Only create answer if in the correct state
       if (_peerConnection!.signalingState ==
           RTCSignalingState.RTCSignalingStateHaveRemoteOffer) {
-        // Create answer
-        RTCSessionDescription answer = await _peerConnection!.createAnswer();
+        // Create answer with proper media constraints
+        Map<String, dynamic> answerOptions = {
+          'offerToReceiveAudio': true,
+          'offerToReceiveVideo': true,
+        };
+
+        RTCSessionDescription answer =
+            await _peerConnection!.createAnswer(answerOptions);
         await _peerConnection!.setLocalDescription(answer);
+
+        if (kDebugMode) {
+          print('✅ Answer created:');
+          print('   Type: ${answer.type}');
+          print('   Has video: ${answer.sdp?.contains('m=video') ?? false}');
+          print('   Has audio: ${answer.sdp?.contains('m=audio') ?? false}');
+          print(
+              '   ICE gathering state after setLocalDescription: ${_peerConnection!.iceGatheringState}');
+        }
+
+        // ⏳ CRITICAL: Wait for ICE gathering to complete before sending answer
+        // This ensures all ICE candidates are generated and sent to Firestore
+        if (kDebugMode) print('⏳ Waiting for ICE gathering to complete...');
+
+        // Wait up to 3 seconds for ICE gathering to complete (balanced for speed and reliability)
+        final gatheringStartTime = DateTime.now();
+        while (_peerConnection!.iceGatheringState !=
+            RTCIceGatheringState.RTCIceGatheringStateComplete) {
+          await Future.delayed(Duration(
+              milliseconds: 50)); // Check every 50ms for faster response
+          final elapsed = DateTime.now().difference(gatheringStartTime);
+
+          if (elapsed.inMilliseconds >= 3000) {
+            if (kDebugMode) {
+              print(
+                  '⚠️ ICE gathering timeout after ${elapsed.inMilliseconds}ms, proceeding anyway...');
+              print('   Current state: ${_peerConnection!.iceGatheringState}');
+            }
+            break;
+          }
+        }
+
+        if (kDebugMode) {
+          print(
+              '✅ ICE gathering wait complete. State: ${_peerConnection!.iceGatheringState}');
+          print(
+              '   Time elapsed: ${DateTime.now().difference(gatheringStartTime).inMilliseconds}ms');
+        }
 
         if (kDebugMode) print('📤 Sending answer back to doctor...');
         // Send answer back through Firestore
         await _sendAnswerToFirestore(_currentAppointmentId!, answer);
+        
+        // Give a brief moment for any remaining ICE candidates to be sent
+        await Future.delayed(Duration(milliseconds: 500));
+        if (kDebugMode) print('✅ Answer sent, awaiting connection');
       } else {
         if (kDebugMode)
           print(
@@ -708,6 +1128,34 @@ class WebRTCService {
     }
   }
 
+  // Send ICE candidate to Firestore
+  Future<void> _sendIceCandidate(
+      String appointmentId, RTCIceCandidate candidate) async {
+    try {
+      if (kDebugMode)
+        print(
+            '🧊 Sending ICE candidate to Firestore: ${candidate.candidate?.substring(0, 50)}...');
+
+      await FirebaseFirestore.instance
+          .collection('webrtc_signals')
+          .doc(appointmentId)
+          .set({
+        'iceCandidates': FieldValue.arrayUnion([
+          {
+            'candidate': candidate.candidate,
+            'sdpMid': candidate.sdpMid,
+            'sdpMLineIndex': candidate.sdpMLineIndex,
+          }
+        ]),
+      }, SetOptions(merge: true));
+
+      if (kDebugMode) print('✅ ICE candidate sent successfully');
+    } catch (e) {
+      if (kDebugMode) print('❌ Error sending ICE candidate: $e');
+      // Don't call onError for ICE candidate failures, they're not critical
+    }
+  }
+
   // Handle answer
   Future<void> _handleAnswer(Map<String, dynamic> answerData) async {
     try {
@@ -720,6 +1168,11 @@ class WebRTCService {
 
       if (kDebugMode) print('🔄 Setting remote description from answer...');
       await _peerConnection!.setRemoteDescription(answer);
+      _remoteDescriptionSet = true; // Mark that remote description is now set
+
+      if (kDebugMode)
+        print('✅ Remote description set, processing queued ICE candidates...');
+      await _processPendingIceCandidates(); // Process any ICE candidates that arrived early
 
       if (kDebugMode)
         print(
@@ -739,10 +1192,39 @@ class WebRTCService {
         candidateData['sdpMLineIndex'],
       );
 
+      // Only add ICE candidates after remote description is set
+      if (!_remoteDescriptionSet) {
+        if (kDebugMode)
+          print('🧊 Queueing ICE candidate (remote description not set yet)');
+        _pendingIceCandidates.add(candidate);
+        return;
+      }
+
+      if (kDebugMode) print('🧊 Adding ICE candidate to peer connection');
       await _peerConnection!.addCandidate(candidate);
     } catch (e) {
       if (kDebugMode) print('Error handling ICE candidate: $e');
     }
+  }
+
+  // Process queued ICE candidates after remote description is set
+  Future<void> _processPendingIceCandidates() async {
+    if (_pendingIceCandidates.isEmpty) return;
+
+    if (kDebugMode)
+      print(
+          '🧊 Processing ${_pendingIceCandidates.length} queued ICE candidates');
+
+    for (var candidate in _pendingIceCandidates) {
+      try {
+        await _peerConnection!.addCandidate(candidate);
+      } catch (e) {
+        if (kDebugMode) print('Error adding queued ICE candidate: $e');
+      }
+    }
+
+    _pendingIceCandidates.clear();
+    if (kDebugMode) print('✅ All queued ICE candidates processed');
   }
 
   // Connect to signaling server (simplified version using Firestore)
@@ -793,8 +1275,11 @@ class WebRTCService {
         }
       }
 
+      // Dispose streams
       await _localStream?.dispose();
       await _remoteStream?.dispose();
+
+      // Close peer connection
       await _peerConnection?.close();
 
       // Reset permission cache when call ends
@@ -806,33 +1291,47 @@ class WebRTCService {
         _releaseMediaAccess(_activeUserId!);
       }
 
+      // Clear stream references but keep renderers alive
       _localStream = null;
       _remoteStream = null;
       _peerConnection = null;
 
+      // Clear renderer sources but don't dispose renderers
       localRenderer.srcObject = null;
       remoteRenderer.srcObject = null;
 
-      // _socket?.disconnect();
-      // _socket = null;
+      // Note: We keep renderers initialized so user can rejoin
 
       // Clean up Firestore signaling data
-      if (_currentRoomId != null) {
+      if (_currentAppointmentId != null) {
         await FirebaseFirestore.instance
             .collection('webrtc_signals')
-            .doc(_currentRoomId!)
+            .doc(_currentAppointmentId!)
             .delete();
+        if (kDebugMode) print('🧹 Cleaned up Firestore signaling data');
       }
 
       _currentRoomId = null;
+      _currentAppointmentId = null;
+      _offerProcessed = false; // Reset for next call
+      _answerProcessed = false; // Reset for next call
+      _processedIceCandidatesCount = 0; // Reset ICE candidate counter
+      _remoteDescriptionSet = false; // Reset remote description flag
+      _pendingIceCandidates.clear(); // Clear any pending ICE candidates
+
+      if (kDebugMode) print('✅ Call ended - ready to rejoin');
       onCallEnded?.call();
     } catch (e) {
       if (kDebugMode) print('Error ending call: $e');
     }
   }
 
-  // Dispose resources
+  // Dispose resources - Only call this when app is closing!
+  // For ending a call and rejoining, use endCall() instead
   Future<void> dispose() async {
+    if (kDebugMode)
+      print(
+          '⚠️ WebRTCService.dispose() called - This should only happen on app shutdown!');
     await endCall();
     await localRenderer.dispose();
     await remoteRenderer.dispose();

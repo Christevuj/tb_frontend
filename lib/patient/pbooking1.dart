@@ -163,6 +163,50 @@ class _Pbooking1State extends State<Pbooking1> {
     }
   }
 
+  Future<Map<String, String>> _getDoctorScheduleInfo() async {
+    try {
+      // Get doctor document from Firestore
+      final doctorDoc = await FirebaseFirestore.instance
+          .collection('doctors')
+          .doc(widget.doctor.id)
+          .get();
+
+      if (!doctorDoc.exists) {
+        return {};
+      }
+
+      final doctorData = doctorDoc.data() as Map<String, dynamic>;
+      final affiliations = doctorData['affiliations'] as List<dynamic>? ?? [];
+
+      if (affiliations.isEmpty) {
+        return {};
+      }
+
+      // Get schedules from first affiliation
+      final firstAffiliation = affiliations[0] as Map<String, dynamic>;
+      final schedules = firstAffiliation['schedules'] as List<dynamic>? ?? [];
+
+      if (schedules.isEmpty) {
+        return {};
+      }
+
+      // Get the first schedule to determine time range and session duration
+      final firstSchedule = schedules[0] as Map<String, dynamic>;
+      String startTime = firstSchedule['start']?.toString() ?? '8:00 AM';
+      String endTime = firstSchedule['end']?.toString() ?? '5:00 PM';
+      String sessionDuration = firstSchedule['sessionDuration']?.toString() ?? '30';
+
+      // Return schedule and session info separately
+      return {
+        'schedule': '$startTime - $endTime',
+        'session': '${sessionDuration}min session',
+      };
+    } catch (e) {
+      debugPrint('Error getting doctor schedule info: $e');
+      return {};
+    }
+  }
+
   @override
   void dispose() {
     _scrollController.dispose();
@@ -1311,6 +1355,71 @@ class _Pbooking1State extends State<Pbooking1> {
                                       ),
                                     ),
                                   ],
+                                ),
+                                const SizedBox(height: 8),
+                                FutureBuilder<Map<String, String>>(
+                                  future: _getDoctorScheduleInfo(),
+                                  builder: (context, snapshot) {
+                                    if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                                      final scheduleData = snapshot.data!;
+                                      return Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          gradient: const LinearGradient(
+                                            colors: [Color(0xFFFFB74D), Color(0xFFFF9800)],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          ),
+                                          borderRadius: BorderRadius.circular(8),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: const Color(0xFFFF9800).withOpacity(0.3),
+                                              blurRadius: 4,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Row(
+                                          crossAxisAlignment: CrossAxisAlignment.center,
+                                          children: [
+                                            const Icon(
+                                              Icons.access_time_rounded,
+                                              size: 18,
+                                              color: Colors.white,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    'Schedule: ${scheduleData['schedule'] ?? ''}',
+                                                    style: const TextStyle(
+                                                      fontSize: 13,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: Colors.white,
+                                                      height: 1.3,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 2),
+                                                  Text(
+                                                    scheduleData['session'] ?? '',
+                                                    style: const TextStyle(
+                                                      fontSize: 11,
+                                                      fontWeight: FontWeight.w500,
+                                                      color: Colors.white,
+                                                      height: 1.2,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }
+                                    return const SizedBox.shrink();
+                                  },
                                 ),
                               ],
                             ),

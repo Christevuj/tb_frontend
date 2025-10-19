@@ -43,6 +43,9 @@ dependencies:
   mailer: ^6.5.0
   encrypt: ^5.0.1
   shared_preferences: ^2.2.2
+  csv: ^6.0.0
+  open_file: ^3.5.7
+  intl: ^0.19.0
 
 dev_dependencies:
   flutter_test:

@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:printing/printing.dart';
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdfx/pdfx.dart' as pdfx;
@@ -51,25 +52,31 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
 
   List<DateTime> _appointmentDates = [];
 
+  // Timer for live time widget
+  Timer? _timer;
+  DateTime _currentTime = DateTime.now();
+
   // Filter for appointments
-  String _selectedFilter = 'All'; // Updated filter options
+  String _selectedFilter = 'Recent'; // Updated filter options
 
   // Map to track expansion state of schedule cards by appointment ID
   Map<String, bool> _scheduleCardExpansionState = {};
 
+  // Highlighted appointment ID for notification click
+  String? _highlightedAppointmentId;
+  Timer? _highlightTimer;
+
+  // Persistent notification appointment
+  Map<String, dynamic>? _persistentNotificationAppointment;
+  String? _lastNotifiedAppointmentId;
+
   // Available filter options
   final List<Map<String, dynamic>> _filterOptions = [
     {
-      'key': 'All',
-      'label': 'All',
-      'icon': Icons.list,
+      'key': 'Recent',
+      'label': 'Recent',
+      'icon': Icons.access_time_rounded,
       'color': Colors.blue,
-    },
-    {
-      'key': 'Treatment Completed',
-      'label': 'Treatment\nCompleted',
-      'icon': Icons.verified,
-      'color': Colors.purple,
     },
     {
       'key': 'History',
@@ -84,6 +91,20 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
     super.initState();
     _selectedMonth = _months[DateTime.now().month - 1];
     _getCurrentPatientId();
+    
+    // Initialize live time timer - Update every MINUTE to prevent blinking
+    _timer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) {
+        setState(() => _currentTime = DateTime.now());
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _highlightTimer?.cancel();
+    super.dispose();
   }
 
   // Helper method to get status color based on appointment status
@@ -114,7 +135,7 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
   String _getStatusDisplayText(String status) {
     switch (status.toLowerCase()) {
       case 'pending':
-        return 'Waiting';
+        return 'Pending';
       case 'approved':
         return 'Ready';
       case 'rejected':
@@ -132,6 +153,12 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
       default:
         return status.toUpperCase();
     }
+  }
+
+  // Get month abbreviation
+  String _getMonthAbbr(int month) {
+    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    return months[month - 1];
   }
 
   // Helper method to format appointment date/time
@@ -198,6 +225,210 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
     return displayDate != null
         ? "${displayDate.day}/${displayDate.month}/${displayDate.year}${displayTime != null ? " at $displayTime" : ""}"
         : "Date not set";
+  }
+
+  // Build avatar based on appointment status
+  Widget _buildAppointmentAvatar(Map<String, dynamic> appointment, String status) {
+    if (status == 'approved') {
+      // For approved: Show date in avatar with same styling as dlanding_page.dart
+      DateTime? appointmentDate;
+      try {
+        final dynamic date = appointment["date"] ?? appointment["appointmentDate"] ?? appointment["appointment_date"];
+        if (date is Timestamp) {
+          appointmentDate = date.toDate();
+        } else if (date is DateTime) {
+          appointmentDate = date;
+        } else if (date is String) {
+          appointmentDate = DateTime.parse(date);
+        }
+      } catch (e) {
+        debugPrint('Error parsing date: $e');
+      }
+
+      return Container(
+        width: 52,
+        height: 52,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF2E7D32), Color(0xFF66BB6A)],
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              appointmentDate != null
+                  ? appointmentDate.day.toString()
+                  : "?",
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                height: 1,
+              ),
+            ),
+            Text(
+              appointmentDate != null
+                  ? _getMonthAbbr(appointmentDate.month)
+                  : "---",
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: Colors.white70,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      // For pending, with_prescription, treatment_completed: Show doctor initial
+      String doctorName = appointment['doctorName'] ?? appointment['doctor_name'] ?? 'Doctor';
+      return CircleAvatar(
+        backgroundColor: _getStatusColor(status),
+        child: Text(
+          doctorName.substring(0, 1).toUpperCase(),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      );
+    }
+  }
+
+  // Build title based on appointment status
+  Widget _buildAppointmentTitle(Map<String, dynamic> appointment, String status) {
+    if (status == 'approved') {
+      // For approved: Show TIME in bold
+      String? displayTime;
+      try {
+        final dynamic appointmentDate = appointment["date"] ?? appointment["appointmentDate"] ?? appointment["appointment_date"];
+        DateTime? date;
+        if (appointmentDate is Timestamp) {
+          date = appointmentDate.toDate();
+        } else if (appointmentDate is DateTime) {
+          date = appointmentDate;
+        } else if (appointmentDate is String) {
+          date = DateTime.parse(appointmentDate);
+        }
+
+        if (date != null) {
+          int hour = date.hour;
+          int minute = date.minute;
+          String period = hour >= 12 ? 'PM' : 'AM';
+          if (hour > 12) hour -= 12;
+          if (hour == 0) hour = 12;
+          displayTime = "${hour.toString()}:${minute.toString().padLeft(2, '0')} $period";
+        }
+      } catch (e) {
+        debugPrint('Error parsing time: $e');
+      }
+
+      displayTime ??= appointment["appointmentTime"] ?? appointment["appointment_time"] ?? appointment["time"] ?? "Time not set";
+
+      return Text(
+        displayTime ?? "Time not set",
+        style: const TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 18,
+        ),
+      );
+    } else {
+      // For pending, with_prescription, treatment_completed: Show doctor name
+      String doctorName = appointment['doctorName'] ?? appointment['doctor_name'] ?? 'Doctor Not Available';
+      return Text(
+        'Dr. $doctorName',
+        style: const TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 16,
+        ),
+      );
+    }
+  }
+
+  // Build subtitle based on appointment status
+  Widget _buildAppointmentSubtitle(Map<String, dynamic> appointment, String status) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 4),
+        // Doctor name (only for approved appointments)
+        if (status == 'approved') ...[
+          Text(
+            'Dr. ${appointment['doctorName'] ?? appointment['doctor_name'] ?? 'Doctor Not Available'}',
+            style: const TextStyle(
+              fontSize: 14,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 4),
+        ],
+        // Status badge and optional room ID
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: _getStatusColor(status).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: _getStatusColor(status).withOpacity(0.3),
+                  width: 1,
+                ),
+              ),
+              child: Text(
+                _getStatusDisplayText(status),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: _getStatusColor(status),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            // Room ID indicator for approved appointments
+            if (status == 'approved' &&
+                appointment['roomId'] != null &&
+                appointment['roomId'].toString().isNotEmpty) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.green.shade200,
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.videocam,
+                      size: 12,
+                      color: Colors.green.shade600,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Video Call',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.green.shade600,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
   }
 
   Future<void> _getCurrentPatientId() async {
@@ -323,16 +554,23 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
       // Process pending appointments
       for (var doc in pendingQuery.docs) {
         final data = doc.data();
-        debugPrint(
-            'Processing pending appointment: ${data['appointment_date']}');
+        
+        // Check multiple possible date field names
+        final dynamic dateField = data['date'] ?? data['appointmentDate'] ?? data['appointment_date'];
+        
+        debugPrint('Processing pending appointment: $dateField');
 
-        if (data['appointment_date'] != null) {
+        if (dateField != null) {
           try {
             DateTime date;
-            if (data['appointment_date'] is Timestamp) {
-              date = (data['appointment_date'] as Timestamp).toDate();
+            if (dateField is Timestamp) {
+              date = dateField.toDate();
+            } else if (dateField is DateTime) {
+              date = dateField;
+            } else if (dateField is String) {
+              date = DateTime.parse(dateField.toString());
             } else {
-              date = DateTime.parse(data['appointment_date'].toString());
+              continue; // Skip if unknown type
             }
             dates.add(DateTime(date.year, date.month, date.day));
             debugPrint('Added pending date: $date');
@@ -345,16 +583,23 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
       // Process approved appointments
       for (var doc in approvedQuery.docs) {
         final data = doc.data();
-        debugPrint(
-            'Processing approved appointment: ${data['appointment_date']}');
+        
+        // Check multiple possible date field names
+        final dynamic dateField = data['date'] ?? data['appointmentDate'] ?? data['appointment_date'];
+        
+        debugPrint('Processing approved appointment: $dateField');
 
-        if (data['appointment_date'] != null) {
+        if (dateField != null) {
           try {
             DateTime date;
-            if (data['appointment_date'] is Timestamp) {
-              date = (data['appointment_date'] as Timestamp).toDate();
+            if (dateField is Timestamp) {
+              date = dateField.toDate();
+            } else if (dateField is DateTime) {
+              date = dateField;
+            } else if (dateField is String) {
+              date = DateTime.parse(dateField.toString());
             } else {
-              date = DateTime.parse(data['appointment_date'].toString());
+              continue; // Skip if unknown type
             }
             dates.add(DateTime(date.year, date.month, date.day));
             debugPrint('Added approved date: $date');
@@ -376,6 +621,299 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
 
   List<DateTime> _getEventsForDay(DateTime day) {
     return _appointmentDates.where((date) => isSameDay(date, day)).toList();
+  }
+
+  // Get time-based gradient colors
+  List<Color> _getTimeBasedGradient() {
+    final hour = _currentTime.hour;
+    final minute = _currentTime.minute;
+    final totalMinutes = hour * 60 + minute;
+
+    // 5:30 PM to 7:00 PM - Night but not so dark (dusk)
+    if (totalMinutes >= 17 * 60 + 30 && totalMinutes < 19 * 60) {
+      return [const Color(0xFF4A5568), const Color(0xFF2D3748)]; // Soft night
+    }
+    // 7:00 PM to 4:00 AM - So dark (deep night) with violet-black tones
+    else if (totalMinutes >= 19 * 60 || totalMinutes < 4 * 60) {
+      return [const Color(0xFF0a0015), const Color(0xFF1a0033), const Color(0xFF2d1b4e)]; // Very dark violet-black
+    }
+    // 4:01 AM to 5:59 AM - Almost sunrise (light black/white)
+    else if (totalMinutes >= 4 * 60 + 1 && totalMinutes < 6 * 60) {
+      return [const Color(0xFF4B5563), const Color(0xFF6B7280)]; // Light gray
+    }
+    // 6:00 AM to 8:00 AM - Sunrise
+    else if (totalMinutes >= 6 * 60 && totalMinutes <= 8 * 60) {
+      return [const Color(0xFFFFA500), const Color(0xFFFF6B6B)]; // Orange-pink
+    }
+    // 8:01 AM to 12:00 PM - Quite hot
+    else if (totalMinutes > 8 * 60 && totalMinutes <= 12 * 60) {
+      return [const Color(0xFFFFD700), const Color(0xFFFFA500)]; // Golden yellow
+    }
+    // 12:01 PM to 4:30 PM - So hot
+    else if (totalMinutes > 12 * 60 && totalMinutes <= 16 * 60 + 30) {
+      return [const Color(0xFFFF8C00), const Color(0xFFFF4500)]; // Hot orange-red
+    }
+    // 4:31 PM to 5:29 PM - Not so hot already
+    else if (totalMinutes > 16 * 60 + 30 && totalMinutes < 17 * 60 + 30) {
+      return [const Color(0xFFFFB347), const Color(0xFFFF8C42)]; // Soft orange
+    }
+
+    return [const Color(0xFF87CEEB), const Color(0xFF4682B4)]; // Default sky blue
+  }
+
+  // Get formatted time (12-hour format with AM/PM) - WITHOUT SECONDS
+  String _getFormattedTime() {
+    final hour = _currentTime.hour > 12 ? _currentTime.hour - 12 : (_currentTime.hour == 0 ? 12 : _currentTime.hour);
+    final minute = _currentTime.minute.toString().padLeft(2, '0');
+    final period = _currentTime.hour >= 12 ? 'PM' : 'AM';
+    return '$hour:$minute $period';
+  }
+
+  // Get formatted date
+  String _getFormattedDate() {
+    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    final days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    return '${days[_currentTime.weekday % 7]}, ${months[_currentTime.month - 1]} ${_currentTime.day}, ${_currentTime.year}';
+  }
+
+  // Calculate days until appointment
+  String _calculateTimeUntilAppointment(DateTime appointmentDate) {
+    final now = DateTime.now();
+    final difference = appointmentDate.difference(now);
+    
+    if (difference.inDays > 7) {
+      final weeks = (difference.inDays / 7).floor();
+      return '$weeks week${weeks > 1 ? 's' : ''} left';
+    } else if (difference.inDays > 0) {
+      return '${difference.inDays} day${difference.inDays > 1 ? 's' : ''} left';
+    } else if (difference.inDays == 0) {
+      return 'Today!';
+    } else {
+      return 'Overdue';
+    }
+  }
+
+  // Handle notification tap - highlight the connected appointment
+  void _onNotificationTap(String appointmentId) {
+    setState(() {
+      _selectedFilter = 'Recent'; // Switch to Recent tab
+      _highlightedAppointmentId = appointmentId;
+    });
+
+    // Auto-remove highlight after 3 seconds
+    _highlightTimer?.cancel();
+    _highlightTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) {
+        setState(() {
+          _highlightedAppointmentId = null;
+        });
+      }
+    });
+  }
+
+  // Build modern notification widget based on appointment status
+  Widget _buildAppointmentNotification(Map<String, dynamic> appointment) {
+    final status = appointment['status']?.toString().toLowerCase() ?? 'unknown';
+    final doctorName = appointment['doctorName'] ?? 'Doctor';
+    
+    IconData icon;
+    Color iconColor;
+    String title;
+    String subtitle;
+    LinearGradient gradient;
+
+    switch (status) {
+      case 'pending':
+        icon = Icons.schedule_rounded;
+        iconColor = Colors.orange;
+        gradient = LinearGradient(
+          colors: [Colors.orange.shade50, Colors.orange.shade100],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+        title = 'Appointment Pending';
+        subtitle = 'Your appointment with Dr. $doctorName is waiting for approval';
+        break;
+
+      case 'approved':
+        icon = Icons.event_available_rounded;
+        iconColor = Colors.green;
+        gradient = LinearGradient(
+          colors: [Colors.green.shade50, Colors.green.shade100],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+        
+        // Get appointment date and calculate time left
+        DateTime? appointmentDate;
+        try {
+          final dynamic date = appointment["date"] ?? appointment["appointmentDate"] ?? appointment["appointment_date"];
+          if (date is Timestamp) {
+            appointmentDate = date.toDate();
+          } else if (date is DateTime) {
+            appointmentDate = date;
+          } else if (date is String) {
+            appointmentDate = DateTime.parse(date);
+          }
+        } catch (e) {
+          debugPrint('Error parsing appointment date: $e');
+        }
+
+        final timeInfo = appointmentDate != null 
+            ? _calculateTimeUntilAppointment(appointmentDate)
+            : 'Soon';
+        final dateStr = appointmentDate != null
+            ? '${appointmentDate.day}/${appointmentDate.month}/${appointmentDate.year}'
+            : 'Date TBD';
+        
+        title = 'Appointment Confirmed!';
+        subtitle = 'Dr. $doctorName • $dateStr • $timeInfo';
+        break;
+
+      case 'with_prescription':
+        icon = Icons.medication_rounded;
+        iconColor = Colors.red.shade700;
+        gradient = LinearGradient(
+          colors: [Colors.red.shade50, Colors.red.shade100],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+        title = 'E-Prescription Ready!';
+        subtitle = 'Dr. $doctorName has uploaded your prescription';
+        break;
+
+      case 'treatment_completed':
+        icon = Icons.verified_rounded;
+        iconColor = Colors.purple;
+        gradient = LinearGradient(
+          colors: [Colors.purple.shade50, Colors.purple.shade100],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+        title = 'Congratulations! 🎉';
+        subtitle = 'You have completed your treatment with Dr. $doctorName! Certificate available.';
+        break;
+
+      case 'with_certificate':
+        icon = Icons.workspace_premium_rounded;
+        iconColor = Colors.indigo;
+        gradient = LinearGradient(
+          colors: [Colors.indigo.shade50, Colors.indigo.shade100],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+        title = '🏆 Treatment Completed!';
+        subtitle = 'Congratulations on finishing your treatment! Your certificate is ready.';
+        break;
+
+      case 'consultation_finished':
+        icon = Icons.check_circle_rounded;
+        iconColor = Colors.blue;
+        gradient = LinearGradient(
+          colors: [Colors.blue.shade50, Colors.blue.shade100],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+        title = '✓ Consultation Complete';
+        subtitle = 'Your consultation with Dr. $doctorName has been completed';
+        break;
+
+      case 'rejected':
+        icon = Icons.cancel_rounded;
+        iconColor = Colors.redAccent;
+        gradient = LinearGradient(
+          colors: [Colors.red.shade50, Colors.red.shade100],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+        title = '❌ Appointment Not Approved';
+        subtitle = 'Your appointment request was not approved. Please try booking another slot.';
+        break;
+
+      default:
+        icon = Icons.info_rounded;
+        iconColor = Colors.grey;
+        gradient = LinearGradient(
+          colors: [Colors.grey.shade50, Colors.grey.shade100],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+        title = 'Appointment Update';
+        subtitle = 'Status: ${status.toUpperCase()}';
+    }
+
+    return GestureDetector(
+      onTap: () {
+        final appointmentId = appointment['appointmentId'] ?? appointment['id'] ?? '';
+        if (appointmentId.isNotEmpty) {
+          _onNotificationTap(appointmentId);
+        }
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          gradient: gradient,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: iconColor.withOpacity(0.3), width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: iconColor.withOpacity(0.15),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+          children: [
+            // Icon container with animation
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: iconColor.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: iconColor.withOpacity(0.3), width: 1.5),
+              ),
+              child: Icon(
+                icon,
+                color: iconColor,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Text content
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: iconColor,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey[700],
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      ),
+    );
   }
 
   Stream<List<Map<String, dynamic>>> _getCombinedAppointmentsStream() {
@@ -2042,6 +2580,604 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
     );
   }
 
+  // Show full calendar in floating bubble dialog
+  void _showFullCalendar(BuildContext context) {
+    DateTime tempFocusedDay = _focusedDay;
+    DateTime? tempSelectedDay = _selectedDay;
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.5),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => Center(
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.9,
+              constraints: const BoxConstraints(maxWidth: 420),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(28),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 40,
+                    spreadRadius: 0,
+                    offset: const Offset(0, 20),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Modern Calendar Header
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(20, 14, 16, 14),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Color(0xFFFF5252), Color(0xFFFF1744)],
+                      ),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(28),
+                        topRight: Radius.circular(28),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.redAccent.withOpacity(0.3),
+                          blurRadius: 20,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.calendar_month_rounded, color: Colors.white, size: 19),
+                        ),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'Select Date',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: InkWell(
+                            onTap: () {
+                              Navigator.pop(context);
+                            },
+                            child: const Icon(Icons.close_rounded, color: Colors.white, size: 19),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Month-Year Selector Bar with Navigation Arrows
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                    ),
+                    child: Row(
+                      children: [
+                        // Left Navigation Arrow
+                        InkWell(
+                          onTap: () {
+                            setDialogState(() {
+                              tempFocusedDay = DateTime(tempFocusedDay.year, tempFocusedDay.month - 1, 1);
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.redAccent.withOpacity(0.2), width: 1.5),
+                            ),
+                            child: const Icon(
+                              Icons.chevron_left_rounded,
+                              color: Colors.redAccent,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        // Month-Year Selector (Center)
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => _showMonthYearPicker(context, setDialogState, tempFocusedDay, (newDate) {
+                              tempFocusedDay = newDate;
+                            }),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: Colors.redAccent.withOpacity(0.3), width: 1.5),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.grey.withOpacity(0.12),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.calendar_month_rounded, color: Colors.redAccent[700], size: 16),
+                                  const SizedBox(width: 7),
+                                  Text(
+                                    '${_getMonthName(tempFocusedDay.month)} ${tempFocusedDay.year}',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.redAccent[700],
+                                      letterSpacing: 0.4,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Icon(Icons.expand_more_rounded, color: Colors.redAccent[700], size: 18),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        // Right Navigation Arrow
+                        InkWell(
+                          onTap: () {
+                            setDialogState(() {
+                              tempFocusedDay = DateTime(tempFocusedDay.year, tempFocusedDay.month + 1, 1);
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.redAccent.withOpacity(0.2), width: 1.5),
+                            ),
+                            child: const Icon(
+                              Icons.chevron_right_rounded,
+                              color: Colors.redAccent,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Calendar content with modern styling
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
+                    child: TableCalendar(
+                      firstDay: DateTime.utc(2020, 1, 1),
+                      lastDay: DateTime.utc(2030, 12, 31),
+                      focusedDay: tempFocusedDay,
+                      selectedDayPredicate: (day) => isSameDay(tempSelectedDay, day),
+                      calendarFormat: CalendarFormat.month,
+                      eventLoader: (day) {
+                        return _appointmentDates.where((d) => isSameDay(d, day)).toList();
+                      },
+                      onDaySelected: (selectedDay, focusedDay) {
+                        setState(() {
+                          _selectedDay = selectedDay;
+                          _focusedDay = focusedDay;
+                        });
+                        Navigator.pop(context);
+                      },
+                      onPageChanged: (focusedDay) {
+                        setDialogState(() {
+                          tempFocusedDay = focusedDay;
+                        });
+                      },
+                      calendarStyle: CalendarStyle(
+                        // Today's date styling - Modern highlight
+                        todayDecoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Colors.redAccent.withOpacity(0.2), Colors.redAccent.withOpacity(0.15)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.redAccent.withOpacity(0.4), width: 1.5),
+                        ),
+                        todayTextStyle: const TextStyle(
+                          color: Colors.redAccent,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                        ),
+                        // Selected date styling - Modern solid
+                        selectedDecoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFF5252), Color(0xFFFF1744)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.redAccent.withOpacity(0.4),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        selectedTextStyle: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                        ),
+                        // Default date styling
+                        defaultDecoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        defaultTextStyle: const TextStyle(
+                          color: Color(0xFF1A1A1A),
+                          fontWeight: FontWeight.w500,
+                          fontSize: 15,
+                        ),
+                        // Weekend styling
+                        weekendDecoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        weekendTextStyle: TextStyle(
+                          color: Colors.grey[700],
+                          fontWeight: FontWeight.w500,
+                          fontSize: 15,
+                        ),
+                        // Outside dates
+                        outsideDecoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        outsideTextStyle: TextStyle(
+                          color: Colors.grey[350],
+                          fontWeight: FontWeight.w400,
+                          fontSize: 15,
+                        ),
+                        // Marker (appointment dot) styling - Modern gradient dots
+                        markerDecoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFF5252), Color(0xFFFF1744)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.redAccent.withOpacity(0.3),
+                              blurRadius: 3,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                        markersMaxCount: 3,
+                        markerSize: 7.0,
+                        markerMargin: const EdgeInsets.symmetric(horizontal: 1.5),
+                        // Cell decoration
+                        cellMargin: const EdgeInsets.all(4),
+                        cellPadding: const EdgeInsets.all(0),
+                      ),
+                      headerStyle: HeaderStyle(
+                        titleCentered: true,
+                        formatButtonVisible: false,
+                        leftChevronVisible: false,
+                        rightChevronVisible: false,
+                        titleTextStyle: const TextStyle(
+                          fontSize: 0,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.transparent,
+                        ),
+                        headerPadding: const EdgeInsets.symmetric(vertical: 12),
+                        headerMargin: const EdgeInsets.only(bottom: 8),
+                      ),
+                      daysOfWeekStyle: DaysOfWeekStyle(
+                        weekdayStyle: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: Colors.grey[700],
+                          fontSize: 13,
+                          letterSpacing: 1,
+                        ),
+                        weekendStyle: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: Colors.grey[500],
+                          fontSize: 13,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Get month name
+  String _getMonthName(int month) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return months[month - 1];
+  }
+
+  // Show Month-Year Picker (Two-step: Year first, then Month)
+  void _showMonthYearPicker(BuildContext context, StateSetter setDialogState, DateTime currentDate, Function(DateTime) onDateChanged) async {
+    int? selectedYear;
+    int? selectedMonth;
+
+    // Step 1: Select Year
+    await showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Colors.white, Colors.grey[50]!],
+            ),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFF5252), Color(0xFFFF1744)],
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.event_note_rounded, color: Colors.white, size: 18),
+                  ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'Select Year',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1A1A1A),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: 280,
+                height: 320,
+                child: GridView.builder(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    childAspectRatio: 2.0,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
+                  ),
+                  itemCount: 20,
+                  itemBuilder: (context, index) {
+                    final year = DateTime.now().year - 5 + index;
+                    final isSelected = year == currentDate.year;
+                    return InkWell(
+                      onTap: () {
+                        selectedYear = year;
+                        Navigator.pop(context);
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: isSelected
+                              ? const LinearGradient(
+                                  colors: [Color(0xFFFF5252), Color(0xFFFF1744)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                )
+                              : LinearGradient(
+                                  colors: [Colors.white, Colors.grey[100]!],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isSelected ? Colors.redAccent : Colors.grey[300]!,
+                            width: isSelected ? 1.5 : 1,
+                          ),
+                          boxShadow: isSelected
+                              ? [
+                                  BoxShadow(
+                                    color: Colors.redAccent.withOpacity(0.3),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ]
+                              : [
+                                  BoxShadow(
+                                    color: Colors.grey.withOpacity(0.08),
+                                    blurRadius: 3,
+                                    offset: const Offset(0, 1),
+                                  ),
+                                ],
+                        ),
+                        child: Center(
+                          child: Text(
+                            '$year',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                              color: isSelected ? Colors.white : Colors.grey[800],
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    // If year was selected, proceed to Step 2: Select Month
+    if (selectedYear != null) {
+      const months = ['January', 'February', 'March', 'April', 'May', 'June', 
+                      'July', 'August', 'September', 'October', 'November', 'December'];
+      
+      await showDialog(
+        context: context,
+        builder: (context) => Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Colors.white, Colors.grey[50]!],
+              ),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFF5252), Color(0xFFFF1744)],
+                        ),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.calendar_today_rounded, color: Colors.white, size: 18),
+                    ),
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Text(
+                        'Select Month - $selectedYear',
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1A1A1A),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: 280,
+                  height: 320,
+                  child: GridView.builder(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      childAspectRatio: 2.5,
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 10,
+                    ),
+                    itemCount: 12,
+                    itemBuilder: (context, index) {
+                      final monthNum = index + 1;
+                      final isSelected = monthNum == currentDate.month && selectedYear == currentDate.year;
+                      return InkWell(
+                        onTap: () {
+                          selectedMonth = monthNum;
+                          Navigator.pop(context);
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: isSelected
+                                ? const LinearGradient(
+                                    colors: [Color(0xFFFF5252), Color(0xFFFF1744)],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  )
+                                : LinearGradient(
+                                    colors: [Colors.white, Colors.grey[100]!],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isSelected ? Colors.redAccent : Colors.grey[300]!,
+                              width: isSelected ? 1.5 : 1,
+                            ),
+                            boxShadow: isSelected
+                                ? [
+                                    BoxShadow(
+                                      color: Colors.redAccent.withOpacity(0.3),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ]
+                                : [
+                                    BoxShadow(
+                                      color: Colors.grey.withOpacity(0.08),
+                                      blurRadius: 3,
+                                      offset: const Offset(0, 1),
+                                    ),
+                                  ],
+                          ),
+                          child: Center(
+                            child: Text(
+                              months[index],
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                                color: isSelected ? Colors.white : Colors.grey[800],
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // If both year and month were selected, update the calendar
+      if (selectedMonth != null) {
+        setDialogState(() {
+          onDateChanged(DateTime(selectedYear!, selectedMonth!, 1));
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -2052,263 +3188,299 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Header
-              const Padding(
-                padding: EdgeInsets.fromLTRB(0, 20, 0, 8),
-                child: Center(
-                  child: Text(
-                    "My Appointments",
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xE0F44336),
-                    ),
-                  ),
-                ),
-              ),
+              const SizedBox(height: 16),
 
-              // Month & Year pickers
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      DropdownButton<String>(
-                        value: _selectedMonth,
-                        items: _months
-                            .map((month) => DropdownMenuItem(
-                                  value: month,
-                                  child: Text(month,
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.bold)),
-                                ))
-                            .toList(),
-                        onChanged: (month) {
-                          if (month != null) {
-                            setState(() {
-                              _selectedMonth = month;
-                              final monthIndex = _months.indexOf(month) + 1;
-                              _focusedDay =
-                                  DateTime(_selectedYear, monthIndex, 1);
-                            });
-                          }
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      DropdownButton<int>(
-                        value: _selectedYear,
-                        items: _years
-                            .map((year) => DropdownMenuItem(
-                                  value: year,
-                                  child: Text(year.toString(),
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.bold)),
-                                ))
-                            .toList(),
-                        onChanged: (year) {
-                          if (year != null) {
-                            setState(() {
-                              _selectedYear = year;
-                              final monthIndex =
-                                  _months.indexOf(_selectedMonth) + 1;
-                              _focusedDay =
-                                  DateTime(_selectedYear, monthIndex, 1);
-                            });
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.today, color: Colors.redAccent),
-                    onPressed: () {
-                      setState(() {
-                        _focusedDay = DateTime.now();
-                        _selectedDay = DateTime.now();
-                        _selectedMonth = _months[_focusedDay.month - 1];
-                        _selectedYear = _focusedDay.year;
-                      });
-                    },
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 8),
-
-              // Modern Calendar with Enhanced UI
+              // Modern Compact Live Time Widget
               Container(
+                width: double.infinity,
+                height: 180,
+                margin: const EdgeInsets.symmetric(horizontal: 4),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.1),
-                      spreadRadius: 1,
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                padding: const EdgeInsets.all(16),
-                child: TableCalendar(
-                  firstDay: DateTime.utc(2020, 1, 1),
-                  lastDay: DateTime.utc(2030, 12, 31),
-                  focusedDay: _focusedDay,
-                  calendarFormat: _calendarFormat,
-                  eventLoader: _getEventsForDay,
-                  selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-                  onDaySelected: (selectedDay, focusedDay) {
-                    setState(() {
-                      _selectedDay = selectedDay;
-                      _focusedDay = focusedDay;
-                    });
-                  },
-                  onFormatChanged: (format) {
-                    setState(() => _calendarFormat = format);
-                  },
-                  onPageChanged: (focusedDay) {
-                    setState(() {
-                      _focusedDay = focusedDay;
-                      _selectedMonth = _months[focusedDay.month - 1];
-                      _selectedYear = focusedDay.year;
-                    });
-                  },
-                  headerVisible: false,
-                  calendarStyle: CalendarStyle(
-                    // Today's date styling
-                    todayDecoration: BoxDecoration(
-                      color: Colors.red.shade600,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.red.shade600.withOpacity(0.3),
-                          spreadRadius: 1,
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    todayTextStyle: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
-                    // Selected date styling
-                    selectedDecoration: BoxDecoration(
-                      color: Colors.blue.shade500,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.blue.withOpacity(0.3),
-                          spreadRadius: 1,
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    selectedTextStyle: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
-                    // Default text styling
-                    defaultTextStyle: const TextStyle(
-                      color: Colors.black87,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    // Weekend styling
-                    weekendTextStyle: TextStyle(
-                      color: Colors.red.shade400,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    // Outside month styling
-                    outsideTextStyle: TextStyle(
-                      color: Colors.grey.shade400,
-                      fontSize: 14,
-                    ),
-                    // Disable default markers
-                    markersMaxCount: 0,
-                    canMarkersOverflow: false,
-                    // Cell styling
-                    cellMargin: const EdgeInsets.all(4),
-                    cellPadding: const EdgeInsets.all(0),
+                  borderRadius: BorderRadius.circular(20),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: _getTimeBasedGradient(),
                   ),
-                  calendarBuilders: CalendarBuilders(
-                    // Custom builder for days with appointments
-                    defaultBuilder: (context, day, focusedDay) {
-                      if (_getEventsForDay(day).isNotEmpty) {
-                        return Container(
-                          margin: const EdgeInsets.all(2),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                Colors.red.shade400,
-                                Colors.red.shade600,
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.red.withOpacity(0.3),
-                                spreadRadius: 1,
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  '${day.day}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                Container(
-                                  width: 4,
-                                  height: 4,
-                                  margin: const EdgeInsets.only(top: 1),
-                                  decoration: const BoxDecoration(
-                                    color: Colors.white,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                              ],
+                ),
+                child: Stack(
+                  children: [
+                    // STARS (only visible during night time)
+                    if (_currentTime.hour >= 19 || _currentTime.hour < 6)
+                      ...List.generate(30, (index) {
+                        final random = (index * 123) % 100;
+                        return Positioned(
+                          left: (random * 3.5) % 350,
+                          top: (random * 1.2) % 120,
+                          child: Container(
+                            width: random % 3 == 0 ? 3 : 2,
+                            height: random % 3 == 0 ? 3 : 2,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(random % 2 == 0 ? 0.9 : 0.6),
+                              shape: BoxShape.circle,
                             ),
                           ),
                         );
-                      }
-                      return null;
-                    },
-                  ),
-                  daysOfWeekStyle: DaysOfWeekStyle(
-                    weekendStyle: TextStyle(
-                      color: Colors.red.shade500,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
+                      }),
+                    
+                    // MOON (only visible during night time)
+                    if (_currentTime.hour >= 19 || _currentTime.hour < 6)
+                      Positioned(
+                        right: 40,
+                        top: 30,
+                        child: Container(
+                          width: 50,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withOpacity(0.9),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.white.withOpacity(0.4),
+                                blurRadius: 20,
+                                spreadRadius: 5,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    
+                    // Mountain silhouette at the bottom
+                    Positioned(
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      child: CustomPaint(
+                        size: const Size(double.infinity, 60),
+                        painter: MountainPainter(),
+                      ),
                     ),
-                    weekdayStyle: const TextStyle(
-                      color: Colors.black87,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
+                    // Time and Date content
+                    Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // VIEW CALENDAR BUTTON (replaced LIVE TIME)
+                          GestureDetector(
+                            onTap: () => _showFullCalendar(context),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.redAccent.withOpacity(0.9),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(Icons.calendar_month_rounded, color: Colors.white, size: 14),
+                                  SizedBox(width: 6),
+                                  Text(
+                                    'VIEW CALENDAR',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                      letterSpacing: 1.5,
+                                    ),
+                                  ),
+                                  SizedBox(width: 4),
+                                  Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white, size: 16),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          // BIG TIME
+                          Text(
+                            _getFormattedTime(),
+                            style: const TextStyle(
+                              fontSize: 48,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                              height: 1,
+                              letterSpacing: -1,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          // SMALL DATE
+                          Padding(
+                            padding: const EdgeInsets.only(left: 2),
+                            child: Text(
+                              _getFormattedDate(),
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.white.withOpacity(0.8),
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
+                  ],
                 ),
               ),
 
               const SizedBox(height: 16),
+
+              // Real-time Appointment Notification (Persistent)
+              StreamBuilder<List<Map<String, dynamic>>>(
+                stream: _getCombinedAppointmentsStream(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                    // Get ALL appointments for notification display
+                    final allAppointments = snapshot.data!;
+                    
+                    // Also track RECENT appointments (pending and approved) for update detection
+                    final recentAppointments = snapshot.data!.where((apt) {
+                      final status = apt['status']?.toString().toLowerCase() ?? '';
+                      return status == 'pending' || status == 'approved';
+                    }).toList();
+
+                    // Sort all appointments by priority and date for display
+                    allAppointments.sort((a, b) {
+                      final statusA = a['status']?.toString().toLowerCase() ?? '';
+                      final statusB = b['status']?.toString().toLowerCase() ?? '';
+                      
+                      // Priority: approved > pending > treatment_completed > others
+                      const statusPriority = {
+                        'approved': 1,
+                        'pending': 2,
+                        'treatment_completed': 3,
+                        'with_prescription': 4,
+                      };
+                      
+                      final priorityA = statusPriority[statusA] ?? 99;
+                      final priorityB = statusPriority[statusB] ?? 99;
+                      
+                      if (priorityA != priorityB) return priorityA.compareTo(priorityB);
+                      
+                      // If same priority, sort by date (most recent first)
+                      try {
+                        DateTime? dateA;
+                        DateTime? dateB;
+                        
+                        final dynamicDateA = a['appointment_date'] ?? a['appointmentDate'] ?? a['date'];
+                        final dynamicDateB = b['appointment_date'] ?? b['appointmentDate'] ?? b['date'];
+                        
+                        if (dynamicDateA is Timestamp) {
+                          dateA = dynamicDateA.toDate();
+                        } else if (dynamicDateA is String) {
+                          dateA = DateTime.parse(dynamicDateA);
+                        }
+                        
+                        if (dynamicDateB is Timestamp) {
+                          dateB = dynamicDateB.toDate();
+                        } else if (dynamicDateB is String) {
+                          dateB = DateTime.parse(dynamicDateB);
+                        }
+                        
+                        if (dateA != null && dateB != null) {
+                          return dateB.compareTo(dateA); // More recent first
+                        }
+                      } catch (e) {
+                        debugPrint('Error sorting by date: $e');
+                      }
+                      
+                      return 0;
+                    });
+
+                    // Check if there's a new RECENT appointment (pending/approved)
+                    if (recentAppointments.isNotEmpty) {
+                      recentAppointments.sort((a, b) {
+                        final statusA = a['status']?.toString().toLowerCase() ?? '';
+                        final statusB = b['status']?.toString().toLowerCase() ?? '';
+                        if (statusA == 'approved' && statusB == 'pending') return -1;
+                        if (statusA == 'pending' && statusB == 'approved') return 1;
+                        return 0;
+                      });
+                      
+                      final mostRecentNew = recentAppointments.first;
+                      final newAppointmentId = mostRecentNew['appointmentId'] ?? 
+                                               mostRecentNew['appointment_id'];
+                      
+                      // Only update if it's a NEW recent appointment
+                      if (_lastNotifiedAppointmentId != newAppointmentId) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) {
+                            setState(() {
+                              _persistentNotificationAppointment = mostRecentNew;
+                              _lastNotifiedAppointmentId = newAppointmentId;
+                            });
+                          }
+                        });
+                      }
+                    }
+
+                    // Show notification: persistent > most recent from all appointments
+                    final appointmentToShow = _persistentNotificationAppointment ?? allAppointments.first;
+                    return _buildAppointmentNotification(appointmentToShow);
+                  }
+
+                  // If no data but we have a persistent one, keep showing it
+                  if (_persistentNotificationAppointment != null) {
+                    return _buildAppointmentNotification(_persistentNotificationAppointment!);
+                  }
+
+                  // If no appointments at all, show a friendly message
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.grey.shade50, Colors.grey.shade100],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.shade300, width: 1.5),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            Icons.event_available_rounded,
+                            color: Colors.grey.shade600,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'No Active Appointments',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey.shade700,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Book a new appointment to get started',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
 
               // Filter carousel
               SizedBox(
@@ -2391,32 +3563,25 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                     // Filter appointments based on selected filter
                     List<Map<String, dynamic>> filteredAppointments;
                     switch (_selectedFilter) {
-                      case 'All':
-                        // All: pending, approved, consultation_finished
+                      case 'Recent':
+                        // Recent: Only pending and approved
                         filteredAppointments = allAppointments
                             .where((appointment) =>
                                 appointment['status'] == 'pending' ||
-                                appointment['status'] == 'approved' ||
-                                appointment['status'] ==
-                                    'consultation_finished')
-                            .toList();
-                        break;
-                      case 'Treatment Completed':
-                        // Only treatment completed appointments
-                        filteredAppointments = allAppointments
-                            .where((appointment) =>
-                                appointment['status'] == 'treatment_completed')
+                                appointment['status'] == 'approved')
                             .toList();
                         break;
                       case 'History':
-                        // Pending, approved, consultation_finished, rejected (excludes treatment_completed)
+                        // History: All appointments including completed treatments
                         filteredAppointments = allAppointments
                             .where((appointment) =>
                                 appointment['status'] == 'pending' ||
                                 appointment['status'] == 'approved' ||
-                                appointment['status'] ==
-                                    'consultation_finished' ||
-                                appointment['status'] == 'rejected')
+                                appointment['status'] == 'consultation_finished' ||
+                                appointment['status'] == 'rejected' ||
+                                appointment['status'] == 'treatment_completed' ||
+                                appointment['status'] == 'with_prescription' ||
+                                appointment['status'] == 'with_certificate')
                             .toList();
                         break;
                       default:
@@ -2427,11 +3592,8 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                     if (filteredAppointments.isEmpty) {
                       String emptyMessage;
                       switch (_selectedFilter) {
-                        case 'All':
-                          emptyMessage = 'No current appointments found';
-                          break;
-                        case 'Treatment Completed':
-                          emptyMessage = 'No completed treatments found';
+                        case 'Recent':
+                          emptyMessage = 'No recent appointments found';
                           break;
                         case 'History':
                           emptyMessage = 'No appointment history found';
@@ -2461,130 +3623,58 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                         String status =
                             appointment['status']?.toString().toLowerCase() ??
                                 'unknown';
+                        
+                        // Check if this appointment should be highlighted
+                        final appointmentId = appointment['appointmentId'] ?? appointment['id'] ?? '';
+                        final isHighlighted = _highlightedAppointmentId == appointmentId && appointmentId.isNotEmpty;
 
-                        return Card(
-                          color: Colors.white,
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 500),
+                          curve: Curves.easeInOut,
                           margin: const EdgeInsets.symmetric(vertical: 8),
-                          shape: RoundedRectangleBorder(
+                          decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(12),
+                            boxShadow: isHighlighted
+                                ? [
+                                    BoxShadow(
+                                      color: Colors.blue.withOpacity(0.4),
+                                      blurRadius: 20,
+                                      spreadRadius: 3,
+                                      offset: const Offset(0, 0),
+                                    ),
+                                  ]
+                                : [],
                           ),
-                          elevation: 2,
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: _getStatusColor(status),
-                              child: Text(
-                                appointment["patientName"]
-                                        ?.substring(0, 1)
-                                        .toUpperCase() ??
-                                    "P",
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                          child: Card(
+                            color: isHighlighted 
+                                ? Colors.blue.shade50 
+                                : Colors.white,
+                            margin: EdgeInsets.zero,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: isHighlighted
+                                  ? BorderSide(color: Colors.blue, width: 2)
+                                  : BorderSide.none,
                             ),
-                            title: Text(
-                              appointment['doctorName'] ??
-                                  appointment['doctor_name'] ??
-                                  'Doctor Not Available',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
+                            elevation: isHighlighted ? 8 : 2,
+                            child: ListTile(
+                              leading: _buildAppointmentAvatar(appointment, status),
+                              title: _buildAppointmentTitle(appointment, status),
+                              subtitle: _buildAppointmentSubtitle(appointment, status),
+                              trailing: appointment['status'] == 'rejected'
+                                  ? IconButton(
+                                      icon: const Icon(
+                                        Icons.delete,
+                                        color: Colors.red,
+                                        size: 24,
+                                      ),
+                                      onPressed: () =>
+                                          _deleteRejectedAppointment(appointment),
+                                    )
+                                  : const Icon(Icons.chevron_right,
+                                      color: Colors.grey),
+                              onTap: () => _showAppointmentDetails(appointment),
                             ),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const SizedBox(height: 4),
-                                Text(
-                                  _formatAppointmentDateTime(appointment),
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: _getStatusColor(status)
-                                            .withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(
-                                          color: _getStatusColor(status)
-                                              .withOpacity(0.3),
-                                          width: 1,
-                                        ),
-                                      ),
-                                      child: Text(
-                                        _getStatusDisplayText(status),
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: _getStatusColor(status),
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                    // Room ID indicator for approved appointments
-                                    if (status == 'approved' &&
-                                        appointment['roomId'] != null &&
-                                        appointment['roomId']
-                                            .toString()
-                                            .isNotEmpty) ...[
-                                      const SizedBox(width: 8),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 6, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: Colors.green.shade50,
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                          border: Border.all(
-                                            color: Colors.green.shade200,
-                                            width: 1,
-                                          ),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              Icons.videocam,
-                                              size: 12,
-                                              color: Colors.green.shade600,
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              'Video Call',
-                                              style: TextStyle(
-                                                fontSize: 10,
-                                                color: Colors.green.shade600,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ],
-                            ),
-                            trailing: appointment['status'] == 'rejected'
-                                ? IconButton(
-                                    icon: const Icon(
-                                      Icons.delete,
-                                      color: Colors.red,
-                                      size: 24,
-                                    ),
-                                    onPressed: () =>
-                                        _deleteRejectedAppointment(appointment),
-                                  )
-                                : const Icon(Icons.chevron_right,
-                                    color: Colors.grey),
-                            onTap: () => _showAppointmentDetails(appointment),
                           ),
                         );
                       },
@@ -3588,4 +4678,40 @@ class _PdfViewerScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+// Mountain Painter for the time widget background
+class MountainPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.black.withOpacity(0.3)
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+    
+    // Start from bottom left
+    path.moveTo(0, size.height);
+    
+    // First mountain (left)
+    path.lineTo(size.width * 0.2, size.height * 0.6);
+    path.lineTo(size.width * 0.35, size.height * 0.4);
+    
+    // Second mountain (center - tallest)
+    path.lineTo(size.width * 0.5, size.height * 0.2);
+    path.lineTo(size.width * 0.65, size.height * 0.5);
+    
+    // Third mountain (right)
+    path.lineTo(size.width * 0.8, size.height * 0.3);
+    path.lineTo(size.width, size.height * 0.7);
+    
+    // Complete the path
+    path.lineTo(size.width, size.height);
+    path.close();
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

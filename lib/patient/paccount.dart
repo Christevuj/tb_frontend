@@ -523,6 +523,7 @@ class _PaccountState extends State<Paccount> {
                                   icon: Icons.email),
                             ],
                           ),
+                          
                           _buildSection(
                             title: "Security & Privacy",
                             description:

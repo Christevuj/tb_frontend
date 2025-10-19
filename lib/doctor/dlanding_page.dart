@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
 import 'prescription.dart';
 import '../services/chat_service.dart';
 import '../chat_screens/chat_screen.dart';
@@ -29,6 +31,10 @@ class _DlandingpageState extends State<Dlandingpage> {
   bool _isScheduleExpanded = false;
   bool _isVideoCallExpanded = false;
 
+  // Timer for live time widget
+  Timer? _timer;
+  DateTime _currentTime = DateTime.now();
+
   final List<String> _months = [
     "January",
     "February",
@@ -55,6 +61,19 @@ class _DlandingpageState extends State<Dlandingpage> {
     _selectedYear = _focusedDay.year;
     _getCurrentDoctorId();
     _loadAppointmentDates();
+    
+    // Initialize live time timer - Update every MINUTE to prevent blinking
+    _timer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) {
+        setState(() => _currentTime = DateTime.now());
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
   }
 
   // Get current doctor's ID
@@ -613,6 +632,765 @@ class _DlandingpageState extends State<Dlandingpage> {
     );
   }
 
+  // Get time-based gradient colors
+  List<Color> _getTimeBasedGradient() {
+    final hour = _currentTime.hour;
+    final minute = _currentTime.minute;
+    final totalMinutes = hour * 60 + minute;
+
+    // 5:30 PM to 7:00 PM - Night but not so dark (dusk)
+    if (totalMinutes >= 17 * 60 + 30 && totalMinutes < 19 * 60) {
+      return [const Color(0xFF4A5568), const Color(0xFF2D3748)]; // Soft night
+    }
+    // 7:00 PM to 4:00 AM - So dark (deep night) with violet-black tones
+    else if (totalMinutes >= 19 * 60 || totalMinutes < 4 * 60) {
+      return [const Color(0xFF0a0015), const Color(0xFF1a0033), const Color(0xFF2d1b4e)]; // Very dark violet-black
+    }
+    // 4:01 AM to 5:59 AM - Almost sunrise (light black/white)
+    else if (totalMinutes >= 4 * 60 + 1 && totalMinutes < 6 * 60) {
+      return [const Color(0xFF4B5563), const Color(0xFF6B7280)]; // Light gray
+    }
+    // 6:00 AM to 8:00 AM - Sunrise
+    else if (totalMinutes >= 6 * 60 && totalMinutes <= 8 * 60) {
+      return [const Color(0xFFFFA500), const Color(0xFFFF6B6B)]; // Orange-pink
+    }
+    // 8:01 AM to 12:00 PM - Quite hot
+    else if (totalMinutes > 8 * 60 && totalMinutes <= 12 * 60) {
+      return [const Color(0xFFFFD700), const Color(0xFFFFA500)]; // Golden yellow
+    }
+    // 12:01 PM to 4:30 PM - So hot
+    else if (totalMinutes > 12 * 60 && totalMinutes <= 16 * 60 + 30) {
+      return [const Color(0xFFFF8C00), const Color(0xFFFF4500)]; // Hot orange-red
+    }
+    // 4:31 PM to 5:29 PM - Not so hot already
+    else if (totalMinutes > 16 * 60 + 30 && totalMinutes < 17 * 60 + 30) {
+      return [const Color(0xFFFFB347), const Color(0xFFFF8C42)]; // Soft orange
+    }
+
+    return [const Color(0xFF87CEEB), const Color(0xFF4682B4)]; // Default sky blue
+  }
+
+  // Get formatted time (12-hour format with AM/PM) - WITHOUT SECONDS
+  String _getFormattedTime() {
+    final hour = _currentTime.hour > 12 ? _currentTime.hour - 12 : (_currentTime.hour == 0 ? 12 : _currentTime.hour);
+    final minute = _currentTime.minute.toString().padLeft(2, '0');
+    final period = _currentTime.hour >= 12 ? 'PM' : 'AM';
+    return '$hour:$minute $period';
+  }
+
+  // Get month abbreviation
+  String _getMonthAbbr(int month) {
+    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    return months[month - 1];
+  }
+
+  // Build week preview with appointment dots
+  Widget _buildWeekPreview() {
+    final today = DateTime.now();
+    final startOfWeek = today.subtract(Duration(days: today.weekday % 7));
+    final weekDays = List.generate(7, (index) => startOfWeek.add(Duration(days: index)));
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: _currentDoctorId != null
+          ? FirebaseFirestore.instance
+              .collection('approved_appointments')
+              .where('doctorId', isEqualTo: _currentDoctorId)
+              .snapshots()
+          : const Stream.empty(),
+      builder: (context, snapshot) {
+        final appointments = snapshot.data?.docs ?? [];
+        
+        // Count appointments per day
+        Map<String, int> appointmentCounts = {};
+        for (var doc in appointments) {
+          final data = doc.data() as Map<String, dynamic>;
+          if (data['appointmentDate'] != null) {
+            try {
+              DateTime appointmentDate;
+              if (data['appointmentDate'] is Timestamp) {
+                appointmentDate = (data['appointmentDate'] as Timestamp).toDate();
+              } else {
+                appointmentDate = DateTime.parse(data['appointmentDate'].toString());
+              }
+              final dateKey = '${appointmentDate.year}-${appointmentDate.month}-${appointmentDate.day}';
+              appointmentCounts[dateKey] = (appointmentCounts[dateKey] ?? 0) + 1;
+            } catch (e) {
+              debugPrint('Error parsing appointment date: $e');
+            }
+          }
+        }
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: weekDays.map((day) {
+            final dateKey = '${day.year}-${day.month}-${day.day}';
+            final count = appointmentCounts[dateKey] ?? 0;
+            final isToday = day.day == today.day && day.month == today.month && day.year == today.year;
+            
+            return Column(
+              children: [
+                // Day name
+                Text(
+                  ['S', 'M', 'T', 'W', 'T', 'F', 'S'][day.weekday % 7],
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white.withOpacity(0.7),
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                // Day number with highlight for today
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: isToday 
+                        ? Colors.redAccent 
+                        : Colors.white.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Center(
+                    child: Text(
+                      '${day.day}',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                // Appointment indicator dots (max 3)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(
+                    count > 3 ? 3 : count,
+                    (index) => Container(
+                      width: 4,
+                      height: 4,
+                      margin: const EdgeInsets.symmetric(horizontal: 1),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
+  // Show full calendar in floating bubble dialog
+  void _showFullCalendar(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.5),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => Center(
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.9,
+              constraints: const BoxConstraints(maxWidth: 420),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(28),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 40,
+                    spreadRadius: 0,
+                    offset: const Offset(0, 20),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                // Modern Calendar Header
+                Container(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 16, 14),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFFFF5252), Color(0xFFFF1744)],
+                    ),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(28),
+                      topRight: Radius.circular(28),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.redAccent.withOpacity(0.3),
+                        blurRadius: 20,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.calendar_month_rounded, color: Colors.white, size: 23),
+                      ),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'Select Date',
+                        style: TextStyle(
+                          fontSize: 19,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: InkWell(
+                          onTap: () {
+                            // Restore to today's date when canceled
+                            setState(() {
+                              _focusedDay = DateTime.now();
+                            });
+                            Navigator.pop(context);
+                          },
+                          child: const Icon(Icons.close_rounded, color: Colors.white, size: 23),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Month-Year Selector Bar with Navigation Arrows
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                  ),
+                  child: Row(
+                    children: [
+                      // Left Navigation Arrow
+                      InkWell(
+                        onTap: () {
+                          setDialogState(() {
+                            _focusedDay = DateTime(_focusedDay.year, _focusedDay.month - 1, 1);
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.redAccent.withOpacity(0.2), width: 1.5),
+                          ),
+                          child: const Icon(
+                            Icons.chevron_left_rounded,
+                            color: Colors.redAccent,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      // Month-Year Selector (Center)
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => _showMonthYearPicker(context, setDialogState),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: Colors.redAccent.withOpacity(0.3), width: 1.5),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.grey.withOpacity(0.12),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.calendar_month_rounded, color: Colors.redAccent[700], size: 16),
+                                const SizedBox(width: 7),
+                                Text(
+                                  '${_getMonthName(_focusedDay.month)} ${_focusedDay.year}',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.redAccent[700],
+                                    letterSpacing: 0.4,
+                                  ),
+                                ),
+                                const SizedBox(width: 5),
+                                Icon(Icons.expand_more_rounded, color: Colors.redAccent[700], size: 18),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      // Right Navigation Arrow
+                      InkWell(
+                        onTap: () {
+                          setDialogState(() {
+                            _focusedDay = DateTime(_focusedDay.year, _focusedDay.month + 1, 1);
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.redAccent.withOpacity(0.2), width: 1.5),
+                          ),
+                          child: const Icon(
+                            Icons.chevron_right_rounded,
+                            color: Colors.redAccent,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Calendar content with modern styling
+                Container(
+                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
+                  child: TableCalendar(
+                    firstDay: DateTime.utc(2020, 1, 1),
+                    lastDay: DateTime.utc(2030, 12, 31),
+                    focusedDay: _focusedDay,
+                    selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+                    calendarFormat: CalendarFormat.month,
+                    eventLoader: (day) {
+                      return _appointmentDates.where((d) => isSameDay(d, day)).toList();
+                    },
+                    onDaySelected: (selectedDay, focusedDay) {
+                      setState(() {
+                        _selectedDay = selectedDay;
+                        _focusedDay = focusedDay;
+                      });
+                      Navigator.pop(context);
+                    },
+                    onPageChanged: (focusedDay) {
+                      setDialogState(() {
+                        _focusedDay = focusedDay;
+                      });
+                    },
+                    calendarStyle: CalendarStyle(
+                      // Today's date styling - Modern highlight
+                      todayDecoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Colors.redAccent.withOpacity(0.2), Colors.redAccent.withOpacity(0.15)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.redAccent.withOpacity(0.4), width: 1.5),
+                      ),
+                      todayTextStyle: const TextStyle(
+                        color: Colors.redAccent,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                      // Selected date styling - Modern solid
+                      selectedDecoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFF5252), Color(0xFFFF1744)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.redAccent.withOpacity(0.4),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      selectedTextStyle: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                      // Default date styling
+                      defaultDecoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      defaultTextStyle: const TextStyle(
+                        color: Color(0xFF1A1A1A),
+                        fontWeight: FontWeight.w500,
+                        fontSize: 15,
+                      ),
+                      // Weekend styling
+                      weekendDecoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      weekendTextStyle: TextStyle(
+                        color: Colors.grey[700],
+                        fontWeight: FontWeight.w500,
+                        fontSize: 15,
+                      ),
+                      // Outside dates
+                      outsideDecoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      outsideTextStyle: TextStyle(
+                        color: Colors.grey[350],
+                        fontWeight: FontWeight.w400,
+                        fontSize: 15,
+                      ),
+                      // Marker (appointment dot) styling - Modern gradient dots
+                      markerDecoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFF5252), Color(0xFFFF1744)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.redAccent.withOpacity(0.3),
+                            blurRadius: 3,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                      markersMaxCount: 3,
+                      markerSize: 7.0,
+                      markerMargin: const EdgeInsets.symmetric(horizontal: 1.5),
+                      // Cell decoration
+                      cellMargin: const EdgeInsets.all(4),
+                      cellPadding: const EdgeInsets.all(0),
+                    ),
+                    headerStyle: HeaderStyle(
+                      titleCentered: true,
+                      formatButtonVisible: false,
+                      leftChevronVisible: false, // Hide built-in arrows (we have custom ones above)
+                      rightChevronVisible: false,
+                      titleTextStyle: const TextStyle(
+                        fontSize: 0, // Hide default title (we show it in selector)
+                        fontWeight: FontWeight.bold,
+                        color: Colors.transparent,
+                      ),
+                      headerPadding: const EdgeInsets.symmetric(vertical: 12),
+                      headerMargin: const EdgeInsets.only(bottom: 8),
+                    ),
+                    daysOfWeekStyle: DaysOfWeekStyle(
+                      weekdayStyle: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: Colors.grey[700],
+                        fontSize: 13,
+                        letterSpacing: 1,
+                      ),
+                      weekendStyle: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: Colors.grey[500],
+                        fontSize: 13,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+    );
+  }
+
+  // Get month name
+  String _getMonthName(int month) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return months[month - 1];
+  }
+
+  // Show Month-Year Picker (Two-step: Year first, then Month)
+  void _showMonthYearPicker(BuildContext context, StateSetter setDialogState) async {
+    int? selectedYear;
+    int? selectedMonth;
+
+    // Step 1: Select Year
+    await showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Colors.white, Colors.grey[50]!],
+            ),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFF5252), Color(0xFFFF1744)],
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.event_note_rounded, color: Colors.white, size: 18),
+                  ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'Select Year',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1A1A1A),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: 280,
+                height: 320,
+                child: GridView.builder(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    childAspectRatio: 2.0,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
+                  ),
+                  itemCount: 20,
+                  itemBuilder: (context, index) {
+                    final year = DateTime.now().year - 5 + index;
+                    final isSelected = year == _focusedDay.year;
+                    return InkWell(
+                      onTap: () {
+                        selectedYear = year;
+                        Navigator.pop(context);
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: isSelected
+                              ? const LinearGradient(
+                                  colors: [Color(0xFFFF5252), Color(0xFFFF1744)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                )
+                              : LinearGradient(
+                                  colors: [Colors.white, Colors.grey[100]!],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isSelected ? Colors.redAccent : Colors.grey[300]!,
+                            width: isSelected ? 1.5 : 1,
+                          ),
+                          boxShadow: isSelected
+                              ? [
+                                  BoxShadow(
+                                    color: Colors.redAccent.withOpacity(0.3),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ]
+                              : [
+                                  BoxShadow(
+                                    color: Colors.grey.withOpacity(0.08),
+                                    blurRadius: 3,
+                                    offset: const Offset(0, 1),
+                                  ),
+                                ],
+                        ),
+                        child: Center(
+                          child: Text(
+                            '$year',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                              color: isSelected ? Colors.white : Colors.grey[800],
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    // If year was selected, proceed to Step 2: Select Month
+    if (selectedYear != null) {
+      const months = ['January', 'February', 'March', 'April', 'May', 'June', 
+                      'July', 'August', 'September', 'October', 'November', 'December'];
+      
+      await showDialog(
+        context: context,
+        builder: (context) => Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Colors.white, Colors.grey[50]!],
+              ),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFF5252), Color(0xFFFF1744)],
+                        ),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.calendar_today_rounded, color: Colors.white, size: 18),
+                    ),
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Text(
+                        'Select Month - $selectedYear',
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1A1A1A),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: 280,
+                  height: 320,
+                  child: GridView.builder(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      childAspectRatio: 2.5,
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 10,
+                    ),
+                    itemCount: 12,
+                    itemBuilder: (context, index) {
+                      final monthNum = index + 1;
+                      final isSelected = monthNum == _focusedDay.month && selectedYear == _focusedDay.year;
+                      return InkWell(
+                        onTap: () {
+                          selectedMonth = monthNum;
+                          Navigator.pop(context);
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: isSelected
+                                ? const LinearGradient(
+                                    colors: [Color(0xFFFF5252), Color(0xFFFF1744)],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  )
+                                : LinearGradient(
+                                    colors: [Colors.white, Colors.grey[100]!],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isSelected ? Colors.redAccent : Colors.grey[300]!,
+                              width: isSelected ? 1.5 : 1,
+                            ),
+                            boxShadow: isSelected
+                                ? [
+                                    BoxShadow(
+                                      color: Colors.redAccent.withOpacity(0.3),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ]
+                                : [
+                                    BoxShadow(
+                                      color: Colors.grey.withOpacity(0.08),
+                                      blurRadius: 3,
+                                      offset: const Offset(0, 1),
+                                    ),
+                                  ],
+                          ),
+                          child: Center(
+                            child: Text(
+                              months[index],
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                                color: isSelected ? Colors.white : Colors.grey[800],
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // If both year and month were selected, update the calendar
+      if (selectedMonth != null) {
+        setDialogState(() {
+          _focusedDay = DateTime(selectedYear!, selectedMonth!, 1);
+        });
+        setState(() {
+          _focusedDay = DateTime(selectedYear!, selectedMonth!, 1);
+        });
+      }
+    }
+  }  // Get formatted date
+  String _getFormattedDate() {
+    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    final days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    return '${days[_currentTime.weekday % 7]}, ${months[_currentTime.month - 1]} ${_currentTime.day}, ${_currentTime.year}';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -623,207 +1401,150 @@ class _DlandingpageState extends State<Dlandingpage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Logo
+              // TBisita Logo
               Padding(
                 padding: const EdgeInsets.only(bottom: 16),
-                child:
-                    Image.asset('assets/images/tbisita_logo2.png', height: 44),
+                child: Image.asset('assets/images/tbisita_logo2.png', height: 44),
               ),
 
-              // Month & Year Header aligned with Calendar
+              // Modern Compact Live Time Widget
               Container(
-                margin: const EdgeInsets.symmetric(horizontal: 8),
-                padding:
-                    const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
+                width: double.infinity,
+                height: 180,
+                margin: const EdgeInsets.symmetric(horizontal: 4),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: _getTimeBasedGradient(),
+                  ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                child: Stack(
                   children: [
-                    Row(
-                      children: [
-                        DropdownButton<String>(
-                          value: _selectedMonth,
-                          items: _months
-                              .map((month) => DropdownMenuItem(
-                                    value: month,
-                                    child: Text(month,
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold)),
-                                  ))
-                              .toList(),
-                          onChanged: (month) {
-                            if (month != null) {
-                              setState(() {
-                                _selectedMonth = month;
-                                final monthIndex = _months.indexOf(month) + 1;
-                                _focusedDay =
-                                    DateTime(_selectedYear, monthIndex, 1);
-                              });
-                            }
-                          },
+                    // STARS (only visible during night time)
+                    if (_currentTime.hour >= 19 || _currentTime.hour < 6)
+                      ...List.generate(30, (index) {
+                        final random = (index * 123) % 100;
+                        return Positioned(
+                          left: (random * 3.5) % 350,
+                          top: (random * 1.2) % 120,
+                          child: Container(
+                            width: random % 3 == 0 ? 3 : 2,
+                            height: random % 3 == 0 ? 3 : 2,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(random % 2 == 0 ? 0.9 : 0.6),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        );
+                      }),
+                    
+                    // MOON (only visible during night time)
+                    if (_currentTime.hour >= 19 || _currentTime.hour < 6)
+                      Positioned(
+                        right: 40,
+                        top: 30,
+                        child: Container(
+                          width: 50,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withOpacity(0.9),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.white.withOpacity(0.4),
+                                blurRadius: 20,
+                                spreadRadius: 5,
+                              ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(width: 8),
-                        DropdownButton<int>(
-                          value: _selectedYear,
-                          items: _years
-                              .map((year) => DropdownMenuItem(
-                                    value: year,
-                                    child: Text(year.toString(),
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold)),
-                                  ))
-                              .toList(),
-                          onChanged: (year) {
-                            if (year != null) {
-                              setState(() {
-                                _selectedYear = year;
-                                final monthIndex =
-                                    _months.indexOf(_selectedMonth) + 1;
-                                _focusedDay =
-                                    DateTime(_selectedYear, monthIndex, 1);
-                              });
-                            }
-                          },
-                        ),
-                      ],
+                      ),
+                    
+                    // Mountain silhouette at the bottom
+                    Positioned(
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      child: CustomPaint(
+                        size: const Size(double.infinity, 60),
+                        painter: MountainPainter(),
+                      ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.today, color: Colors.redAccent),
-                      onPressed: () {
-                        setState(() {
-                          _focusedDay = DateTime.now();
-                          _selectedDay = DateTime.now();
-                          _selectedMonth = _months[_focusedDay.month - 1];
-                          _selectedYear = _focusedDay.year;
-                        });
-                      },
+                    // Time and Date content
+                    Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // VIEW CALENDAR BUTTON (replaced LIVE TIME)
+                          GestureDetector(
+                            onTap: () => _showFullCalendar(context),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.redAccent.withOpacity(0.9),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(Icons.calendar_month_rounded, color: Colors.white, size: 14),
+                                  SizedBox(width: 6),
+                                  Text(
+                                    'VIEW CALENDAR',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                      letterSpacing: 1.5,
+                                    ),
+                                  ),
+                                  SizedBox(width: 4),
+                                  Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white, size: 16),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          // BIG TIME
+                          Text(
+                            _getFormattedTime(),
+                            style: const TextStyle(
+                              fontSize: 48,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                              height: 1,
+                              letterSpacing: -1,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          // SMALL DATE
+                          Padding(
+                            padding: const EdgeInsets.only(left: 2),
+                            child: Text(
+                              _getFormattedDate(),
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.white.withOpacity(0.8),
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
               ),
 
-              const SizedBox(height: 12),
-
-              // Calendar
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 8),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  color: Colors.grey[100],
-                ),
-                child: TableCalendar(
-                  firstDay: DateTime.utc(2020, 1, 1),
-                  lastDay: DateTime.utc(2030, 12, 31),
-                  focusedDay: _focusedDay,
-                  calendarFormat: _calendarFormat,
-                  eventLoader: _getEventsForDay,
-                  selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-                  onDaySelected: (selectedDay, focusedDay) {
-                    setState(() {
-                      _selectedDay = selectedDay;
-                      _focusedDay = focusedDay;
-                      if (_showAllAppointments &&
-                          _getEventsForDay(selectedDay).isEmpty) {
-                        _showAllAppointments = false;
-                      }
-                    });
-                  },
-                  onFormatChanged: (format) {
-                    setState(() {
-                      _calendarFormat = format;
-                    });
-                  },
-                  onPageChanged: (focusedDay) {
-                    setState(() {
-                      _focusedDay = focusedDay;
-                      _selectedMonth = _months[focusedDay.month - 1];
-                      _selectedYear = focusedDay.year;
-                    });
-                  },
-                  headerVisible: false,
-                  daysOfWeekHeight: 30,
-                  calendarStyle: const CalendarStyle(
-                    todayDecoration: BoxDecoration(
-                        color: Colors.green, shape: BoxShape.circle),
-                    selectedDecoration: BoxDecoration(
-                        color: Colors.blueAccent, shape: BoxShape.circle),
-                    outsideTextStyle: TextStyle(color: Colors.grey),
-                    weekendTextStyle: TextStyle(color: Colors.redAccent),
-                    defaultTextStyle: TextStyle(color: Colors.black),
-                    markersMaxCount: 0,
-                    canMarkersOverflow: false,
-                  ),
-                  calendarBuilders: CalendarBuilders(
-                    defaultBuilder: (context, day, focusedDay) {
-                      if (_getEventsForDay(day).isNotEmpty) {
-                        return Container(
-                          margin: const EdgeInsets.all(4.0),
-                          decoration: const BoxDecoration(
-                            color: Colors.green,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Center(
-                            child: Text(
-                              '${day.day}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        );
-                      }
-                      return null;
-                    },
-                    todayBuilder: (context, day, focusedDay) {
-                      return Container(
-                        margin: const EdgeInsets.all(4.0),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[400],
-                          shape: BoxShape.circle,
-                        ),
-                        child: Center(
-                          child: Text(
-                            '${day.day}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  daysOfWeekStyle: const DaysOfWeekStyle(
-                    weekendStyle: TextStyle(
-                        color: Colors.redAccent, fontWeight: FontWeight.bold),
-                    weekdayStyle: TextStyle(
-                        color: Colors.black, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // See All button and Appointments (only Approved for current doctor)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () {
-                      setState(() {
-                        _showAllAppointments = !_showAllAppointments;
-                      });
-                    },
-                    child: Text(_showAllAppointments ? 'Show Less' : 'See All'),
-                  ),
-                ],
-              ),
+              const SizedBox(height: 20),
 
               StreamBuilder<QuerySnapshot>(
+                key: const ValueKey('appointments_stream'),
                 stream: _currentDoctorId != null
                     ? FirebaseFirestore.instance
                         .collection('approved_appointments')
@@ -909,11 +1630,12 @@ class _DlandingpageState extends State<Dlandingpage> {
                     );
                   }
 
-                  return Column(
-                    children: filteredAppointments.map((doc) {
-                      final appointment = doc.data() as Map<String, dynamic>;
-                      // Add document ID as appointmentId to ensure unique identification
-                      appointment['appointmentId'] = doc.id;
+                  return RepaintBoundary(
+                    child: Column(
+                      children: filteredAppointments.map((doc) {
+                        final appointment = doc.data() as Map<String, dynamic>;
+                        // Add document ID as appointmentId to ensure unique identification
+                        appointment['appointmentId'] = doc.id;
 
                       // Enhanced date extraction with multiple field name support
                       DateTime? appointmentDate;
@@ -943,54 +1665,119 @@ class _DlandingpageState extends State<Dlandingpage> {
                           appointment["time"] ??
                           "No time";
 
-                      return Card(
-                        color: Colors.white,
-                        margin: const EdgeInsets.symmetric(vertical: 8),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 2,
-                        child: ListTile(
-                          onTap: () => _showAppointmentDetails(appointment),
-                          leading: CircleAvatar(
-                            backgroundColor: Colors.redAccent,
-                            child: Text(
-                              appointment["patientName"]
-                                      ?.substring(0, 1)
-                                      .toUpperCase() ??
-                                  "P",
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
+                        return Container(
+                          key: ValueKey(doc.id),
+                          margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.08),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                                spreadRadius: 0,
                               ),
-                            ),
-                          ),
-                          title: Text(
-                            appointment["patientName"] ?? "Unknown Patient",
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                appointmentDate != null
-                                    ? "${appointmentDate.day}/${appointmentDate.month}/${appointmentDate.year} at $appointmentTime"
-                                    : appointmentTime,
-                              ),
-                              Text(
-                                "Approved",
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.redAccent,
-                                ),
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.04),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                                spreadRadius: 0,
                               ),
                             ],
                           ),
-                          trailing: const Icon(Icons.chevron_right,
-                              color: Colors.grey),
-                        ),
-                      );
-                    }).toList(),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () => _showAppointmentDetails(appointment),
+                              borderRadius: BorderRadius.circular(16),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Row(
+                                  children: [
+                                    // DATE AVATAR
+                                    Container(
+                                    width: 52,
+                                    height: 52,
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: [Color(0xFF2E7D32), Color(0xFF66BB6A)],
+                                      ),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          appointmentDate != null
+                                              ? appointmentDate.day.toString()
+                                              : "?",
+                                          style: const TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.w800,
+                                            color: Colors.white,
+                                            height: 1,
+                                          ),
+                                        ),
+                                        Text(
+                                          appointmentDate != null
+                                              ? _getMonthAbbr(appointmentDate.month)
+                                              : "---",
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.white70,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 14),
+                                    // CONTENT
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          // TIME (BOLD)
+                                          Text(
+                                            appointmentTime,
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFF1A1A1A),
+                                              letterSpacing: -0.3,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 3),
+                                          // PATIENT NAME
+                                          Text(
+                                            appointment["patientName"] ?? "Unknown Patient",
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500,
+                                              color: Colors.grey[700],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    // CHEVRON ICON
+                                    Icon(
+                                      Icons.chevron_right_rounded,
+                                      color: Colors.grey[400],
+                                      size: 24,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
                   );
                 },
               ),
@@ -1757,4 +2544,40 @@ class _DlandingpageState extends State<Dlandingpage> {
       ],
     );
   }
+}
+
+// Custom painter for mountain silhouette
+class MountainPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.black.withOpacity(0.3)
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+    
+    // Start from bottom left
+    path.moveTo(0, size.height);
+    
+    // First mountain (left)
+    path.lineTo(size.width * 0.2, size.height * 0.6);
+    path.lineTo(size.width * 0.35, size.height * 0.4);
+    
+    // Second mountain (center - tallest)
+    path.lineTo(size.width * 0.5, size.height * 0.2);
+    path.lineTo(size.width * 0.65, size.height * 0.5);
+    
+    // Third mountain (right)
+    path.lineTo(size.width * 0.8, size.height * 0.3);
+    path.lineTo(size.width, size.height * 0.7);
+    
+    // Complete the path
+    path.lineTo(size.width, size.height);
+    path.close();
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

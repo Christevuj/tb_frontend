@@ -3,22 +3,15 @@ import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:tb_frontend/doctor/viewhistory.dart';
-import 'package:tb_frontend/doctor/historyarchived.dart';
-import 'package:intl/intl.dart';
-import 'package:csv/csv.dart';
-import 'dart:io';
-import 'package:path_provider/path_provider.dart';
-import 'package:open_file/open_file.dart';
-import 'package:permission_handler/permission_handler.dart';
 
-class Dhistory extends StatefulWidget {
-  const Dhistory({super.key});
+class Historyarchived extends StatefulWidget {
+  const Historyarchived({super.key});
 
   @override
-  State<Dhistory> createState() => _DhistoryState();
+  State<Historyarchived> createState() => _HistoryarchivedState();
 }
 
-class _DhistoryState extends State<Dhistory> {
+class _HistoryarchivedState extends State<Historyarchived> {
   String? _currentDoctorId;
   bool _isSelectionMode = false;
   final Set<String> _selectedAppointments = {};
@@ -72,7 +65,7 @@ class _DhistoryState extends State<Dhistory> {
     });
   }
 
-  Future<void> _archiveSelectedAppointments() async {
+  Future<void> _unarchiveSelectedAppointments() async {
     if (_selectedAppointments.isEmpty) return;
 
     // Show confirmation dialog
@@ -85,20 +78,20 @@ class _DhistoryState extends State<Dhistory> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.orange.shade100,
+                color: Colors.green.shade100,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.archive_rounded, color: Colors.orange, size: 24),
+              child: const Icon(Icons.unarchive_rounded, color: Colors.green, size: 24),
             ),
             const SizedBox(width: 12),
             const Text(
-              'Archive History',
+              'Unarchive',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ],
         ),
         content: Text(
-          'Are you sure you want to archive ${_selectedAppointments.length} history item(s)?',
+          'Are you sure you want to unarchive ${_selectedAppointments.length} history item(s)?',
           style: const TextStyle(fontSize: 15),
         ),
         actions: [
@@ -112,12 +105,12 @@ class _DhistoryState extends State<Dhistory> {
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
+              backgroundColor: Colors.green,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               elevation: 0,
             ),
             child: const Text(
-              'Archive',
+              'Unarchive',
               style: TextStyle(color: Colors.white, fontSize: 15),
             ),
           ),
@@ -143,7 +136,7 @@ class _DhistoryState extends State<Dhistory> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Text('Archiving ${_selectedAppointments.length} item(s)...'),
+                Text('Unarchiving ${_selectedAppointments.length} item(s)...'),
               ],
             ),
             duration: const Duration(seconds: 2),
@@ -151,33 +144,15 @@ class _DhistoryState extends State<Dhistory> {
         );
       }
 
-      // Archive each selected appointment
+      // Unarchive each selected appointment from appointment_history only
       for (String appointmentId in _selectedAppointments) {
-        // Check if it's from appointment_history or completed_appointments
-        final historyDoc = await FirebaseFirestore.instance
+        await FirebaseFirestore.instance
             .collection('appointment_history')
             .doc(appointmentId)
-            .get();
-
-        if (historyDoc.exists) {
-          // Update in appointment_history
-          await FirebaseFirestore.instance
-              .collection('appointment_history')
-              .doc(appointmentId)
-              .update({
-            'archived': true,
-            'archivedAt': FieldValue.serverTimestamp(),
-          });
-        } else {
-          // Update in completed_appointments
-          await FirebaseFirestore.instance
-              .collection('completed_appointments')
-              .doc(appointmentId)
-              .update({
-            'archived': true,
-            'archivedAt': FieldValue.serverTimestamp(),
-          });
-        }
+            .update({
+          'archived': false,
+          'unarchivedAt': FieldValue.serverTimestamp(),
+        });
       }
 
       // Exit selection mode
@@ -201,7 +176,7 @@ class _DhistoryState extends State<Dhistory> {
                   child: const Icon(Icons.check_circle, color: Colors.white, size: 20),
                 ),
                 const SizedBox(width: 12),
-                const Text('History archived successfully'),
+                const Text('History unarchived successfully'),
               ],
             ),
             backgroundColor: Colors.green,
@@ -214,7 +189,7 @@ class _DhistoryState extends State<Dhistory> {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error archiving history: $e'),
+            content: Text('Error unarchiving history: $e'),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -224,597 +199,8 @@ class _DhistoryState extends State<Dhistory> {
     }
   }
 
-  // Show export options dialog
-  Future<void> _showExportDialog() async {
-    final now = DateTime.now();
-    DateTime? startDate;
-    DateTime? endDate;
-    
-    final result = await showDialog<String>(
-      context: context,
-      barrierColor: Colors.black.withOpacity(0.5),
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-        elevation: 16,
-        backgroundColor: Colors.white,
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(28),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Header
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF4CAF50), Color(0xFF2E7D32)],
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF4CAF50).withOpacity(0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(Icons.download_rounded, color: Colors.white, size: 28),
-                  ),
-                  const SizedBox(width: 16),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Export Patient Data',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF2E7D32),
-                          ),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Select time range for export',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              // Options
-              _buildExportOption(
-                context,
-                'Daily',
-                'Today\'s patients',
-                Icons.today,
-                Colors.blue,
-              ),
-              const SizedBox(height: 10),
-              _buildExportOption(
-                context,
-                'Weekly',
-                'Last 7 days',
-                Icons.date_range,
-                Colors.purple,
-              ),
-              const SizedBox(height: 10),
-              _buildExportOption(
-                context,
-                'Monthly',
-                'This month',
-                Icons.calendar_month,
-                Colors.orange,
-              ),
-              const SizedBox(height: 10),
-              _buildExportOption(
-                context,
-                'Yearly',
-                'This year',
-                Icons.calendar_today,
-                Colors.green,
-              ),
-              const SizedBox(height: 10),
-              _buildExportOption(
-                context,
-                'Custom',
-                'Select date range',
-                Icons.event_note,
-                Colors.red,
-              ),
-              const SizedBox(height: 20),
-              // Cancel Button
-              SizedBox(
-                width: double.infinity,
-                child: TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: Text(
-                    'Cancel',
-                    style: TextStyle(
-                      color: Colors.grey.shade600,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-
-    if (result != null && mounted) {
-      if (result == 'Custom') {
-        // Show date range picker
-        final DateTimeRange? picked = await showDateRangePicker(
-          context: context,
-          firstDate: DateTime(2020),
-          lastDate: now,
-          builder: (context, child) {
-            return Theme(
-              data: Theme.of(context).copyWith(
-                colorScheme: ColorScheme.light(
-                  primary: const Color(0xE0F44336),
-                  onPrimary: Colors.white,
-                  surface: Colors.white,
-                  onSurface: Colors.black,
-                ),
-                dialogBackgroundColor: Colors.white,
-                dialogTheme: const DialogThemeData(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(28)),
-                  ),
-                  elevation: 16,
-                  backgroundColor: Colors.white,
-                ),
-                datePickerTheme: DatePickerThemeData(
-                  backgroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(28),
-                  ),
-                  headerBackgroundColor: const Color(0xE0F44336),
-                  headerForegroundColor: Colors.white,
-                  rangePickerBackgroundColor: Colors.white,
-                  elevation: 16,
-                  shadowColor: Colors.black.withOpacity(0.2),
-                ),
-                textButtonTheme: TextButtonThemeData(
-                  style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xE0F44336),
-                    textStyle: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
-                    ),
-                  ),
-                ),
-              ),
-              child: child!,
-            );
-          },
-        );
-        
-        if (picked != null) {
-          startDate = picked.start;
-          endDate = picked.end;
-          await _exportToCSV(startDate, endDate);
-        }
-      } else {
-        // Calculate date range based on selection
-        switch (result) {
-          case 'Daily':
-            startDate = DateTime(now.year, now.month, now.day);
-            endDate = DateTime(now.year, now.month, now.day, 23, 59, 59);
-            break;
-          case 'Weekly':
-            startDate = now.subtract(const Duration(days: 7));
-            endDate = now;
-            break;
-          case 'Monthly':
-            startDate = DateTime(now.year, now.month, 1);
-            endDate = now;
-            break;
-          case 'Yearly':
-            startDate = DateTime(now.year, 1, 1);
-            endDate = now;
-            break;
-        }
-        
-        if (startDate != null && endDate != null) {
-          await _exportToCSV(startDate, endDate);
-        }
-      }
-    }
-  }
-
-  Widget _buildExportOption(
-    BuildContext context,
-    String title,
-    String subtitle,
-    IconData icon,
-    Color color,
-  ) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: () => Navigator.pop(context, title),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.3)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: Colors.white, size: 22),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: color,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.arrow_forward_ios, size: 16, color: color),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _exportToCSV(DateTime startDate, DateTime endDate) async {
-    try {
-      // Show loading
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Row(
-              children: [
-                SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
-                ),
-                SizedBox(width: 12),
-                Text('Generating report...'),
-              ],
-            ),
-            duration: Duration(seconds: 3),
-          ),
-        );
-      }
-
-      // Fetch data within date range
-      final historySnapshot = await FirebaseFirestore.instance
-          .collection('appointment_history')
-          .where('doctorId', isEqualTo: _currentDoctorId)
-          .get();
-
-      final completedSnapshot = await FirebaseFirestore.instance
-          .collection('completed_appointments')
-          .where('doctorId', isEqualTo: _currentDoctorId)
-          .get();
-
-      List<List<dynamic>> rows = [];
-      
-      // Add headers
-      rows.add([
-        'Patient Name',
-        'Appointment Date',
-        'Appointment Time',
-        'Completed Date',
-        'Completed Time',
-        'Status',
-        'Treatment Type',
-        'Treatment Completed',
-        'Source',
-        'Notes',
-      ]);
-
-      // Process history appointments
-      for (var doc in historySnapshot.docs) {
-        final data = doc.data();
-        
-        // Get appointment date/time
-        DateTime? appointmentDateTime;
-        if (data['appointmentDate'] != null) {
-          appointmentDateTime = (data['appointmentDate'] as Timestamp).toDate();
-        }
-        
-        // Get completion date
-        DateTime? completionDateTime;
-        if (data['treatmentCompletedAt'] != null) {
-          completionDateTime = (data['treatmentCompletedAt'] as Timestamp).toDate();
-        } else if (data['movedToHistoryAt'] != null) {
-          completionDateTime = (data['movedToHistoryAt'] as Timestamp).toDate();
-        } else if (data['completedAt'] != null) {
-          completionDateTime = (data['completedAt'] as Timestamp).toDate();
-        }
-
-        // Filter by date range
-        if (completionDateTime != null &&
-            completionDateTime.isAfter(startDate.subtract(const Duration(days: 1))) &&
-            completionDateTime.isBefore(endDate.add(const Duration(days: 1)))) {
-          rows.add([
-            data['patientName'] ?? 'Unknown',
-            appointmentDateTime != null ? DateFormat('yyyy-MM-dd').format(appointmentDateTime) : 'N/A',
-            appointmentDateTime != null ? DateFormat('HH:mm').format(appointmentDateTime) : 'N/A',
-            DateFormat('yyyy-MM-dd').format(completionDateTime),
-            DateFormat('HH:mm').format(completionDateTime),
-            'Treatment Completed',
-            data['treatmentType'] ?? 'N/A',
-            'Yes',
-            'History',
-            data['notes'] ?? '',
-          ]);
-        }
-      }
-
-      // Process completed appointments
-      for (var doc in completedSnapshot.docs) {
-        final data = doc.data();
-        
-        // Get appointment date/time
-        DateTime? appointmentDateTime;
-        if (data['appointmentDate'] != null) {
-          appointmentDateTime = (data['appointmentDate'] as Timestamp).toDate();
-        }
-        
-        // Get completion date
-        DateTime? completionDateTime;
-        if (data['completedAt'] != null) {
-          completionDateTime = (data['completedAt'] as Timestamp).toDate();
-        }
-
-        // Filter by date range and exclude archived
-        if (completionDateTime != null &&
-            data['archived'] != true &&
-            completionDateTime.isAfter(startDate.subtract(const Duration(days: 1))) &&
-            completionDateTime.isBefore(endDate.add(const Duration(days: 1)))) {
-          
-          // Determine status
-          String status = 'Post-Appointment';
-          if (data['treatmentCompleted'] == true) {
-            status = 'Treatment Completed';
-          } else if (data['hasPrescription'] == true) {
-            status = 'Completed with Prescription';
-          }
-          
-          rows.add([
-            data['patientName'] ?? 'Unknown',
-            appointmentDateTime != null ? DateFormat('yyyy-MM-dd').format(appointmentDateTime) : 'N/A',
-            appointmentDateTime != null ? DateFormat('HH:mm').format(appointmentDateTime) : 'N/A',
-            DateFormat('yyyy-MM-dd').format(completionDateTime),
-            DateFormat('HH:mm').format(completionDateTime),
-            status,
-            data['treatmentType'] ?? 'N/A',
-            data['treatmentCompleted'] == true ? 'Yes' : 'No',
-            'Post-Consultation',
-            data['notes'] ?? '',
-          ]);
-        }
-      }
-
-      if (rows.length == 1) {
-        // Only headers, no data
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('No patient data found for selected date range'),
-              backgroundColor: Colors.orange,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-          );
-        }
-        return;
-      }
-
-      // Convert to CSV
-      String csv = const ListToCsvConverter().convert(rows);
-
-      // Handle permissions for Android
-      if (Platform.isAndroid) {
-        var status = await Permission.manageExternalStorage.status;
-        if (!status.isGranted) {
-          status = await Permission.manageExternalStorage.request();
-        }
-        
-        // Fallback to storage permission
-        if (!status.isGranted) {
-          var storageStatus = await Permission.storage.status;
-          if (!storageStatus.isGranted) {
-            storageStatus = await Permission.storage.request();
-          }
-          
-          if (!storageStatus.isGranted) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('Storage permission required to save file'),
-                  backgroundColor: Colors.red,
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-              );
-            }
-            return;
-          }
-        }
-      }
-
-      // Get directory
-      Directory? directory;
-      if (Platform.isAndroid) {
-        directory = await getExternalStorageDirectory();
-      } else {
-        directory = await getApplicationDocumentsDirectory();
-      }
-
-      if (directory == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Unable to access storage directory'),
-              backgroundColor: Colors.red,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-          );
-        }
-        return;
-      }
-
-      // Create filename with date range
-      final fileName = 'patient_report_${DateFormat('yyyy-MM-dd').format(startDate)}_to_${DateFormat('yyyy-MM-dd').format(endDate)}.csv';
-      final filePath = '${directory.path}/$fileName';
-
-      // Write file
-      final file = File(filePath);
-      await file.writeAsString(csv);
-
-      debugPrint('File saved at: $filePath');
-
-      // Show success and open file
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.check_circle, color: Colors.white, size: 20),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text('Report generated successfully!'),
-                      Text(
-                        'Found ${rows.length - 1} patients',
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            action: SnackBarAction(
-              label: 'Open',
-              textColor: Colors.white,
-              onPressed: () async {
-                try {
-                  final result = await OpenFile.open(filePath);
-                  debugPrint('Open file result: ${result.type} - ${result.message}');
-                } catch (e) {
-                  debugPrint('Error opening file: $e');
-                }
-              },
-            ),
-            duration: const Duration(seconds: 5),
-          ),
-        );
-
-        // Try to open file automatically
-        await Future.delayed(const Duration(milliseconds: 500));
-        try {
-          final result = await OpenFile.open(filePath);
-          debugPrint('Auto-open file result: ${result.type} - ${result.message}');
-          
-          if (result.type != ResultType.done) {
-            // If auto-open failed, show a message
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('File saved at: $fileName\nUse "Open" button to view'),
-                  backgroundColor: Colors.blue,
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  duration: const Duration(seconds: 3),
-                ),
-              );
-            }
-          }
-        } catch (e) {
-          debugPrint('Error auto-opening file: $e');
-        }
-      }
-    } catch (e) {
-      debugPrint('Error exporting data: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error generating report: $e'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        );
-      }
-    }
-  }
-
-  // Load appointments from history collection
-  Stream<List<Map<String, dynamic>>> _getHistoryStream() {
+  // Load archived appointments from appointment_history collection only
+  Stream<List<Map<String, dynamic>>> _getArchivedHistoryStream() {
     if (_currentDoctorId == null) {
       return Stream.value([]);
     }
@@ -822,58 +208,28 @@ class _DhistoryState extends State<Dhistory> {
     return FirebaseFirestore.instance
         .collection('appointment_history')
         .where('doctorId', isEqualTo: _currentDoctorId)
+        .where('archived', isEqualTo: true)
         .snapshots()
-        .asyncMap((snapshot) async {
+        .map((snapshot) {
       List<Map<String, dynamic>> allAppointments = [];
 
-      // Get appointments from appointment_history collection (fully completed treatments)
+      // Get archived appointments from appointment_history collection only
       for (var doc in snapshot.docs) {
         final data = doc.data();
-        // Filter out archived items
-        if (data['archived'] != true) {
-          data['id'] = doc.id;
-          data['source'] = 'appointment_history';
-          allAppointments.add(data);
-        }
+        data['id'] = doc.id;
+        data['source'] = 'appointment_history';
+        allAppointments.add(data);
       }
 
-      // Also get appointments from completed_appointments collection (post-consultation appointments)
-      final completedAppointmentsSnapshot = await FirebaseFirestore.instance
-          .collection('completed_appointments')
-          .where('doctorId', isEqualTo: _currentDoctorId)
-          .get();
-
-      for (var doc in completedAppointmentsSnapshot.docs) {
-        final data = doc.data();
-        // Filter out archived items and those already processed to history
-        if (data['archived'] != true && data['processedToHistory'] != true) {
-          data['id'] = doc.id;
-          data['source'] = 'completed_appointments';
-          allAppointments.add(data);
-        }
-      }
-
-      // History shows all post-consultation appointments: both completed meetings and fully completed treatments
-
-      // Sort by most relevant timestamp (prioritize treatment completed appointments)
+      // Sort by archivedAt timestamp
       allAppointments.sort((a, b) {
-        // Get the most relevant timestamp for each appointment
-        final timestampA = a['treatmentCompletedAt'] ??
-            a['movedToHistoryAt'] ??
-            a['completedAt'] ??
-            a['approvedAt'] ??
-            a['rejectedAt'];
-        final timestampB = b['treatmentCompletedAt'] ??
-            b['movedToHistoryAt'] ??
-            b['completedAt'] ??
-            b['approvedAt'] ??
-            b['rejectedAt'];
+        final timestampA = a['archivedAt'];
+        final timestampB = b['archivedAt'];
 
         if (timestampA == null && timestampB == null) return 0;
         if (timestampA == null) return 1;
         if (timestampB == null) return -1;
 
-        // Sort descending (newest first)
         return timestampB.compareTo(timestampA);
       });
 
@@ -881,19 +237,16 @@ class _DhistoryState extends State<Dhistory> {
     });
   }
 
-  // ✅ Show appointment details in full screen
-  void _showAppointmentDetails(Map<String, dynamic> appointment) async {
-    // Fetch additional data similar to dpost.dart
+  // Show archived appointment details
+  void _showArchivedAppointmentDetails(Map<String, dynamic> appointment) async {
     final originalAppointmentId =
         appointment['appointmentId'] ?? appointment['id'];
 
-    // Fetch prescription data for this appointment
+    // Fetch prescription data
     Map<String, dynamic>? prescriptionData;
     if (appointment['prescriptionData'] != null) {
-      // Use existing prescription data if already available
       prescriptionData = appointment['prescriptionData'];
     } else {
-      // Fetch prescription data from collection
       try {
         final prescriptionSnapshot = await FirebaseFirestore.instance
             .collection('prescriptions')
@@ -908,13 +261,11 @@ class _DhistoryState extends State<Dhistory> {
       }
     }
 
-    // Fetch certificate data for this appointment
+    // Fetch certificate data
     Map<String, dynamic>? certificateData;
     if (appointment['certificateData'] != null) {
-      // Use existing certificate data if already available
       certificateData = appointment['certificateData'];
     } else {
-      // Fetch certificate data from collection
       try {
         final certificateSnapshot = await FirebaseFirestore.instance
             .collection('certificates')
@@ -929,7 +280,7 @@ class _DhistoryState extends State<Dhistory> {
       }
     }
 
-    // Fetch doctor information from doctors collection
+    // Fetch doctor information
     Map<String, dynamic>? doctorData;
     if (appointment['doctorId'] != null) {
       try {
@@ -963,6 +314,7 @@ class _DhistoryState extends State<Dhistory> {
               'prescriptionData': prescriptionData,
               'certificateData': certificateData,
               'doctorData': doctorData,
+              'isArchived': true,
             },
           ),
         ),
@@ -1021,7 +373,7 @@ class _DhistoryState extends State<Dhistory> {
                       Text(
                         _isSelectionMode 
                             ? "${_selectedAppointments.length} Selected"
-                            : "Appointment History",
+                            : "Archived History",
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -1029,7 +381,7 @@ class _DhistoryState extends State<Dhistory> {
                         ),
                       ),
 
-                      // Archive Button or Check Button
+                      // Unarchive Button
                       AnimatedSwitcher(
                         duration: const Duration(milliseconds: 300),
                         transitionBuilder: (child, animation) {
@@ -1037,62 +389,36 @@ class _DhistoryState extends State<Dhistory> {
                         },
                         child: _isSelectionMode
                             ? Container(
-                                key: const ValueKey('check_button'),
+                                key: const ValueKey('unarchive_button'),
                                 width: 48,
                                 height: 48,
                                 decoration: BoxDecoration(
                                   gradient: const LinearGradient(
-                                    colors: [Color(0xFFFF9800), Color(0xFFFF6F00)],
+                                    colors: [Color(0xFF4CAF50), Color(0xFF2E7D32)],
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,
                                   ),
                                   borderRadius: BorderRadius.circular(16),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.orange.withOpacity(0.4),
+                                      color: Colors.green.withOpacity(0.4),
                                       blurRadius: 8,
                                       offset: const Offset(0, 4),
                                     ),
                                   ],
                                 ),
                                 child: IconButton(
-                                  icon: const Icon(Icons.check_rounded,
+                                  icon: const Icon(Icons.unarchive_rounded,
                                       color: Colors.white),
                                   onPressed: _selectedAppointments.isNotEmpty
-                                      ? _archiveSelectedAppointments
+                                      ? _unarchiveSelectedAppointments
                                       : null,
                                 ),
                               )
-                            : Container(
-                                key: const ValueKey('archive_button'),
+                            : const SizedBox(
+                                key: ValueKey('empty_space'),
                                 width: 48,
                                 height: 48,
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(16),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.grey.shade300,
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                ),
-                                child: IconButton(
-                                  icon: const Icon(
-                                    Icons.archive_outlined,
-                                    color: Color(0xFFFF9800),
-                                    size: 24,
-                                  ),
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => const Historyarchived(),
-                                      ),
-                                    );
-                                  },
-                                ),
                               ),
                       ),
                     ],
@@ -1101,9 +427,9 @@ class _DhistoryState extends State<Dhistory> {
 
                 const SizedBox(height: 20),
 
-                // StreamBuilder for history data
+                // StreamBuilder for archived history data
                 StreamBuilder<List<Map<String, dynamic>>>(
-                  stream: _getHistoryStream(),
+                  stream: _getArchivedHistoryStream(),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Center(child: CircularProgressIndicator());
@@ -1112,7 +438,7 @@ class _DhistoryState extends State<Dhistory> {
                     if (snapshot.hasError) {
                       return Center(
                         child: Text(
-                          'Error loading history: ${snapshot.error}',
+                          'Error loading archived history: ${snapshot.error}',
                           style: const TextStyle(color: Colors.red),
                         ),
                       );
@@ -1127,13 +453,13 @@ class _DhistoryState extends State<Dhistory> {
                           child: Column(
                             children: [
                               Icon(
-                                Icons.history,
+                                Icons.archive_outlined,
                                 size: 64,
                                 color: Colors.grey,
                               ),
                               SizedBox(height: 16),
                               Text(
-                                "No appointment history yet.",
+                                "No Archived History",
                                 style: TextStyle(
                                   color: Colors.grey,
                                   fontSize: 18,
@@ -1142,7 +468,7 @@ class _DhistoryState extends State<Dhistory> {
                               ),
                               SizedBox(height: 8),
                               Text(
-                                "Completed consultations and treatments will appear here",
+                                "Archived history items will appear here",
                                 style: TextStyle(
                                   color: Colors.grey,
                                   fontSize: 14,
@@ -1167,7 +493,6 @@ class _DhistoryState extends State<Dhistory> {
 
                         // Different logic based on source collection
                         if (appointment['source'] == 'appointment_history') {
-                          // From appointment_history - treatment completed
                           var treatmentCompletedAt =
                               appointment['treatmentCompletedAt'];
                           var movedToHistoryAt =
@@ -1178,7 +503,6 @@ class _DhistoryState extends State<Dhistory> {
                             statusColor = Colors.purple;
                           }
                         } else {
-                          // From completed_appointments - consultation completed, awaiting treatment completion
                           var completedAt = appointment['completedAt'];
                           if (completedAt != null) {
                             statusDisplayText = 'Consultation Completed';
@@ -1198,7 +522,6 @@ class _DhistoryState extends State<Dhistory> {
                             statusDisplayText = 'Rejected';
                             statusColor = Colors.red;
                           } else {
-                            // Final fallback to appointment status
                             String status = appointment['status'] ?? 'unknown';
                             statusDisplayText =
                                 status.replaceAll('_', ' ').toUpperCase();
@@ -1222,7 +545,7 @@ class _DhistoryState extends State<Dhistory> {
                             boxShadow: [
                               BoxShadow(
                                 color: isSelected 
-                                    ? Colors.orange.withOpacity(0.3)
+                                    ? Colors.green.withOpacity(0.3)
                                     : Colors.grey.withOpacity(0.1),
                                 blurRadius: isSelected ? 12 : 8,
                                 offset: const Offset(0, 2),
@@ -1238,7 +561,7 @@ class _DhistoryState extends State<Dhistory> {
                                 if (_isSelectionMode) {
                                   _toggleSelection(appointmentId);
                                 } else {
-                                  _showAppointmentDetails(appointment);
+                                  _showArchivedAppointmentDetails(appointment);
                                 }
                               },
                               onLongPress: () {
@@ -1251,7 +574,7 @@ class _DhistoryState extends State<Dhistory> {
                                 decoration: BoxDecoration(
                                   border: Border.all(
                                     color: isSelected 
-                                        ? Colors.orange
+                                        ? Colors.green
                                         : Colors.transparent,
                                     width: 2,
                                   ),
@@ -1278,7 +601,7 @@ class _DhistoryState extends State<Dhistory> {
                                                 shape: RoundedRectangleBorder(
                                                   borderRadius: BorderRadius.circular(6),
                                                 ),
-                                                activeColor: Colors.orange,
+                                                activeColor: Colors.green,
                                                 side: BorderSide(
                                                   color: Colors.grey.shade400,
                                                   width: 2,
@@ -1426,23 +749,6 @@ class _DhistoryState extends State<Dhistory> {
               ],
             ),
           ),
-        ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showExportDialog,
-        backgroundColor: const Color(0xFF4CAF50),
-        elevation: 6,
-        icon: const Icon(Icons.download_rounded, color: Colors.white),
-        label: const Text(
-          'Export',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-          ),
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
         ),
       ),
     );

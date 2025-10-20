@@ -7,9 +7,12 @@ import 'package:tb_frontend/doctor/postarchived.dart';
 import 'package:intl/intl.dart';
 import 'package:csv/csv.dart';
 import 'dart:io';
+import 'dart:ui' show ImageFilter;
 import 'package:path_provider/path_provider.dart';
 import 'package:open_file/open_file.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:cross_file/cross_file.dart';
 
 class Dpostappointment extends StatefulWidget {
   const Dpostappointment({super.key});
@@ -356,45 +359,198 @@ class _DpostappointmentState extends State<Dpostappointment> {
           context: context,
           firstDate: DateTime(2020),
           lastDate: now,
+          initialEntryMode: DatePickerEntryMode.calendarOnly, // Disable text input mode (removes pencil icon)
           builder: (context, child) {
             return Theme(
               data: Theme.of(context).copyWith(
-                colorScheme: ColorScheme.light(
-                  primary: const Color(0xE0F44336),
+                colorScheme: const ColorScheme.light(
+                  primary: Color(0xFFE53935), // Vibrant red
                   onPrimary: Colors.white,
                   surface: Colors.white,
-                  onSurface: Colors.black,
+                  onSurface: Color(0xFF2D2D2D),
+                  secondary: Color(0xFFE53935),
+                  onSecondary: Colors.white,
                 ),
-                dialogBackgroundColor: Colors.white,
-                dialogTheme: const DialogThemeData(
+                dialogBackgroundColor: Colors.transparent,
+                dialogTheme: DialogThemeData(
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(28)),
+                    borderRadius: BorderRadius.circular(32),
                   ),
-                  elevation: 16,
-                  backgroundColor: Colors.white,
                 ),
                 datePickerTheme: DatePickerThemeData(
                   backgroundColor: Colors.white,
+                  elevation: 28,
+                  shadowColor: const Color(0xFFE53935).withOpacity(0.15),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(28),
+                    borderRadius: BorderRadius.circular(32),
                   ),
-                  headerBackgroundColor: const Color(0xE0F44336),
+                  // Compact header aligned with X button
+                  headerBackgroundColor: const Color(0xFFE53935),
                   headerForegroundColor: Colors.white,
+                  headerHeadlineStyle: const TextStyle(
+                    fontSize: 18, // Compact "Select Range" text
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                    letterSpacing: 0.5,
+                    height: 1.3,
+                  ),
+                  headerHelpStyle: TextStyle(
+                    fontSize: 12, // Very small for "Start Date - End Date"
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white.withOpacity(0.85),
+                    letterSpacing: 0.3,
+                    height: 1.3,
+                  ),
+                  // Range picker styling
                   rangePickerBackgroundColor: Colors.white,
-                  elevation: 16,
-                  shadowColor: Colors.black.withOpacity(0.2),
+                  rangePickerHeaderBackgroundColor: const Color(0xFFE53935),
+                  rangePickerHeaderForegroundColor: Colors.white,
+                  rangePickerHeaderHeadlineStyle: const TextStyle(
+                    fontSize: 18, // Compact header text
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                    letterSpacing: 0.5,
+                    height: 1.3,
+                  ),
+                  rangePickerHeaderHelpStyle: TextStyle(
+                    fontSize: 12, // Very small date range text fits in 1 line
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white.withOpacity(0.85),
+                    letterSpacing: 0.3,
+                    height: 1.3,
+                  ),
+                  // Soft range selection background
+                  rangeSelectionBackgroundColor: const Color(0xFFFFEBEE),
+                  rangeSelectionOverlayColor: MaterialStateProperty.all(
+                    const Color(0xFFE53935).withOpacity(0.06),
+                  ),
+                  // Modern day cell styling with enhanced bubble effect
+                  dayStyle: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0,
+                  ),
+                  // Today indicator - Bright pink bubble with red border
+                  todayBackgroundColor: MaterialStateProperty.resolveWith((states) {
+                    if (states.contains(MaterialState.selected)) {
+                      return const Color(0xFFE53935); // Solid red when selected
+                    }
+                    return const Color(0xFFFFCDD2); // Brighter pink bubble
+                  }),
+                  todayForegroundColor: MaterialStateProperty.resolveWith((states) {
+                    if (states.contains(MaterialState.selected)) {
+                      return Colors.white;
+                    }
+                    return const Color(0xFFE53935);
+                  }),
+                  todayBorder: const BorderSide(
+                    color: Color(0xFFE53935),
+                    width: 2.5,
+                  ),
+                  // Enhanced bubble background for ALL day cells
+                  dayBackgroundColor: MaterialStateProperty.resolveWith((states) {
+                    if (states.contains(MaterialState.selected)) {
+                      return const Color(0xFFE53935); // Vibrant red bubble when selected
+                    }
+                    if (states.contains(MaterialState.hovered)) {
+                      return const Color(0xFFFFEBEE); // Light pink bubble on hover
+                    }
+                    return const Color(0xFFF5F5F5); // Soft grey bubble background
+                  }),
+                  dayForegroundColor: MaterialStateProperty.resolveWith((states) {
+                    if (states.contains(MaterialState.selected)) {
+                      return Colors.white;
+                    }
+                    if (states.contains(MaterialState.disabled)) {
+                      return Colors.grey.shade300;
+                    }
+                    return const Color(0xFF2D2D2D);
+                  }),
+                  dayOverlayColor: MaterialStateProperty.all(
+                    const Color(0xFFE53935).withOpacity(0.08),
+                  ),
+                  // Clean, modern weekday labels (S  M  T  W  T  F  S)
+                  weekdayStyle: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF757575),
+                    letterSpacing: 2.0,
+                  ),
+                  // Very subtle divider
+                  dividerColor: const Color(0xFFF0F0F0),
                 ),
                 textButtonTheme: TextButtonThemeData(
-                  style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xE0F44336),
-                    textStyle: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
+                  style: ButtonStyle(
+                    foregroundColor: WidgetStateProperty.all(const Color(0xFFE53935)),
+                    textStyle: WidgetStateProperty.all(
+                      const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    padding: WidgetStateProperty.all(
+                      const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+                    ),
+                    minimumSize: WidgetStateProperty.all(const Size(0, 48)),
+                    shape: WidgetStateProperty.all(
+                      RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    overlayColor: WidgetStateProperty.all(
+                      const Color(0xFFE53935).withOpacity(0.08),
                     ),
                   ),
                 ),
               ),
-              child: child!,
+              child: Center(
+                child: Container(
+                  constraints: const BoxConstraints(
+                    maxWidth: 420,
+                    maxHeight: 650,
+                  ),
+                  margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.white,
+                        Colors.grey.shade50,
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(28),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.8),
+                      width: 1.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFE53935).withOpacity(0.15),
+                        blurRadius: 40,
+                        spreadRadius: 0,
+                        offset: const Offset(0, 20),
+                      ),
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.08),
+                        blurRadius: 20,
+                        spreadRadius: 0,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(28),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                      child: child!,
+                    ),
+                  ),
+                ),
+              ),
             );
           },
         );
@@ -625,30 +781,23 @@ class _DpostappointmentState extends State<Dpostappointment> {
         }
       }
 
-      // Get directory
-      Directory? directory;
-      if (Platform.isAndroid) {
-        directory = await getExternalStorageDirectory();
-      } else {
-        directory = await getApplicationDocumentsDirectory();
-      }
-
-      if (directory == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Unable to access storage directory'),
-              backgroundColor: Colors.red,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-          );
-        }
-        return;
-      }
-
+      // Get directory - save to public Downloads folder
       final fileName = 'post_appointments_${DateFormat('yyyy-MM-dd').format(startDate)}_to_${DateFormat('yyyy-MM-dd').format(endDate)}.csv';
-      final filePath = '${directory.path}/$fileName';
+      
+      String filePath;
+      if (Platform.isAndroid) {
+        // For Android: Save to public Downloads folder
+        // This makes it accessible in File Manager > Downloads
+        final directory = Directory('/storage/emulated/0/Download');
+        if (!await directory.exists()) {
+          await directory.create(recursive: true);
+        }
+        filePath = '${directory.path}/$fileName';
+      } else {
+        // For iOS: Use documents directory
+        final directory = await getApplicationDocumentsDirectory();
+        filePath = '${directory.path}/$fileName';
+      }
 
       final file = File(filePath);
       await file.writeAsString(csv);
@@ -674,10 +823,18 @@ class _DpostappointmentState extends State<Dpostappointment> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text('Report generated successfully!'),
+                      const Text(
+                        '✓ Saved to Downloads!',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                       Text(
                         'Found ${rows.length - 1} patients',
-                        style: const TextStyle(fontSize: 12),
+                        style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Check File Manager > Downloads',
+                        style: TextStyle(fontSize: 10, color: Colors.white70),
                       ),
                     ],
                   ),
@@ -688,44 +845,15 @@ class _DpostappointmentState extends State<Dpostappointment> {
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             action: SnackBarAction(
-              label: 'Open',
+              label: 'OPTIONS',
               textColor: Colors.white,
-              onPressed: () async {
-                try {
-                  final result = await OpenFile.open(filePath);
-                  debugPrint('Open file result: ${result.type} - ${result.message}');
-                } catch (e) {
-                  debugPrint('Error opening file: $e');
-                }
+              onPressed: () {
+                _showFileOptionsDialog(filePath, fileName);
               },
             ),
-            duration: const Duration(seconds: 5),
+            duration: const Duration(seconds: 8),
           ),
         );
-
-        // Try to open file automatically
-        await Future.delayed(const Duration(milliseconds: 500));
-        try {
-          final result = await OpenFile.open(filePath);
-          debugPrint('Auto-open file result: ${result.type} - ${result.message}');
-          
-          if (result.type != ResultType.done) {
-            // If auto-open failed, show a message
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('File saved at: $fileName\nUse "Open" button to view'),
-                  backgroundColor: Colors.blue,
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  duration: const Duration(seconds: 3),
-                ),
-              );
-            }
-          }
-        } catch (e) {
-          debugPrint('Error auto-opening file: $e');
-        }
       }
     } catch (e) {
       debugPrint('Error exporting data: $e');
@@ -740,6 +868,381 @@ class _DpostappointmentState extends State<Dpostappointment> {
         );
       }
     }
+  }
+
+  // Show file options dialog
+  void _showFileOptionsDialog(String filePath, String fileName) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.5),
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        elevation: 16,
+        backgroundColor: Colors.white,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(28),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF4CAF50), Color(0xFF2E7D32)],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF4CAF50).withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(Icons.file_present_rounded, color: Colors.white, size: 28),
+                  ),
+                  const SizedBox(width: 16),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Report Ready',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF2E7D32),
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Choose how to view',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              
+              // File info
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.green.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.insert_drive_file, size: 16, color: Colors.green.shade700),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        fileName,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.green.shade900,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(height: 24),
+              
+              // Options
+              Column(
+                children: [
+                  // Open with Excel/Sheets
+                  _buildFileOption(
+                    icon: Icons.table_chart_rounded,
+                    iconColor: Colors.green,
+                    title: 'Open with Excel/Sheets',
+                    subtitle: 'View in spreadsheet app',
+                    onTap: () async {
+                      Navigator.pop(context);
+                      try {
+                        // Show loading
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Row(
+                                children: [
+                                  SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    ),
+                                  ),
+                                  SizedBox(width: 12),
+                                  Text('Opening file...'),
+                                ],
+                              ),
+                              duration: Duration(seconds: 2),
+                              backgroundColor: Colors.blue,
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        }
+                        
+                        // Open file with system default app
+                        final result = await OpenFile.open(
+                          filePath,
+                          type: 'text/csv',
+                        );
+                        
+                        debugPrint('Open file result: ${result.type} - ${result.message}');
+                        
+                        if (result.type == ResultType.done) {
+                          // Success - file opened
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Row(
+                                  children: [
+                                    Icon(Icons.check_circle, color: Colors.white),
+                                    SizedBox(width: 12),
+                                    Text('File opened successfully!'),
+                                  ],
+                                ),
+                                backgroundColor: Colors.green,
+                                behavior: SnackBarBehavior.floating,
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          }
+                        } else if (result.type == ResultType.noAppToOpen) {
+                          // No app found
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'No spreadsheet app found!',
+                                      style: TextStyle(fontWeight: FontWeight.bold),
+                                    ),
+                                    SizedBox(height: 4),
+                                    Text(
+                                      'Please install Excel, Google Sheets, or WPS Office',
+                                      style: TextStyle(fontSize: 12),
+                                    ),
+                                  ],
+                                ),
+                                backgroundColor: Colors.orange,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                duration: const Duration(seconds: 5),
+                              ),
+                            );
+                          }
+                        } else {
+                          // Other error
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Unable to open file: ${result.message}'),
+                                backgroundColor: Colors.orange,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                            );
+                          }
+                        }
+                      } catch (e) {
+                        debugPrint('Error opening file: $e');
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Error opening file',
+                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'File saved at: $fileName',
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                ],
+                              ),
+                              backgroundColor: Colors.red,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              duration: const Duration(seconds: 4),
+                            ),
+                          );
+                        }
+                      }
+                    },
+                  ),
+                  
+                  const SizedBox(height: 12),
+                  
+                  // Share file
+                  _buildFileOption(
+                    icon: Icons.share_rounded,
+                    iconColor: Colors.blue,
+                    title: 'Share via...',
+                    subtitle: 'Send via WhatsApp, Email, etc.',
+                    onTap: () async {
+                      Navigator.pop(context);
+                      try {
+                        final result = await Share.shareXFiles(
+                          [XFile(filePath)],
+                          text: 'TB Post-Appointment Report - $fileName',
+                          subject: 'TB Post-Appointment Report',
+                        );
+                        
+                        debugPrint('Share result: ${result.status}');
+                        
+                        if (result.status == ShareResultStatus.success) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Row(
+                                  children: [
+                                    Icon(Icons.check_circle, color: Colors.white),
+                                    SizedBox(width: 12),
+                                    Text('File shared successfully!'),
+                                  ],
+                                ),
+                                backgroundColor: Colors.green,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                            );
+                          }
+                        }
+                      } catch (e) {
+                        debugPrint('Error sharing file: $e');
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error sharing file: $e'),
+                              backgroundColor: Colors.red,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          );
+                        }
+                      }
+                    },
+                  ),
+                ],
+              ),
+              
+              const SizedBox(height: 20),
+              
+              // Close button
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    'Close',
+                    style: TextStyle(
+                      color: Colors.grey.shade600,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Helper widget for file options
+  Widget _buildFileOption({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: iconColor.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: iconColor.withOpacity(0.3)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: iconColor,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: Colors.white, size: 22),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: iconColor,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.arrow_forward_ios, size: 16, color: iconColor),
+          ],
+        ),
+      ),
+    );
   }
 
   @override

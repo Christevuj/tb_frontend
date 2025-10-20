@@ -60,7 +60,10 @@ class _ViewpendingState extends State<Viewpending> {
           .collection('rejected_appointments')
           .add(rejectedAppointmentData);
 
-      // Note: Rejected appointments will be moved to history only if needed for reporting
+      // ADD TO APPOINTMENT HISTORY - So it shows up in dhistory.dart with rejection reason
+      await firestore
+          .collection('appointment_history')
+          .add(rejectedAppointmentData);
 
       // Also update the patient's profile with this rejected appointment
       if (widget.appointment['patientUid'] != null) {
@@ -2090,20 +2093,22 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                         Text(
                           'Select Date',
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: 14,
                             fontWeight: FontWeight.w600,
                             color: Colors.grey.shade800,
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 10),
                         GestureDetector(
                           onTap: () async {
+                            print('Date container tapped!'); // Debug print
                             final DateTime? picked = await showDatePicker(
                               context: context,
                               initialDate: selectedDate,
                               firstDate: DateTime.now(),
                               lastDate:
                                   DateTime.now().add(const Duration(days: 365)),
+                              initialEntryMode: DatePickerEntryMode.calendarOnly,
                               builder: (context, child) {
                                 return Theme(
                                   data: Theme.of(context).copyWith(
@@ -2113,7 +2118,7 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                                       surface: Colors.white,
                                       onSurface: Colors.grey.shade800,
                                     ),
-                                    dialogTheme: DialogThemeData(
+                                    dialogTheme: const DialogThemeData(
                                         backgroundColor: Colors.white),
                                   ),
                                   child: child!,
@@ -2124,12 +2129,10 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                               setState(() {
                                 selectedDate = picked;
                               });
+                              print('Date updated to: $picked'); // Debug print
                             }
                           },
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(16),
+                          child: Container(
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
                                 begin: Alignment.topLeft,
@@ -2139,21 +2142,22 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                                   Colors.blue.shade100
                                 ],
                               ),
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                  color: Colors.blue.shade200, width: 2),
+                                  color: Colors.blue.shade200, width: 1.5),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.blue.withOpacity(0.1),
-                                  blurRadius: 8,
+                                  color: Colors.blue.withOpacity(0.08),
+                                  blurRadius: 6,
                                   offset: const Offset(0, 2),
                                 ),
                               ],
                             ),
+                            padding: const EdgeInsets.all(12),
                             child: Row(
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.all(10),
+                                  padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
                                     gradient: LinearGradient(
                                       colors: [
@@ -2161,22 +2165,22 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                                         Colors.blue.shade600
                                       ],
                                     ),
-                                    borderRadius: BorderRadius.circular(10),
+                                    borderRadius: BorderRadius.circular(8),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.blue.withOpacity(0.3),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
+                                        color: Colors.blue.withOpacity(0.25),
+                                        blurRadius: 3,
+                                        offset: const Offset(0, 1),
                                       ),
                                     ],
                                   ),
                                   child: const Icon(
                                     Icons.calendar_today_rounded,
                                     color: Colors.white,
-                                    size: 20,
+                                    size: 16,
                                   ),
                                 ),
-                                const SizedBox(width: 16),
+                                const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment:
@@ -2185,17 +2189,17 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                                       Text(
                                         _formatDate(selectedDate),
                                         style: TextStyle(
-                                          fontSize: 16,
+                                          fontSize: 14,
                                           fontWeight: FontWeight.w700,
                                           color: Colors.blue.shade800,
-                                          letterSpacing: 0.3,
+                                          letterSpacing: 0.2,
                                         ),
                                       ),
-                                      const SizedBox(height: 4),
+                                      const SizedBox(height: 2),
                                       Text(
-                                        'Tap to select a different date',
+                                        'Tap to change date',
                                         style: TextStyle(
-                                          fontSize: 12,
+                                          fontSize: 11,
                                           color: Colors.blue.shade600,
                                           fontWeight: FontWeight.w500,
                                         ),
@@ -2203,35 +2207,28 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                                     ],
                                   ),
                                 ),
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue.shade200,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Icon(
-                                    Icons.edit_rounded,
-                                    color: Colors.blue.shade700,
-                                    size: 16,
-                                  ),
+                                Icon(
+                                  Icons.arrow_forward_ios_rounded,
+                                  color: Colors.blue.shade400,
+                                  size: 14,
                                 ),
                               ],
                             ),
                           ),
                         ),
 
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 20),
 
                         // Time Selection
                         Text(
                           'Select Time Range',
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: 14,
                             fontWeight: FontWeight.w600,
                             color: Colors.grey.shade800,
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 10),
 
                         Container(
                           decoration: BoxDecoration(
@@ -2257,7 +2254,7 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                                     ),
                                     const SizedBox(height: 8),
                                     Container(
-                                      height: 80,
+                                      height: 120,
                                       decoration: BoxDecoration(
                                         color: Colors.white,
                                         borderRadius: BorderRadius.circular(12),
@@ -2288,7 +2285,7 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                                                   child: CupertinoPicker(
                                                     scrollController:
                                                         _startHourController,
-                                                    itemExtent: 24,
+                                                    itemExtent: 28,
                                                     onSelectedItemChanged:
                                                         (index) {
                                                       setState(() {
@@ -2301,9 +2298,9 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                                                         child: Text(
                                                           '${index + 1}',
                                                           style: TextStyle(
-                                                            fontSize: 13,
+                                                            fontSize: 16,
                                                             fontWeight:
-                                                                FontWeight.w500,
+                                                                FontWeight.w600,
                                                             color: Colors
                                                                 .grey.shade800,
                                                           ),
@@ -2337,7 +2334,7 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                                                   child: CupertinoPicker(
                                                     scrollController:
                                                         _startMinuteController,
-                                                    itemExtent: 24,
+                                                    itemExtent: 28,
                                                     onSelectedItemChanged:
                                                         (index) {
                                                       setState(() {
@@ -2352,9 +2349,9 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                                                               .toString()
                                                               .padLeft(2, '0'),
                                                           style: TextStyle(
-                                                            fontSize: 13,
+                                                            fontSize: 16,
                                                             fontWeight:
-                                                                FontWeight.w500,
+                                                                FontWeight.w600,
                                                             color: Colors
                                                                 .grey.shade800,
                                                           ),
@@ -2388,7 +2385,7 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                                                   child: CupertinoPicker(
                                                     scrollController:
                                                         _startPeriodController,
-                                                    itemExtent: 24,
+                                                    itemExtent: 28,
                                                     onSelectedItemChanged:
                                                         (index) {
                                                       setState(() {
@@ -2403,9 +2400,9 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                                                         child: Text(
                                                           period,
                                                           style: TextStyle(
-                                                            fontSize: 13,
+                                                            fontSize: 16,
                                                             fontWeight:
-                                                                FontWeight.w500,
+                                                                FontWeight.w600,
                                                             color: Colors
                                                                 .grey.shade800,
                                                           ),
@@ -2450,7 +2447,7 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                                     ),
                                     const SizedBox(height: 8),
                                     Container(
-                                      height: 80,
+                                      height: 120,
                                       decoration: BoxDecoration(
                                         color: Colors.white,
                                         borderRadius: BorderRadius.circular(12),
@@ -2481,7 +2478,7 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                                                   child: CupertinoPicker(
                                                     scrollController:
                                                         _endHourController,
-                                                    itemExtent: 24,
+                                                    itemExtent: 28,
                                                     onSelectedItemChanged:
                                                         (index) {
                                                       setState(() {
@@ -2494,9 +2491,9 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                                                         child: Text(
                                                           '${index + 1}',
                                                           style: TextStyle(
-                                                            fontSize: 13,
+                                                            fontSize: 16,
                                                             fontWeight:
-                                                                FontWeight.w500,
+                                                                FontWeight.w600,
                                                             color: Colors
                                                                 .grey.shade800,
                                                           ),
@@ -2530,7 +2527,7 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                                                   child: CupertinoPicker(
                                                     scrollController:
                                                         _endMinuteController,
-                                                    itemExtent: 24,
+                                                    itemExtent: 28,
                                                     onSelectedItemChanged:
                                                         (index) {
                                                       setState(() {
@@ -2545,9 +2542,9 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                                                               .toString()
                                                               .padLeft(2, '0'),
                                                           style: TextStyle(
-                                                            fontSize: 13,
+                                                            fontSize: 16,
                                                             fontWeight:
-                                                                FontWeight.w500,
+                                                                FontWeight.w600,
                                                             color: Colors
                                                                 .grey.shade800,
                                                           ),
@@ -2581,7 +2578,7 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                                                   child: CupertinoPicker(
                                                     scrollController:
                                                         _endPeriodController,
-                                                    itemExtent: 24,
+                                                    itemExtent: 28,
                                                     onSelectedItemChanged:
                                                         (index) {
                                                       setState(() {
@@ -2596,9 +2593,9 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                                                         child: Text(
                                                           period,
                                                           style: TextStyle(
-                                                            fontSize: 13,
+                                                            fontSize: 16,
                                                             fontWeight:
-                                                                FontWeight.w500,
+                                                                FontWeight.w600,
                                                             color: Colors
                                                                 .grey.shade800,
                                                           ),
@@ -2626,10 +2623,10 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
 
                 // Actions
                 Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    borderRadius: const BorderRadius.vertical(
+                  padding: const EdgeInsets.all(16),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.vertical(
                       bottom: Radius.circular(24),
                     ),
                   ),
@@ -2637,7 +2634,7 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                     children: [
                       Expanded(
                         child: Container(
-                          height: 50,
+                          height: 42,
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(12),
@@ -2662,11 +2659,11 @@ class _ScheduleEditDialogState extends State<_ScheduleEditDialog>
                           ),
                         ),
                       ),
-                      const SizedBox(width: 16),
+                      const SizedBox(width: 12),
                       Expanded(
                         flex: 2,
                         child: Container(
-                          height: 50,
+                          height: 42,
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               colors: [

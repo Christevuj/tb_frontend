@@ -201,59 +201,65 @@ class _CertificateState extends State<Certificate> {
           // Custom Header
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 40, 16, 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Stack(
+              alignment: Alignment.center,
               children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.shade300,
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: IconButton(
-                    icon: Icon(Icons.arrow_back_ios, color: _themeRed),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ),
-                Text(
-                  "TB Treatment Certificate",
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: _themeRed,
+                // Back button on the left
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.shade300,
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: IconButton(
+                      icon: Icon(Icons.arrow_back_ios, color: _themeRed),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
                   ),
                 ),
-                const SizedBox(width: 48),
+                // Centered title
+                Center(
+                  child: Text(
+                    "Treatment Certificate",
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: _themeRed,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(12.0),
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
                   border: Border.all(color: Colors.redAccent, width: 1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                padding: const EdgeInsets.all(20.0),
+                padding: const EdgeInsets.all(12.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Header
                     const Center(
                       child: Text(
-                        "Certification of Treatment Completion",
+                        "CERTIFICATE OF TREATMENT COMPLETION",
                         style: TextStyle(
-                          fontSize: 22,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
                         textAlign: TextAlign.center,
@@ -261,139 +267,155 @@ class _CertificateState extends State<Certificate> {
                     ),
                     const SizedBox(height: 24),
 
-                    // Certificate content
-                    RichText(
-                      text: TextSpan(
-                        style: const TextStyle(
-                          fontSize: 16,
-                          color: Colors.black,
-                          height: 1.6,
-                        ),
-                        children: [
-                          const TextSpan(
-                              text: "This is to certify that Mr./Ms. "),
-                          WidgetSpan(
-                            child: SizedBox(
-                              width: 200,
-                              child: TextField(
-                                controller: _patientNameController,
-                                decoration: const InputDecoration(
-                                  border: UnderlineInputBorder(),
-                                  isDense: true,
-                                  contentPadding:
-                                      EdgeInsets.symmetric(vertical: 4),
+                    // Certificate content with proper indentation
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: RichText(
+                        text: TextSpan(
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Colors.black,
+                            height: 1.6,
+                          ),
+                          children: [
+                            const TextSpan(
+                                text: "     This is to certify that Mr./Ms. "),
+                            WidgetSpan(
+                              child: SizedBox(
+                                width: 180,
+                                child: TextField(
+                                  controller: _patientNameController,
+                                  decoration: const InputDecoration(
+                                    border: UnderlineInputBorder(),
+                                    isDense: true,
+                                    contentPadding:
+                                        EdgeInsets.symmetric(vertical: 2),
+                                  ),
+                                  style: const TextStyle(fontSize: 13),
                                 ),
-                                style: const TextStyle(fontSize: 16),
                               ),
                             ),
+                            const TextSpan(
+                                text:
+                                    ", bearer of his NTP Patient Booklet, has complied with the required treatment regimen.\n\n"),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Treatment type checkboxes with proper spacing
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          CheckboxListTile(
+                            title: const Text("DS - TB Treatment", style: TextStyle(fontSize: 13)),
+                            value: _dsTreatment,
+                            onChanged: (bool? value) {
+                              setState(() {
+                                _dsTreatment = value ?? false;
+                              });
+                            },
+                            controlAffinity: ListTileControlAffinity.leading,
+                            contentPadding: EdgeInsets.zero,
+                            dense: true,
                           ),
-                          const TextSpan(
-                              text:
-                                  ",\nbearer of his NTP Patient Booklet, has complied with the\nrequired treatment regimen.\n\n"),
+                          const SizedBox(height: 4),
+                          CheckboxListTile(
+                            title: const Text("DR - TB Treatment", style: TextStyle(fontSize: 13)),
+                            value: _drTreatment,
+                            onChanged: (bool? value) {
+                              setState(() {
+                                _drTreatment = value ?? false;
+                              });
+                            },
+                            controlAffinity: ListTileControlAffinity.leading,
+                            contentPadding: EdgeInsets.zero,
+                            dense: true,
+                          ),
+                          const SizedBox(height: 4),
+                          CheckboxListTile(
+                            title: const Text("TB Preventive Treatment", style: TextStyle(fontSize: 13)),
+                            value: _preventiveTreatment,
+                            onChanged: (bool? value) {
+                              setState(() {
+                                _preventiveTreatment = value ?? false;
+                              });
+                            },
+                            controlAffinity: ListTileControlAffinity.leading,
+                            contentPadding: EdgeInsets.zero,
+                            dense: true,
+                          ),
                         ],
                       ),
                     ),
 
                     const SizedBox(height: 16),
 
-                    // Treatment type checkboxes
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        CheckboxListTile(
-                          title: const Text("☐ DS - TB Treatment"),
-                          value: _dsTreatment,
-                          onChanged: (bool? value) {
-                            setState(() {
-                              _dsTreatment = value ?? false;
-                            });
-                          },
-                          controlAffinity: ListTileControlAffinity.leading,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                        CheckboxListTile(
-                          title: const Text("☐ DR - TB Treatment"),
-                          value: _drTreatment,
-                          onChanged: (bool? value) {
-                            setState(() {
-                              _drTreatment = value ?? false;
-                            });
-                          },
-                          controlAffinity: ListTileControlAffinity.leading,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                        CheckboxListTile(
-                          title: const Text("☐ TB Preventive Treatment"),
-                          value: _preventiveTreatment,
-                          onChanged: (bool? value) {
-                            setState(() {
-                              _preventiveTreatment = value ?? false;
-                            });
-                          },
-                          controlAffinity: ListTileControlAffinity.leading,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Facility section
-                    RichText(
-                      text: TextSpan(
-                        style: const TextStyle(
-                          fontSize: 16,
-                          color: Colors.black,
-                          height: 1.6,
-                        ),
-                        children: [
-                          const TextSpan(text: "at "),
-                          WidgetSpan(
-                            child: SizedBox(
-                              width: 250,
-                              child: TextField(
-                                controller: _facilityNameController,
-                                decoration: const InputDecoration(
-                                  border: UnderlineInputBorder(),
-                                  isDense: true,
-                                  contentPadding:
-                                      EdgeInsets.symmetric(vertical: 4),
+                    // Facility section with proper indentation
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: RichText(
+                        text: TextSpan(
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Colors.black,
+                            height: 1.6,
+                          ),
+                          children: [
+                            const TextSpan(text: "     at "),
+                            WidgetSpan(
+                              child: SizedBox(
+                                width: 220,
+                                child: TextField(
+                                  controller: _facilityNameController,
+                                  decoration: const InputDecoration(
+                                    border: UnderlineInputBorder(),
+                                    isDense: true,
+                                    contentPadding:
+                                        EdgeInsets.symmetric(vertical: 2),
+                                  ),
+                                  style: const TextStyle(fontSize: 13),
                                 ),
-                                style: const TextStyle(fontSize: 16),
                               ),
                             ),
-                          ),
-                          const TextSpan(
-                              text:
-                                  " DOTS Facility. S/he is no\nlonger infectious.\n\n"),
-                        ],
+                            const TextSpan(
+                                text:
+                                    " DOTS Facility. S/he is no longer infectious.\n\n"),
+                          ],
+                        ),
                       ),
                     ),
 
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16),
 
-                    // Issuance date section
-                    RichText(
-                      text: TextSpan(
-                        style: const TextStyle(
-                          fontSize: 16,
-                          color: Colors.black,
-                          height: 1.6,
-                        ),
-                        children: [
-                          const TextSpan(text: "Issued this "),
-                          WidgetSpan(
-                            child: SizedBox(
-                              width: 50,
-                              child: TextField(
-                                controller: _issuanceDayController,
+                    // Issuance date section with proper indentation
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: RichText(
+                        text: TextSpan(
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Colors.black,
+                            height: 1.6,
+                          ),
+                          children: [
+                            const TextSpan(text: "     Issued this "),
+                            WidgetSpan(
+                              child: SizedBox(
+                                width: 40,
+                                child: TextField(
+                                  controller: _issuanceDayController,
                                 decoration: const InputDecoration(
                                   border: UnderlineInputBorder(),
                                   isDense: true,
                                   contentPadding:
-                                      EdgeInsets.symmetric(vertical: 4),
+                                      EdgeInsets.symmetric(vertical: 2),
                                 ),
-                                style: const TextStyle(fontSize: 16),
+                                style: const TextStyle(fontSize: 13),
                                 textAlign: TextAlign.center,
                               ),
                             ),
@@ -401,16 +423,16 @@ class _CertificateState extends State<Certificate> {
                           const TextSpan(text: "th day of "),
                           WidgetSpan(
                             child: SizedBox(
-                              width: 100,
+                              width: 80,
                               child: TextField(
                                 controller: _issuanceMonthController,
                                 decoration: const InputDecoration(
                                   border: UnderlineInputBorder(),
                                   isDense: true,
                                   contentPadding:
-                                      EdgeInsets.symmetric(vertical: 4),
+                                      EdgeInsets.symmetric(vertical: 2),
                                 ),
-                                style: const TextStyle(fontSize: 16),
+                                style: const TextStyle(fontSize: 13),
                                 textAlign: TextAlign.center,
                               ),
                             ),
@@ -418,16 +440,16 @@ class _CertificateState extends State<Certificate> {
                           const TextSpan(text: ", 20"),
                           WidgetSpan(
                             child: SizedBox(
-                              width: 40,
+                              width: 35,
                               child: TextField(
                                 controller: _issuanceYearController,
                                 decoration: const InputDecoration(
                                   border: UnderlineInputBorder(),
                                   isDense: true,
                                   contentPadding:
-                                      EdgeInsets.symmetric(vertical: 4),
+                                      EdgeInsets.symmetric(vertical: 2),
                                 ),
-                                style: const TextStyle(fontSize: 16),
+                                style: const TextStyle(fontSize: 13),
                                 textAlign: TextAlign.center,
                                 maxLength: 2,
                                 buildCounter: (context,
@@ -441,74 +463,78 @@ class _CertificateState extends State<Certificate> {
                           const TextSpan(text: "."),
                         ],
                       ),
+                      ),
                     ),
 
-                    const SizedBox(height: 40),
+                    const SizedBox(height: 24),
 
-                    // Signature section
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Container(
-                              height: 60,
-                              width: 200,
-                              decoration: const BoxDecoration(
-                                border: Border(
-                                    bottom: BorderSide(color: Colors.black)),
-                              ),
-                              child: _doctorSignature != null
-                                  ? (_doctorSignature!.startsWith('text:')
-                                      ? Center(
-                                          child: Text(
-                                            _doctorSignature!.substring(5),
-                                            style: const TextStyle(
-                                              fontSize: 16,
-                                              fontStyle: FontStyle.italic,
-                                              fontWeight: FontWeight.w500,
+                    // Signature section with proper padding
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Container(
+                                height: 50,
+                                width: 180,
+                                decoration: const BoxDecoration(
+                                  border: Border(
+                                      bottom: BorderSide(color: Colors.black)),
+                                ),
+                                child: _doctorSignature != null
+                                    ? (_doctorSignature!.startsWith('text:')
+                                        ? Center(
+                                            child: Text(
+                                              _doctorSignature!.substring(5),
+                                              style: const TextStyle(
+                                                fontSize: 13,
+                                                fontStyle: FontStyle.italic,
+                                                fontWeight: FontWeight.w500,
+                                              ),
                                             ),
-                                          ),
-                                        )
-                                      : _doctorSignature!
-                                              .startsWith('data:image')
-                                          ? Image.memory(
-                                              base64Decode(_doctorSignature!
-                                                  .split(',')[1]),
-                                              fit: BoxFit.contain,
-                                            )
-                                          : Image.network(
-                                              _doctorSignature!,
-                                              fit: BoxFit.contain,
-                                            ))
-                                  : null,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              _getDoctorName(),
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
+                                          )
+                                        : _doctorSignature!
+                                                .startsWith('data:image')
+                                            ? Image.memory(
+                                                base64Decode(_doctorSignature!
+                                                    .split(',')[1]),
+                                                fit: BoxFit.contain,
+                                              )
+                                            : Image.network(
+                                                _doctorSignature!,
+                                                fit: BoxFit.contain,
+                                              ))
+                                    : null,
                               ),
-                            ),
-                            const Text(
-                              "Physician",
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.normal,
+                              const SizedBox(height: 4),
+                              Text(
+                                _getDoctorName(),
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            ),
-                            const Text(
-                              "(Signature over Printed Name)",
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey,
+                              const Text(
+                                "Physician",
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.normal,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
+                              const Text(
+                                "(Signature over Printed Name)",
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -517,7 +543,7 @@ class _CertificateState extends State<Certificate> {
           ),
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(12.0),
               child: Row(
                 children: [
                   // Preview button
@@ -525,7 +551,7 @@ class _CertificateState extends State<Certificate> {
                     child: OutlinedButton(
                       style: OutlinedButton.styleFrom(
                         side: BorderSide(color: _themeRed),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -533,7 +559,7 @@ class _CertificateState extends State<Certificate> {
                       onPressed: _isLoading ? null : _previewCertificate,
                       child: Text(
                         'Preview PDF',
-                        style: TextStyle(color: _themeRed, fontSize: 16),
+                        style: TextStyle(color: _themeRed, fontSize: 14),
                       ),
                     ),
                   ),
@@ -544,7 +570,7 @@ class _CertificateState extends State<Certificate> {
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _themeRed,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -557,7 +583,7 @@ class _CertificateState extends State<Certificate> {
                                   ? 'Update Certificate'
                                   : 'Save & Send Certificate',
                               style: const TextStyle(
-                                  color: Colors.white, fontSize: 16),
+                                  color: Colors.white, fontSize: 14),
                             ),
                     ),
                   ),

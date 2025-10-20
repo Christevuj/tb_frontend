@@ -159,7 +159,7 @@ class _PrescriptionState extends State<Prescription> {
                     const Text(
                       'Doctor\'s E-Signature',
                       style: TextStyle(
-                        fontSize: 20,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF2D3748),
                       ),
@@ -188,7 +188,7 @@ class _PrescriptionState extends State<Prescription> {
                         const Text(
                           'Current Signature:',
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: Color(0xFF4A5568),
                           ),
@@ -259,20 +259,20 @@ class _PrescriptionState extends State<Prescription> {
                             Navigator.of(context).pop();
                             _showDrawSignatureDialog();
                           },
-                          icon: const Icon(Icons.draw, color: Colors.white),
+                          icon: const Icon(Icons.draw, color: Colors.white, size: 18),
                           label: Text(
                             _doctorSignature == null
                                 ? 'Create Signature'
                                 : 'Draw New Signature',
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 16,
+                              fontSize: 13,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFFF94F6D),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -291,19 +291,19 @@ class _PrescriptionState extends State<Prescription> {
                             _createTextSignature();
                           },
                           icon: const Icon(Icons.text_fields,
-                              color: Color(0xFFF94F6D)),
+                              color: Color(0xFFF94F6D), size: 18),
                           label: Text(
                             _doctorSignature == null
                                 ? 'Use Text Signature'
                                 : 'Change to Text',
                             style: const TextStyle(
                               color: Color(0xFFF94F6D),
-                              fontSize: 16,
+                              fontSize: 13,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                           style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
                             side: const BorderSide(
                                 color: Color(0xFFF94F6D), width: 2),
                             shape: RoundedRectangleBorder(
@@ -334,9 +334,9 @@ class _PrescriptionState extends State<Prescription> {
             borderRadius: BorderRadius.circular(16),
           ),
           child: Container(
-            width: MediaQuery.of(context).size.width * 0.95,
-            height: MediaQuery.of(context).size.height * 0.8,
-            padding: const EdgeInsets.all(24),
+            width: MediaQuery.of(context).size.width * 0.9,
+            height: MediaQuery.of(context).size.height * 0.5,
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
@@ -378,7 +378,7 @@ class _PrescriptionState extends State<Prescription> {
                 const Text(
                   'Text Signature',
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF2D3748),
                   ),
@@ -387,7 +387,7 @@ class _PrescriptionState extends State<Prescription> {
                 const Text(
                   'This will use your name as the signature text.',
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 12,
                     color: Color(0xFF718096),
                   ),
                 ),
@@ -399,7 +399,7 @@ class _PrescriptionState extends State<Prescription> {
                       onPressed: () => Navigator.of(context).pop(),
                       child: const Text(
                         'Cancel',
-                        style: TextStyle(color: Color(0xFF718096)),
+                        style: TextStyle(color: Color(0xFF718096), fontSize: 13),
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -410,13 +410,14 @@ class _PrescriptionState extends State<Prescription> {
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFF94F6D),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
                       child: const Text(
                         'Create',
-                        style: TextStyle(color: Colors.white),
+                        style: TextStyle(color: Colors.white, fontSize: 13),
                       ),
                     ),
                   ],
@@ -615,7 +616,7 @@ class _PrescriptionState extends State<Prescription> {
                           Text(
                             _getDoctorFacilityName(),
                             style: const TextStyle(
-                              fontSize: 22,
+                              fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -624,7 +625,7 @@ class _PrescriptionState extends State<Prescription> {
                             _getDoctorInfo(),
                             textAlign: TextAlign.center,
                             style: const TextStyle(
-                                fontSize: 14, color: Colors.grey),
+                                fontSize: 11, color: Colors.grey),
                           ),
                         ],
                       ),
@@ -639,11 +640,11 @@ class _PrescriptionState extends State<Prescription> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Name: $patientName'),
+                              Text('Name: $patientName', style: const TextStyle(fontSize: 11)),
                               const SizedBox(height: 8),
-                              Text('Address: $patientAddress'),
+                              Text('Address: $patientAddress', style: const TextStyle(fontSize: 11)),
                               const SizedBox(height: 8),
-                              Text('Age: $patientAge'),
+                              Text('Age: $patientAge', style: const TextStyle(fontSize: 11)),
                             ],
                           ),
                         ),
@@ -651,9 +652,9 @@ class _PrescriptionState extends State<Prescription> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            Text('Gender: $patientGender'),
+                            Text('Gender: $patientGender', style: const TextStyle(fontSize: 11)),
                             const SizedBox(height: 8),
-                            Text('Date: $prescriptionDate'),
+                            Text('Date: $prescriptionDate', style: const TextStyle(fontSize: 11)),
                           ],
                         ),
                       ],
@@ -662,7 +663,7 @@ class _PrescriptionState extends State<Prescription> {
                     const Text(
                       'Rx',
                       style:
-                          TextStyle(fontSize: 40, fontWeight: FontWeight.bold),
+                          TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 16),
                     // Prescription text field
@@ -677,100 +678,185 @@ class _PrescriptionState extends State<Prescription> {
                         maxLines: null,
                         expands: true,
                         textAlignVertical: TextAlignVertical.top,
+                        style: const TextStyle(fontSize: 12),
                         decoration: const InputDecoration(
                           hintText: 'Enter prescription details here...',
+                          hintStyle: TextStyle(fontSize: 11),
                           border: InputBorder.none,
                           contentPadding: EdgeInsets.all(12),
                         ),
                       ),
                     ),
                     const SizedBox(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        if (_doctorSignature != null) ...[
-                          const Text("Doctor's e-Signature: "),
-                          Container(
-                            height: 30,
-                            width: 120,
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey.shade300),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: _doctorSignature!.startsWith('text:')
-                                ? Center(
-                                    child: Text(
-                                      _doctorSignature!.substring(5),
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        fontStyle: FontStyle.italic,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  )
-                                : _doctorSignature!.startsWith('data:image')
-                                    ? ClipRRect(
-                                        borderRadius: BorderRadius.circular(4),
-                                        child: Image.memory(
-                                          base64Decode(
-                                              _doctorSignature!.split(',')[1]),
-                                          fit: BoxFit.contain,
-                                        ),
-                                      )
-                                    : Image.network(
-                                        _doctorSignature!,
-                                        fit: BoxFit.contain,
-                                        errorBuilder:
-                                            (context, error, stackTrace) {
-                                          return const Center(
-                                            child: Text(
-                                              'Signature',
-                                              style: TextStyle(fontSize: 12),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.edit,
-                                size: 16, color: Colors.grey),
-                            onPressed: _showSignatureDialog,
-                          ),
-                        ] else ...[
-                          const Text("Doctor's e-Signature: ____________"),
-                          IconButton(
-                            icon: const Icon(Icons.edit,
-                                size: 16, color: Colors.grey),
-                            onPressed: _showSignatureDialog,
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    // Doctor's name and license below signature
+                    // Doctor's information and signature section - CONDITIONAL LAYOUT
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            Text(
-                              _getDoctorName(),
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
+                            if (_doctorSignature != null) ...[
+                              // Check if it's TEXT signature (old UI - sequential layout)
+                              if (_doctorSignature!.startsWith('text:')) ...[
+                                // TEXT SIGNATURE: SEQUENTIAL ORDER (Signature, Name, License)
+                                // 1. Text Signature FIRST (on top)
+                                Container(
+                                  height: 50,
+                                  width: 180,
+                                  padding: const EdgeInsets.all(8),
+                                  child: Center(
+                                    child: Text(
+                                      _doctorSignature!.substring(5),
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontStyle: FontStyle.italic,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF2D3748),
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                // 2. Doctor's Name SECOND (below signature)
+                                Text(
+                                  _getDoctorName(),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF2D3748),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                // 3. License THIRD (below name)
+                                Text(
+                                  _getDoctorLicense(),
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color.fromARGB(255, 149, 149, 149),
+                                  ),
+                                ),
+                              ] else ...[
+                                // DRAWN SIGNATURE: SEQUENTIAL ORDER (Signature, Name, License)
+                                // 1. Signature FIRST (on top)
+                                Container(
+                                  height: 80,
+                                  width: 200,
+                                  child: _doctorSignature!.startsWith('data:image')
+                                      ? Image.memory(
+                                          base64Decode(
+                                              _doctorSignature!.split(',')[1]),
+                                          fit: BoxFit.contain,
+                                        )
+                                      : Image.network(
+                                          _doctorSignature!,
+                                          fit: BoxFit.contain,
+                                          errorBuilder:
+                                              (context, error, stackTrace) {
+                                            return const Center(
+                                              child: Text(
+                                                'Signature',
+                                                style: TextStyle(
+                                                  fontSize: 16,
+                                                  color: Colors.grey,
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                ),
+                                const SizedBox(height: 4),
+                                // 2. Doctor's Name SECOND (below signature)
+                                Text(
+                                  _getDoctorName(),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF2D3748),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                // 3. License THIRD (below name)
+                                Text(
+                                  _getDoctorLicense(),
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color.fromARGB(255, 149, 149, 149),
+                                  ),
+                                ),
+                              ],
+                              const SizedBox(height: 8),
+                              // Edit button
+                              TextButton.icon(
+                                onPressed: _showSignatureDialog,
+                                icon: const Icon(Icons.edit, size: 14, color: Color(0xFFF94F6D)),
+                                label: const Text(
+                                  'Edit Signature',
+                                  style: TextStyle(fontSize: 11, color: Color(0xFFF94F6D)),
+                                ),
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              _getDoctorLicense(),
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Color.fromARGB(255, 149, 149, 149),
+                            ] else ...[
+                              // When no signature, show name first then placeholder
+                              Text(
+                                _getDoctorName(),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF2D3748),
+                                ),
                               ),
-                            ),
+                              const SizedBox(height: 4),
+                              Text(
+                                _getDoctorLicense(),
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Color.fromARGB(255, 149, 149, 149),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Container(
+                                height: 80,
+                                width: 200,
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: Colors.grey.shade300,
+                                    width: 1,
+                                  ),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Center(
+                                  child: Text(
+                                    'No Signature',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              // Add button
+                              TextButton.icon(
+                                onPressed: _showSignatureDialog,
+                                icon: const Icon(Icons.add, size: 14, color: Color(0xFFF94F6D)),
+                                label: const Text(
+                                  'Add Signature',
+                                  style: TextStyle(fontSize: 11, color: Color(0xFFF94F6D)),
+                                ),
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ],
@@ -788,20 +874,27 @@ class _PrescriptionState extends State<Prescription> {
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFF94F6D),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
                   onPressed: _isLoading ? null : _savePrescription,
                   child: _isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
                       : Text(
                           _hasExistingPrescription
                               ? 'Update Prescription'
                               : 'Save Prescription',
                           style: const TextStyle(
-                              color: Colors.white, fontSize: 16),
+                              color: Colors.white, fontSize: 13),
                         ),
                 ),
               ),
@@ -1091,41 +1184,114 @@ class _PrescriptionState extends State<Prescription> {
 
                 pw.Spacer(),
 
-                // Doctor's signature and details
+                // Doctor's signature and details - CONDITIONAL LAYOUT FOR PDF
                 pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.end,
                   children: [
                     pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.end,
+                      crossAxisAlignment: pw.CrossAxisAlignment.center,
                       children: [
-                        if (_doctorSignature != null &&
-                            _doctorSignature!.startsWith('text:'))
-                          pw.Text(
-                            _doctorSignature!.substring(5),
-                            style: pw.TextStyle(
-                              fontSize: 16,
-                              fontStyle: pw.FontStyle.italic,
-                              fontWeight: pw.FontWeight.bold,
+                        if (_doctorSignature != null) ...[
+                          // Check if it's TEXT signature (old UI - sequential)
+                          if (_doctorSignature!.startsWith('text:')) ...[
+                            // TEXT SIGNATURE: SEQUENTIAL ORDER (Signature, Name, License)
+                            // 1. Text Signature FIRST (on top)
+                            pw.Container(
+                              height: 50,
+                              width: 180,
+                              padding: const pw.EdgeInsets.all(8),
+                              child: pw.Center(
+                                child: pw.Text(
+                                  _doctorSignature!.substring(5),
+                                  style: pw.TextStyle(
+                                    fontSize: 14,
+                                    fontStyle: pw.FontStyle.italic,
+                                    fontWeight: pw.FontWeight.bold,
+                                  ),
+                                ),
+                              ),
                             ),
-                          )
+                            pw.SizedBox(height: 4),
+                            // 2. Doctor's Name SECOND (below signature)
+                            pw.Text(
+                              _getDoctorName(),
+                              style: pw.TextStyle(
+                                fontSize: 14,
+                                fontWeight: pw.FontWeight.bold,
+                              ),
+                            ),
+                            pw.SizedBox(height: 4),
+                            // 3. License THIRD (below name)
+                            pw.Text(
+                              _getDoctorLicense(),
+                              style: const pw.TextStyle(fontSize: 12),
+                            ),
+                          ] else ...[
+                            // NEW UI: DRAWN signature - SEQUENTIAL ORDER (Signature, Name, License)
+                            // 1. Signature FIRST (on top)
+                            pw.Container(
+                              height: 80,
+                              width: 200,
+                              child: _doctorSignature!.startsWith('data:image')
+                                  ? pw.Image(
+                                      pw.MemoryImage(
+                                        base64Decode(_doctorSignature!.split(',')[1]),
+                                      ),
+                                      fit: pw.BoxFit.contain,
+                                    )
+                                  : pw.Center(
+                                      child: pw.Text(
+                                        'Signature',
+                                        style: const pw.TextStyle(fontSize: 14),
+                                      ),
+                                    ),
+                            ),
+                            pw.SizedBox(height: 4),
+                            // 2. Doctor's Name SECOND (below signature)
+                            pw.Text(
+                              _getDoctorName(),
+                              style: pw.TextStyle(
+                                fontSize: 14,
+                                fontWeight: pw.FontWeight.bold,
+                              ),
+                            ),
+                            pw.SizedBox(height: 4),
+                            // 3. License THIRD (below name)
+                            pw.Text(
+                              _getDoctorLicense(),
+                              style: const pw.TextStyle(fontSize: 12),
+                            ),
+                          ],
+                        ]
                         else
-                          pw.Text(
-                            "Doctor's Signature: _______________",
-                            style: const pw.TextStyle(fontSize: 14),
+                          // When no signature, show name and placeholder line
+                          pw.Column(
+                            children: [
+                              pw.Text(
+                                _getDoctorName(),
+                                style: pw.TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: pw.FontWeight.bold,
+                                ),
+                              ),
+                              pw.SizedBox(height: 4),
+                              pw.Text(
+                                _getDoctorLicense(),
+                                style: const pw.TextStyle(fontSize: 12),
+                              ),
+                              pw.SizedBox(height: 8),
+                              pw.Container(
+                                height: 80,
+                                width: 200,
+                                child: pw.Center(
+                                  child: pw.Text(
+                                    '_______________',
+                                    style: const pw.TextStyle(fontSize: 16),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        pw.SizedBox(height: 16),
-                        pw.Text(
-                          _getDoctorName(),
-                          style: pw.TextStyle(
-                            fontSize: 14,
-                            fontWeight: pw.FontWeight.bold,
-                          ),
-                        ),
-                        pw.SizedBox(height: 4),
-                        pw.Text(
-                          _getDoctorLicense(),
-                          style: const pw.TextStyle(fontSize: 12),
-                        ),
                       ],
                     ),
                   ],
@@ -1181,81 +1347,90 @@ class _SignaturePadDialogState extends State<SignaturePadDialog> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
-              'Draw Your Signature',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF2D3748),
+            const Expanded(
+              child: Text(
+                'Draw Your Signature',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF2D3748),
+                ),
               ),
             ),
             IconButton(
               onPressed: widget.onCancel,
-              icon: const Icon(Icons.close, color: Color(0xFF718096)),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              icon: const Icon(Icons.close, color: Color(0xFF718096), size: 20),
             ),
           ],
         ),
-        const SizedBox(height: 8),
-        const Text(
-          'Use your finger or stylus to draw your signature below',
-          style: TextStyle(
-            fontSize: 14,
-            color: Color(0xFF718096),
-          ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            const Icon(Icons.info_outline, size: 14, color: Color(0xFF718096)),
+            const SizedBox(width: 4),
+            const Expanded(
+              child: Text(
+                'Draw in landscape (wide) orientation for best results',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF718096),
+                ),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 12),
 
-        // Signature Canvas
-        Expanded(
+        // Signature Canvas - LANDSCAPE ORIENTATION
+        Center(
           child: Container(
-            width: double.infinity,
+            // Landscape: wider than tall (like 200x80)
+            width: MediaQuery.of(context).size.width * 0.8,
+            height: 150,
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(8),
               border: Border.all(color: const Color(0xFFE2E8F0), width: 2),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
-                  spreadRadius: 1,
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
-                ),
-              ],
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: GestureDetector(
-                onPanStart: (details) {
-                  setState(() {
-                    _isDrawing = true;
-                    _currentPath = [];
-                    RenderBox renderBox =
-                        context.findRenderObject() as RenderBox;
-                    Offset localPosition =
+            child: Padding(
+              padding: const EdgeInsets.all(4.0), // Padding to prevent edge clipping
+              child: RepaintBoundary(
+                key: _signatureKey,
+                child: GestureDetector(
+                  onPanStart: (details) {
+                    final RenderBox renderBox = _signatureKey.currentContext!
+                        .findRenderObject() as RenderBox;
+                    final Offset localPosition =
                         renderBox.globalToLocal(details.globalPosition);
-                    _currentPath.add(localPosition);
-                  });
-                },
-                onPanUpdate: (details) {
-                  if (_isDrawing) {
+                    
                     setState(() {
-                      RenderBox renderBox =
-                          context.findRenderObject() as RenderBox;
-                      Offset localPosition =
-                          renderBox.globalToLocal(details.globalPosition);
-                      _currentPath.add(localPosition);
+                      _isDrawing = true;
+                      _currentPath = [localPosition];
                     });
-                  }
-                },
-                onPanEnd: (details) {
-                  setState(() {
-                    _isDrawing = false;
-                    _paths.add(List.from(_currentPath));
-                    _currentPath = [];
-                  });
-                },
-                child: RepaintBoundary(
-                  key: _signatureKey,
+                  },
+                  onPanUpdate: (details) {
+                    if (_isDrawing) {
+                      final RenderBox renderBox = _signatureKey.currentContext!
+                          .findRenderObject() as RenderBox;
+                      final Offset localPosition =
+                          renderBox.globalToLocal(details.globalPosition);
+                      
+                      setState(() {
+                        _currentPath.add(localPosition);
+                      });
+                    }
+                  },
+                  onPanEnd: (details) {
+                    setState(() {
+                      _isDrawing = false;
+                      if (_currentPath.isNotEmpty) {
+                        _paths.add(List.from(_currentPath));
+                      }
+                      _currentPath = [];
+                    });
+                  },
                   child: Container(
                     width: double.infinity,
                     height: double.infinity,
@@ -1274,7 +1449,7 @@ class _SignaturePadDialogState extends State<SignaturePadDialog> {
           ),
         ),
 
-        const SizedBox(height: 20),
+        const SizedBox(height: 12),
 
         // Action buttons
         Row(
@@ -1283,40 +1458,40 @@ class _SignaturePadDialogState extends State<SignaturePadDialog> {
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: _clearSignature,
-                icon: const Icon(Icons.clear, color: Color(0xFF718096)),
+                icon: const Icon(Icons.clear, color: Color(0xFF718096), size: 16),
                 label: const Text(
                   'Clear',
-                  style: TextStyle(color: Color(0xFF718096)),
+                  style: TextStyle(color: Color(0xFF718096), fontSize: 12),
                 ),
                 style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
                   side: const BorderSide(color: Color(0xFFE2E8F0)),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                 ),
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 8),
 
             // Cancel button
             Expanded(
               child: OutlinedButton(
                 onPressed: widget.onCancel,
                 style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
                   side: const BorderSide(color: Color(0xFF718096)),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                 ),
                 child: const Text(
                   'Cancel',
-                  style: TextStyle(color: Color(0xFF718096)),
+                  style: TextStyle(color: Color(0xFF718096), fontSize: 12),
                 ),
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 8),
 
             // Save button
             Expanded(
@@ -1324,9 +1499,9 @@ class _SignaturePadDialogState extends State<SignaturePadDialog> {
                 onPressed: _paths.isEmpty ? null : _saveSignature,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFF94F6D),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   elevation: 2,
                 ),
@@ -1334,7 +1509,7 @@ class _SignaturePadDialogState extends State<SignaturePadDialog> {
                   'Save',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 16,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -1359,8 +1534,9 @@ class _SignaturePadDialogState extends State<SignaturePadDialog> {
       RenderRepaintBoundary boundary = _signatureKey.currentContext!
           .findRenderObject() as RenderRepaintBoundary;
 
-      // Convert to image
-      ui.Image image = await boundary.toImage(pixelRatio: 2.0);
+      // Convert to image with higher pixel ratio for better quality
+      // This ensures the entire canvas is captured without cropping
+      ui.Image image = await boundary.toImage(pixelRatio: 3.0);
       ByteData? byteData =
           await image.toByteData(format: ui.ImageByteFormat.png);
 
@@ -1392,7 +1568,7 @@ class SignaturePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final Paint paint = Paint()
       ..color = const Color(0xFF2D3748)
-      ..strokeWidth = 3.0
+      ..strokeWidth = 2.5
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
       ..style = PaintingStyle.stroke;

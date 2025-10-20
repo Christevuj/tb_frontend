@@ -28,6 +28,11 @@ class _ViewhistoryState extends State<Viewhistory> {
   bool _shouldShowPrescriptionAndCertificate() {
     final status = widget.appointment["status"]?.toString().toLowerCase();
 
+    // ❌ NEVER show for rejected appointments
+    if (status == "rejected") {
+      return false;
+    }
+
     // Show for appointments that have completed consultation or treatment
     return status == "approved" ||
         status == "completed" ||

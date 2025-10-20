@@ -3334,10 +3334,10 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                     // Get ALL appointments for notification display
                     final allAppointments = snapshot.data!;
                     
-                    // Also track RECENT appointments (pending and approved) for update detection
+                    // Also track RECENT appointments (pending, approved, and rejected) for update detection
                     final recentAppointments = snapshot.data!.where((apt) {
                       final status = apt['status']?.toString().toLowerCase() ?? '';
-                      return status == 'pending' || status == 'approved';
+                      return status == 'pending' || status == 'approved' || status == 'rejected';
                     }).toList();
 
                     // Sort all appointments by priority and date for display
@@ -3345,12 +3345,13 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                       final statusA = a['status']?.toString().toLowerCase() ?? '';
                       final statusB = b['status']?.toString().toLowerCase() ?? '';
                       
-                      // Priority: approved > pending > treatment_completed > others
+                      // Priority: approved > pending > rejected > treatment_completed > others
                       const statusPriority = {
                         'approved': 1,
                         'pending': 2,
-                        'treatment_completed': 3,
-                        'with_prescription': 4,
+                        'rejected': 3,
+                        'treatment_completed': 4,
+                        'with_prescription': 5,
                       };
                       
                       final priorityA = statusPriority[statusA] ?? 99;

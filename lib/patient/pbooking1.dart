@@ -35,6 +35,8 @@ class _Pbooking1State extends State<Pbooking1> {
   final _authService = AuthService();
   // Scroll controller to maintain scroll position
   final ScrollController _scrollController = ScrollController();
+  // Save scroll position to restore after dropdown/image picker
+  double _savedScrollPosition = 0.0;
   
   // Controllers for patient details
   final TextEditingController _nameController = TextEditingController();
@@ -218,6 +220,11 @@ class _Pbooking1State extends State<Pbooking1> {
   }
 
   Future<void> _pickImage() async {
+    // Save current scroll position
+    if (_scrollController.hasClients) {
+      _savedScrollPosition = _scrollController.position.pixels;
+    }
+    
     try {
       final ImagePicker picker = ImagePicker();
       final XFile? image = await picker.pickImage(
@@ -229,6 +236,13 @@ class _Pbooking1State extends State<Pbooking1> {
         setState(() {
           _idImage = image;
           _webImage = null; // Clear web image if coming from mobile
+        });
+        
+        // Restore scroll position after setState
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_scrollController.hasClients) {
+            _scrollController.jumpTo(_savedScrollPosition);
+          }
         });
       }
     } catch (e) {
@@ -259,6 +273,11 @@ class _Pbooking1State extends State<Pbooking1> {
   }
 
   Future<void> _pickDate() async {
+    // Save current scroll position
+    if (_scrollController.hasClients) {
+      _savedScrollPosition = _scrollController.position.pixels;
+    }
+    
     final DateTime? date = await showDatePicker(
       context: context,
       initialDate: _selectedDate ?? DateTime.now(),
@@ -292,6 +311,14 @@ class _Pbooking1State extends State<Pbooking1> {
         _selectedDate = date;
         _selectedTime = null; // Reset selected time when date changes
       });
+      
+      // Restore scroll position after setState
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.jumpTo(_savedScrollPosition);
+        }
+      });
+      
       debugPrint('State updated, widget will rebuild');
     }
   }
@@ -896,11 +923,25 @@ class _Pbooking1State extends State<Pbooking1> {
 
   // Build time slots widget with AM/PM separation
   Widget _buildTimeSlots() {
+    // Save scroll position before FutureBuilder rebuilds
+    if (_scrollController.hasClients) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients && _savedScrollPosition > 0) {
+          _scrollController.jumpTo(_savedScrollPosition);
+        }
+      });
+    }
+    
     // Use a key based on selected date to force rebuild
     return FutureBuilder<List<String>>(
       key: ValueKey(_selectedDate?.toString() ?? 'no-date'),
       future: _getAvailableTimeSlots(),
       builder: (context, snapshot) {
+        // Save position when builder starts
+        if (snapshot.connectionState == ConnectionState.waiting && _scrollController.hasClients) {
+          _savedScrollPosition = _scrollController.position.pixels;
+        }
+        
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Center(
             child: Padding(
@@ -1032,8 +1073,20 @@ class _Pbooking1State extends State<Pbooking1> {
             color: Colors.transparent,
             child: InkWell(
               onTap: () {
+                // Save scroll position before updating time
+                if (_scrollController.hasClients) {
+                  _savedScrollPosition = _scrollController.position.pixels;
+                }
+                
                 setState(() {
                   _selectedTime = time;
+                });
+                
+                // Restore scroll position after setState
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (_scrollController.hasClients) {
+                    _scrollController.jumpTo(_savedScrollPosition);
+                  }
                 });
               },
               borderRadius: BorderRadius.circular(12),
@@ -1092,6 +1145,7 @@ class _Pbooking1State extends State<Pbooking1> {
       child: TextField(
         controller: controller,
         keyboardType: keyboardType,
+        scrollPadding: EdgeInsets.zero, // Prevent automatic scrolling to this field
         style: const TextStyle(fontSize: 16),
         decoration: InputDecoration(
           labelText: label,
@@ -1177,7 +1231,22 @@ class _Pbooking1State extends State<Pbooking1> {
                   child: Text(item.toString()),
                 ))
             .toList(),
-        onChanged: onChanged,
+        onChanged: (newValue) {
+          // Save scroll position before dropdown change
+          if (_scrollController.hasClients) {
+            _savedScrollPosition = _scrollController.position.pixels;
+          }
+          
+          // Call the original onChanged callback
+          onChanged(newValue);
+          
+          // Restore scroll position after setState
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_scrollController.hasClients) {
+              _scrollController.jumpTo(_savedScrollPosition);
+            }
+          });
+        },
       ),
     );
   }
@@ -1189,6 +1258,7 @@ class _Pbooking1State extends State<Pbooking1> {
       body: SingleChildScrollView(
         controller: _scrollController,
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        physics: const ClampingScrollPhysics(), // Prevents bouncing and maintains position
         child: Padding(
           padding:
               const EdgeInsets.symmetric(horizontal: 16), // ✅ Global margin

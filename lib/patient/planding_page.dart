@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:async';
 import 'package:tb_frontend/patient/pdoclist.dart';
+import 'package:tb_frontend/patient/pmyappointment.dart';
 import 'package:tb_frontend/guest/gconsultant.dart';
 import 'package:tb_frontend/patient/ptbfacility.dart';
 
@@ -22,11 +24,208 @@ class _PlandingPageState extends State<PlandingPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   YoutubePlayerController? _youtubeController;
   bool _isLoading = true;
+  // Notification state
+  String? _currentPatientId;
+  final Map<String, Map<String, dynamic>> _appointmentsById = {};
+  final Map<String, String> _knownStatuses = {};
+  final List<Map<String, dynamic>> _notificationItems = [];
+  // track read state locally
+  final List<StreamSubscription> _appointmentListeners = [];
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _notificationsSub;
 
   @override
   void initState() {
     super.initState();
     _loadYoutubeUrl();
+    _initNotifications();
+  }
+
+  Future<void> _initNotifications() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    _currentPatientId = user.uid;
+    // Real-time listener for persisted notifications so UI updates automatically
+    try {
+      _notificationsSub = FirebaseFirestore.instance
+          .collection('patient_notifications')
+          .where('patientUid', isEqualTo: _currentPatientId)
+          .orderBy('timestamp', descending: true)
+          .snapshots()
+          .listen((snapshot) {
+        _notificationItems.clear();
+        for (final doc in snapshot.docs) {
+          final data = doc.data();
+          DateTime ts;
+          final rawTs = data['timestamp'];
+          if (rawTs is Timestamp) {
+            ts = rawTs.toDate();
+          } else if (rawTs is DateTime) {
+            ts = rawTs;
+          } else {
+            ts = DateTime.now();
+          }
+
+          _notificationItems.add({
+            'docId': doc.id,
+            'appointmentId': data['appointmentId'],
+            'title': data['title'] ?? '',
+            'subtitle': data['subtitle'] ?? '',
+            'status': data['status'] ?? '',
+            'timestamp': ts,
+            'read': data['read'] == true,
+            'source': data['source'] ?? null,
+          });
+        }
+        setState(() {});
+      }, onError: (e) => debugPrint('Error listening notifications: $e'));
+    } catch (e) {
+      debugPrint('Error initializing notifications listener: $e');
+    }
+    // Start listeners for relevant appointment collections
+    void attachListener(String collection) {
+      final sub = FirebaseFirestore.instance
+          .collection(collection)
+          .where('patientUid', isEqualTo: _currentPatientId)
+          .snapshots()
+          .listen((snapshot) {
+        for (var doc in snapshot.docs) {
+          final data = {...doc.data()};
+          data['appointmentId'] = doc.id;
+          _processAppointmentChange(data);
+        }
+      }, onError: (e) => debugPrint('Listener error ($collection): $e'));
+      _appointmentListeners.add(sub);
+    }
+
+    // Collections to watch (same ones used in pmyappointment)
+    attachListener('pending_patient_data');
+    attachListener('approved_appointments');
+    attachListener('completed_appointments');
+    attachListener('appointment_history');
+    attachListener('rejected_appointments');
+  }
+
+  void _processAppointmentChange(Map<String, dynamic> appt) {
+    final id = appt['appointmentId']?.toString() ?? appt['id']?.toString();
+    if (id == null) return;
+    final status = (appt['status'] ?? '').toString().toLowerCase();
+
+    final previous = _knownStatuses[id];
+    // New appointment
+    if (previous == null) {
+      _knownStatuses[id] = status;
+      _appointmentsById[id] = appt;
+      _addNotification(appt, 'new');
+      return;
+    }
+
+    // Status changed
+    if (previous != status) {
+      _knownStatuses[id] = status;
+      _appointmentsById[id] = appt;
+
+      // Decide detailed reason based on new status for richer notifications
+      if (status == 'consultation_finished') {
+        // Consultation finished may imply e-prescription is available
+        _addNotification(appt, 'consultation_finished');
+      } else if (status == 'treatment_completed' || status == 'with_certificate') {
+        _addNotification(appt, 'treatment_completed');
+      } else if (status == 'rejected' || status == 'not_approved') {
+        _addNotification(appt, 'rejected');
+      } else {
+        _addNotification(appt, 'status_changed');
+      }
+
+      return;
+    }
+
+    // Otherwise keep stored
+    _appointmentsById[id] = appt;
+  }
+
+  void _addNotification(Map<String, dynamic> appt, String reason) async {
+    final apptId = appt['appointmentId'] ?? appt['id'] ?? '';
+    final status = (appt['status'] ?? '').toString().toLowerCase();
+    String title;
+    String subtitle;
+
+    final doctorName = appt['doctorName'] ?? appt['doctor_name'] ?? 'Doctor';
+    if (reason == 'new') {
+      // Context-aware title for new appointment docs
+      if (status == 'approved') {
+        title = 'Appointment Confirmed';
+        subtitle = 'Your appointment with Dr. $doctorName has been confirmed.';
+      } else if (status == 'pending' || status.isEmpty) {
+        title = 'Appointment Request Sent';
+        subtitle = 'Your appointment request with Dr. $doctorName has been submitted.';
+      } else {
+        title = 'New Appointment';
+        subtitle = 'You have a new appointment with Dr. $doctorName.';
+      }
+    } else if (reason == 'consultation_finished') {
+      title = 'Consultation Done';
+      // if prescription was added, mention it
+      final hasPrescription = (appt['status'] ?? '').toString().toLowerCase() == 'with_prescription' || (appt['hasPrescription'] == true);
+      subtitle = hasPrescription
+          ? 'Your online consultation with Dr. $doctorName is done. E-Prescription is available.'
+          : 'Your online consultation with Dr. $doctorName is done.';
+    } else if (reason == 'treatment_completed') {
+      title = 'Congratulations!';
+      subtitle = 'Your TB treatment was completed. View your Certificate of Completion issued by Dr. $doctorName.';
+    } else if (reason == 'rejected') {
+      title = 'Appointment Was Rejected';
+      final rejectReason = appt['rejectReason'] ?? appt['rejectionReason'] ?? appt['reason'] ?? '';
+      subtitle = rejectReason != ''
+          ? 'Your request appointment with Dr. $doctorName was rejected: $rejectReason'
+          : 'Your request appointment with Dr. $doctorName was rejected.';
+    } else {
+      // status_changed or fallback
+      switch (status) {
+        case 'approved':
+          title = 'Appointment Approved';
+          break;
+        case 'pending':
+          title = 'Appointment Pending';
+          break;
+        case 'with_prescription':
+          title = 'E-Prescription Ready';
+          break;
+        case 'with_certificate':
+          title = 'Treatment Complete';
+          break;
+        default:
+          title = 'Appointment Update';
+      }
+      subtitle = 'Dr. $doctorName • ${status.toUpperCase()}';
+    }
+
+    try {
+      // Mark source so we know this notification originates from pmyappointment updates
+      final docRef = await FirebaseFirestore.instance.collection('patient_notifications').add({
+        'patientUid': _currentPatientId,
+        'appointmentId': apptId,
+        'title': title,
+        'subtitle': subtitle,
+        'status': status,
+        'timestamp': Timestamp.fromDate(DateTime.now()),
+        'read': false,
+        'source': 'pmyappointment',
+      });
+
+      _notificationItems.insert(0, {
+        'docId': docRef.id,
+        'appointmentId': apptId,
+        'title': title,
+        'subtitle': subtitle,
+        'status': status,
+        'timestamp': DateTime.now(),
+        'read': false,
+        'source': 'pmyappointment',
+      });
+      setState(() {});
+    } catch (e) {
+      debugPrint('Error creating notification: $e');
+    }
   }
 
   Future<void> _loadYoutubeUrl() async {
@@ -51,6 +250,10 @@ class _PlandingPageState extends State<PlandingPage> {
   @override
   void dispose() {
     _youtubeController?.dispose();
+    for (final sub in _appointmentListeners) {
+      sub.cancel();
+    }
+    _notificationsSub?.cancel();
     super.dispose();
   }
 
@@ -96,6 +299,8 @@ class _PlandingPageState extends State<PlandingPage> {
 
   @override
   Widget build(BuildContext context) {
+  // Only count unread notifications that originate from pmyappointment (new/updated containers)
+  final int unreadCount = _notificationItems.where((n) => n['source'] == 'pmyappointment' && !(n['read'] == true)).length;
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -104,8 +309,236 @@ class _PlandingPageState extends State<PlandingPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Image.asset("assets/images/tbisita_logo2.png",
-                  height: 44, alignment: Alignment.centerLeft),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Image.asset("assets/images/tbisita_logo2.png",
+                      height: 44, alignment: Alignment.centerLeft),
+                  const Spacer(),
+                  // Notification bell with badge
+                  GestureDetector(
+                    onTap: () {
+                      // Mark all notifications as read (collapse badge) and persist
+                      for (var n in _notificationItems) {
+                        n['read'] = true;
+                        final docId = n['docId'];
+                        if (docId != null) {
+                          FirebaseFirestore.instance.collection('patient_notifications').doc(docId).update({'read': true}).catchError((e) => debugPrint('Error marking read: $e'));
+                        }
+                      }
+                      setState(() {});
+
+                      // Open notifications modal
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                        ),
+                        builder: (ctx) {
+                          return DraggableScrollableSheet(
+                            expand: false,
+                            initialChildSize: 0.6,
+                            minChildSize: 0.3,
+                            maxChildSize: 0.95,
+                            builder: (_, controller) {
+                              return Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: const BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Container(
+                                      width: 40,
+                                      height: 6,
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade300,
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        const Text('Notifications', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                                        Text('${_notificationItems.where((n) => !(n['read'] == true)).length} new', style: const TextStyle(color: Colors.grey)),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Expanded(
+                                      child: _notificationItems.isEmpty
+                                          ? Center(child: Text('No notifications', style: TextStyle(color: Colors.grey.shade600)))
+                                          : ListView.builder(
+                                              controller: controller,
+                                              itemCount: _notificationItems.length,
+                                              itemBuilder: (context, index) {
+                                                final n = _notificationItems[index];
+                                                // modern compact card
+                                                final unread = !(n['read'] == true);
+                                               // compute display values here so they're in scope for the whole item
+                                               final status = (n['status'] ?? '').toString().toLowerCase();
+                                               IconData iconData = Icons.event_note;
+                                               Color iconColor = Colors.grey.shade700;
+                                               String typeLabel = '';
+
+                                               if (status == 'rejected') {
+                                                 iconData = Icons.cancel_rounded;
+                                                 iconColor = Colors.redAccent;
+                                                 typeLabel = 'Rejected';
+                                               } else if (status == 'with_prescription' || (n['title'] ?? '').toString().toLowerCase().contains('consultation done')) {
+                                                 iconData = Icons.medication_rounded;
+                                                 iconColor = Colors.orange.shade700;
+                                                 typeLabel = 'Consultation';
+                                               } else if (status == 'treatment_completed' || status == 'with_certificate' || (n['title'] ?? '').toString().toLowerCase().contains('congratulations')) {
+                                                 iconData = Icons.workspace_premium_rounded;
+                                                 iconColor = Colors.purple;
+                                                 typeLabel = 'Certificate';
+                                               } else if (status == 'approved') {
+                                                 iconData = Icons.event_available_rounded;
+                                                 iconColor = Colors.green;
+                                                 typeLabel = 'Approved';
+                                               }
+                                                return GestureDetector(
+                                                  onTap: () async {
+                                                    // mark this notification as read locally and in Firestore
+                                                    setState(() {
+                                                      n['read'] = true;
+                                                    });
+                                                    final docId = n['docId'];
+                                                    if (docId != null) {
+                                                      try {
+                                                        await FirebaseFirestore.instance.collection('patient_notifications').doc(docId).update({'read': true});
+                                                      } catch (e) {
+                                                        debugPrint('Error updating read flag: $e');
+                                                      }
+                                                    }
+                                                    Navigator.of(ctx).pop();
+                                                    Navigator.push(
+                                                      context,
+                                                      MaterialPageRoute(builder: (_) => const PMyAppointmentScreen()),
+                                                    );
+                                                  },
+                                                  child: Container(
+                                                      margin: const EdgeInsets.symmetric(vertical: 6),
+                                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                                      decoration: BoxDecoration(
+                                                        color: unread ? Colors.redAccent.withOpacity(0.06) : Colors.white,
+                                                        borderRadius: BorderRadius.circular(12),
+                                                        border: Border.all(color: unread ? Colors.redAccent.withOpacity(0.18) : Colors.grey.shade200),
+                                                        boxShadow: unread ? [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6, offset: Offset(0,2))] : null,
+                                                      ),
+                                                      child: Row(
+                                                        children: [
+                                                          // Accent bar for unread
+                                                          Container(
+                                                            width: 6,
+                                                            height: 56,
+                                                            decoration: BoxDecoration(
+                                                              color: unread ? Colors.redAccent : Colors.transparent,
+                                                              borderRadius: const BorderRadius.only(topLeft: Radius.circular(12), bottomLeft: Radius.circular(12)),
+                                                            ),
+                                                          ),
+                                                          const SizedBox(width: 10),
+                                                          // Dynamic icon by notification type
+                                                          Container(
+                                                            width: 40,
+                                                            height: 40,
+                                                            decoration: BoxDecoration(
+                                                              gradient: unread
+                                                                  ? LinearGradient(colors: [iconColor.withOpacity(0.14), iconColor.withOpacity(0.06)])
+                                                                  : LinearGradient(colors: [Colors.grey.shade100, Colors.grey.shade50]),
+                                                              borderRadius: BorderRadius.circular(10),
+                                                            ),
+                                                            child: Icon(iconData, size: 20, color: unread ? iconColor : Colors.grey.shade700),
+                                                          ),
+                                                          const SizedBox(width: 12),
+                                                          Expanded(
+                                                            child: Column(
+                                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                                              children: [
+                                                                Row(
+                                                                  children: [
+                                                                    Expanded(
+                                                                      child: Text(n['title'] ?? '', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Colors.black87)),
+                                                                    ),
+                                                                    Text(_formatTime(n['timestamp'] as DateTime), style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                                                                  ],
+                                                                ),
+                                                                const SizedBox(height: 6),
+                                                                Text(n['subtitle'] ?? '', style: TextStyle(color: Colors.grey.shade700, fontSize: 13, height: 1.15)),
+                                                                const SizedBox(height: 6),
+                                                                // type label
+                                                                Align(
+                                                                  alignment: Alignment.centerLeft,
+                                                                  child: Container(
+                                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                                    decoration: BoxDecoration(
+                                                                      color: Colors.grey.shade100,
+                                                                      borderRadius: BorderRadius.circular(12),
+                                                                    ),
+                                                                    child: Text(
+                                                                      typeLabel.isNotEmpty ? typeLabel.toUpperCase() : ((n['status'] ?? '').toString().isNotEmpty ? (n['status'] ?? '').toString().toUpperCase() : ''),
+                                                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black54),
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                          const SizedBox(width: 8),
+                                                          // simple right-arrow icon (no circle)
+                                                          Icon(Icons.arrow_forward_ios, size: 18, color: unread ? Colors.redAccent : Colors.grey.shade600),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                );
+                                              },
+                                            ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      );
+                    },
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 6)],
+                          ),
+                          child: const Icon(Icons.notifications_none, size: 28, color: Colors.black),
+                        ),
+                        if (unreadCount > 0)
+                          Positioned(
+                            right: -4,
+                            top: -4,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.redAccent,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.white, width: 1.5),
+                              ),
+                              child: Text(
+                                unreadCount > 99 ? '99+' : '$unreadCount',
+                                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 20),
               
               // ========== TB SYMPTOMS CHECKER SECTION ==========
@@ -248,19 +681,15 @@ class _PlandingPageState extends State<PlandingPage> {
                               height: 200,
                               decoration: BoxDecoration(
                                 color: Colors.grey.shade100,
-                                borderRadius: const BorderRadius.vertical(
-                                    top: Radius.circular(16)),
+                                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                               ),
                               child: const Center(
                                 child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    CircularProgressIndicator(
-                                        color: Colors.redAccent),
+                                    CircularProgressIndicator(color: Colors.redAccent),
                                     SizedBox(height: 8),
-                                    Text('Loading video...',
-                                        style:
-                                            TextStyle(color: Colors.black54)),
+                                    Text('Loading video...', style: TextStyle(color: Colors.black54)),
                                   ],
                                 ),
                               ),
@@ -274,20 +703,15 @@ class _PlandingPageState extends State<PlandingPage> {
                                   height: 200,
                                   decoration: BoxDecoration(
                                     color: Colors.grey.shade100,
-                                    borderRadius: const BorderRadius.vertical(
-                                        top: Radius.circular(16)),
+                                    borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                                   ),
                                   child: const Center(
                                     child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
+                                      mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
-                                        Icon(Icons.video_library_outlined,
-                                            size: 48, color: Colors.black54),
+                                        Icon(Icons.video_library_outlined, size: 48, color: Colors.black54),
                                         SizedBox(height: 8),
-                                        Text("No video available",
-                                            style: TextStyle(
-                                                color: Colors.black54)),
+                                        Text("No video available", style: TextStyle(color: Colors.black54)),
                                       ],
                                     ),
                                   ),
@@ -535,6 +959,15 @@ class _PlandingPageState extends State<PlandingPage> {
         ),
       ),
     );
+  }
+
+  String _formatTime(DateTime dt) {
+    final now = DateTime.now();
+    final diff = now.difference(dt);
+    if (diff.inSeconds < 60) return 'just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m';
+    if (diff.inHours < 24) return '${diff.inHours}h';
+    return '${dt.day}/${dt.month}/${dt.year}';
   }
 
   static Widget _quickAction(

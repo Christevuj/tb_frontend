@@ -66,9 +66,6 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
   String? _highlightedAppointmentId;
   Timer? _highlightTimer;
 
-  // Persistent notification appointment
-  Map<String, dynamic>? _persistentNotificationAppointment;
-  String? _lastNotifiedAppointmentId;
 
   // Available filter options
   final List<Map<String, dynamic>> _filterOptions = [
@@ -163,141 +160,23 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
 
   // Helper method to format appointment date/time
   String _formatAppointmentDateTime(Map<String, dynamic> appointment) {
-    String status =
-        appointment['status']?.toString().toLowerCase() ?? 'unknown';
-    DateTime? displayDate;
-    String? displayTime;
-
-    // For approved appointments, use the appointment schedule
-    if (status == 'approved') {
-      try {
-        final dynamic appointmentDate = appointment["date"] ??
-            appointment["appointmentDate"] ??
-            appointment["appointment_date"];
-        if (appointmentDate is Timestamp) {
-          displayDate = appointmentDate.toDate();
-        } else if (appointmentDate is DateTime) {
-          displayDate = appointmentDate;
-        } else if (appointmentDate is String) {
-          displayDate = DateTime.parse(appointmentDate);
-        }
-        displayTime = appointment["appointmentTime"] ??
-            appointment["appointment_time"] ??
-            appointment["time"];
-      } catch (e) {
-        debugPrint('Error parsing appointment date: $e');
+    // Minimal safe formatter kept for any remaining usages.
+    try {
+      final dynamic appointmentDate = appointment["date"] ?? appointment["appointmentDate"] ?? appointment["appointment_date"];
+      if (appointmentDate is Timestamp) {
+        final dt = appointmentDate.toDate();
+        return '${dt.day}/${dt.month}/${dt.year}';
+      } else if (appointmentDate is DateTime) {
+        final dt = appointmentDate;
+        return '${dt.day}/${dt.month}/${dt.year}';
+      } else if (appointmentDate is String) {
+        final dt = DateTime.parse(appointmentDate);
+        return '${dt.day}/${dt.month}/${dt.year}';
       }
-    } else {
-      // For other statuses, use the timestamp when the status was updated
-      var approvedAt = appointment['approvedAt'];
-      var rejectedAt = appointment['rejectedAt'];
-      var updatedAt = appointment['updatedAt'];
-      var completedAt = appointment['completedAt'];
-      var timestamp = approvedAt ?? rejectedAt ?? updatedAt ?? completedAt;
-
-      if (timestamp is Timestamp) {
-        displayDate = timestamp.toDate();
-        // Format time in AM/PM format
-        int hour = displayDate.hour;
-        int minute = displayDate.minute;
-        String period = hour >= 12 ? 'PM' : 'AM';
-        if (hour > 12) hour -= 12;
-        if (hour == 0) hour = 12;
-        displayTime =
-            "${hour.toString()}:${minute.toString().padLeft(2, '0')} $period";
-      } else if (timestamp is String) {
-        try {
-          displayDate = DateTime.parse(timestamp);
-          int hour = displayDate.hour;
-          int minute = displayDate.minute;
-          String period = hour >= 12 ? 'PM' : 'AM';
-          if (hour > 12) hour -= 12;
-          if (hour == 0) hour = 12;
-          displayTime =
-              "${hour.toString()}:${minute.toString().padLeft(2, '0')} $period";
-        } catch (e) {
-          displayDate = null;
-          displayTime = null;
-        }
-      }
+    } catch (e) {
+      debugPrint('Format appointment date error: $e');
     }
-
-    return displayDate != null
-        ? "${displayDate.day}/${displayDate.month}/${displayDate.year}${displayTime != null ? " at $displayTime" : ""}"
-        : "Date not set";
-  }
-
-  // Build avatar based on appointment status
-  Widget _buildAppointmentAvatar(Map<String, dynamic> appointment, String status) {
-    if (status == 'approved') {
-      // For approved: Show date in avatar with same styling as dlanding_page.dart
-      DateTime? appointmentDate;
-      try {
-        final dynamic date = appointment["date"] ?? appointment["appointmentDate"] ?? appointment["appointment_date"];
-        if (date is Timestamp) {
-          appointmentDate = date.toDate();
-        } else if (date is DateTime) {
-          appointmentDate = date;
-        } else if (date is String) {
-          appointmentDate = DateTime.parse(date);
-        }
-      } catch (e) {
-        debugPrint('Error parsing date: $e');
-      }
-
-      return Container(
-        width: 52,
-        height: 52,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF2E7D32), Color(0xFF66BB6A)],
-          ),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              appointmentDate != null
-                  ? appointmentDate.day.toString()
-                  : "?",
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
-                height: 1,
-              ),
-            ),
-            Text(
-              appointmentDate != null
-                  ? _getMonthAbbr(appointmentDate.month)
-                  : "---",
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                color: Colors.white70,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ],
-        ),
-      );
-    } else {
-      // For pending, with_prescription, treatment_completed: Show doctor initial
-      String doctorName = appointment['doctorName'] ?? appointment['doctor_name'] ?? 'Doctor';
-      return CircleAvatar(
-        backgroundColor: _getStatusColor(status),
-        child: Text(
-          doctorName.substring(0, 1).toUpperCase(),
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      );
-    }
+    return 'Date TBD';
   }
 
   // Build title based on appointment status
@@ -623,6 +502,30 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
     return _appointmentDates.where((date) => isSameDay(date, day)).toList();
   }
 
+  // Avatar builder for appointment list tiles (keeps UI consistent)
+  Widget _buildAppointmentAvatar(Map<String, dynamic> appointment, String status) {
+    try {
+      String doctorName = appointment['doctorName'] ?? appointment['doctor_name'] ?? '';
+      if (doctorName.isNotEmpty) {
+        return CircleAvatar(
+          backgroundColor: _getStatusColor(status),
+          child: Text(
+            doctorName.substring(0, 1).toUpperCase(),
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error building avatar: $e');
+    }
+
+    // Fallback avatar
+    return CircleAvatar(
+      backgroundColor: _getStatusColor(status),
+      child: const Icon(Icons.person, color: Colors.white),
+    );
+  }
+
   // Get time-based gradient colors
   List<Color> _getTimeBasedGradient() {
     final hour = _currentTime.hour;
@@ -711,210 +614,7 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
     });
   }
 
-  // Build modern notification widget based on appointment status
-  Widget _buildAppointmentNotification(Map<String, dynamic> appointment) {
-    final status = appointment['status']?.toString().toLowerCase() ?? 'unknown';
-    final doctorName = appointment['doctorName'] ?? 'Doctor';
-    
-    IconData icon;
-    Color iconColor;
-    String title;
-    String subtitle;
-    LinearGradient gradient;
-
-    switch (status) {
-      case 'pending':
-        icon = Icons.schedule_rounded;
-        iconColor = Colors.orange;
-        gradient = LinearGradient(
-          colors: [Colors.orange.shade50, Colors.orange.shade100],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        );
-        title = 'Appointment Pending';
-        subtitle = 'Your appointment with Dr. $doctorName is waiting for approval';
-        break;
-
-      case 'approved':
-        icon = Icons.event_available_rounded;
-        iconColor = Colors.green;
-        gradient = LinearGradient(
-          colors: [Colors.green.shade50, Colors.green.shade100],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        );
-        
-        // Get appointment date and calculate time left
-        DateTime? appointmentDate;
-        try {
-          final dynamic date = appointment["date"] ?? appointment["appointmentDate"] ?? appointment["appointment_date"];
-          if (date is Timestamp) {
-            appointmentDate = date.toDate();
-          } else if (date is DateTime) {
-            appointmentDate = date;
-          } else if (date is String) {
-            appointmentDate = DateTime.parse(date);
-          }
-        } catch (e) {
-          debugPrint('Error parsing appointment date: $e');
-        }
-
-        final timeInfo = appointmentDate != null 
-            ? _calculateTimeUntilAppointment(appointmentDate)
-            : 'Soon';
-        final dateStr = appointmentDate != null
-            ? '${appointmentDate.day}/${appointmentDate.month}/${appointmentDate.year}'
-            : 'Date TBD';
-        
-        title = 'Appointment Confirmed!';
-        subtitle = 'Dr. $doctorName • $dateStr • $timeInfo';
-        break;
-
-      case 'with_prescription':
-        icon = Icons.medication_rounded;
-        iconColor = Colors.red.shade700;
-        gradient = LinearGradient(
-          colors: [Colors.red.shade50, Colors.red.shade100],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        );
-        title = 'E-Prescription Ready!';
-        subtitle = 'Dr. $doctorName has uploaded your prescription';
-        break;
-
-      case 'treatment_completed':
-        icon = Icons.verified_rounded;
-        iconColor = Colors.purple;
-        gradient = LinearGradient(
-          colors: [Colors.purple.shade50, Colors.purple.shade100],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        );
-        title = 'Congratulations! 🎉';
-        subtitle = 'You have completed your treatment with Dr. $doctorName! Certificate available.';
-        break;
-
-      case 'with_certificate':
-        icon = Icons.workspace_premium_rounded;
-        iconColor = Colors.indigo;
-        gradient = LinearGradient(
-          colors: [Colors.indigo.shade50, Colors.indigo.shade100],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        );
-        title = '🏆 Treatment Completed!';
-        subtitle = 'Congratulations on finishing your treatment! Your certificate is ready.';
-        break;
-
-      case 'consultation_finished':
-        icon = Icons.check_circle_rounded;
-        iconColor = Colors.blue;
-        gradient = LinearGradient(
-          colors: [Colors.blue.shade50, Colors.blue.shade100],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        );
-        title = '✓ Consultation Complete';
-        subtitle = 'Your consultation with Dr. $doctorName has been completed';
-        break;
-
-      case 'rejected':
-        icon = Icons.cancel_rounded;
-        iconColor = Colors.redAccent;
-        gradient = LinearGradient(
-          colors: [Colors.red.shade50, Colors.red.shade100],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        );
-        title = '❌ Appointment Not Approved';
-        subtitle = 'Your appointment request was not approved. Please try booking another slot.';
-        break;
-
-      default:
-        icon = Icons.info_rounded;
-        iconColor = Colors.grey;
-        gradient = LinearGradient(
-          colors: [Colors.grey.shade50, Colors.grey.shade100],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        );
-        title = 'Appointment Update';
-        subtitle = 'Status: ${status.toUpperCase()}';
-    }
-
-    return GestureDetector(
-      onTap: () {
-        final appointmentId = appointment['appointmentId'] ?? appointment['id'] ?? '';
-        if (appointmentId.isNotEmpty) {
-          _onNotificationTap(appointmentId);
-        }
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        decoration: BoxDecoration(
-          gradient: gradient,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: iconColor.withOpacity(0.3), width: 2),
-          boxShadow: [
-            BoxShadow(
-              color: iconColor.withOpacity(0.15),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-          children: [
-            // Icon container with animation
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: iconColor.withOpacity(0.3), width: 1.5),
-              ),
-              child: Icon(
-                icon,
-                color: iconColor,
-                size: 22,
-              ),
-            ),
-            const SizedBox(width: 12),
-            // Text content
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: iconColor,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.grey[700],
-                      height: 1.3,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-      ),
-    );
-  }
+  // Notification UI moved to planding_page.dart; in-page notification widget removed.
 
   Stream<List<Map<String, dynamic>>> _getCombinedAppointmentsStream() {
     if (_currentPatientId == null) {
@@ -3326,162 +3026,9 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
 
               const SizedBox(height: 16),
 
-              // Real-time Appointment Notification (Persistent)
-              StreamBuilder<List<Map<String, dynamic>>>(
-                stream: _getCombinedAppointmentsStream(),
-                builder: (context, snapshot) {
-                  if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-                    // Get ALL appointments for notification display
-                    final allAppointments = snapshot.data!;
-                    
-                    // Also track RECENT appointments (pending, approved, and rejected) for update detection
-                    final recentAppointments = snapshot.data!.where((apt) {
-                      final status = apt['status']?.toString().toLowerCase() ?? '';
-                      return status == 'pending' || status == 'approved' || status == 'rejected';
-                    }).toList();
-
-                    // Sort all appointments by priority and date for display
-                    allAppointments.sort((a, b) {
-                      final statusA = a['status']?.toString().toLowerCase() ?? '';
-                      final statusB = b['status']?.toString().toLowerCase() ?? '';
-                      
-                      // Priority: approved > pending > rejected > treatment_completed > others
-                      const statusPriority = {
-                        'approved': 1,
-                        'pending': 2,
-                        'rejected': 3,
-                        'treatment_completed': 4,
-                        'with_prescription': 5,
-                      };
-                      
-                      final priorityA = statusPriority[statusA] ?? 99;
-                      final priorityB = statusPriority[statusB] ?? 99;
-                      
-                      if (priorityA != priorityB) return priorityA.compareTo(priorityB);
-                      
-                      // If same priority, sort by date (most recent first)
-                      try {
-                        DateTime? dateA;
-                        DateTime? dateB;
-                        
-                        final dynamicDateA = a['appointment_date'] ?? a['appointmentDate'] ?? a['date'];
-                        final dynamicDateB = b['appointment_date'] ?? b['appointmentDate'] ?? b['date'];
-                        
-                        if (dynamicDateA is Timestamp) {
-                          dateA = dynamicDateA.toDate();
-                        } else if (dynamicDateA is String) {
-                          dateA = DateTime.parse(dynamicDateA);
-                        }
-                        
-                        if (dynamicDateB is Timestamp) {
-                          dateB = dynamicDateB.toDate();
-                        } else if (dynamicDateB is String) {
-                          dateB = DateTime.parse(dynamicDateB);
-                        }
-                        
-                        if (dateA != null && dateB != null) {
-                          return dateB.compareTo(dateA); // More recent first
-                        }
-                      } catch (e) {
-                        debugPrint('Error sorting by date: $e');
-                      }
-                      
-                      return 0;
-                    });
-
-                    // Check if there's a new RECENT appointment (pending/approved)
-                    if (recentAppointments.isNotEmpty) {
-                      recentAppointments.sort((a, b) {
-                        final statusA = a['status']?.toString().toLowerCase() ?? '';
-                        final statusB = b['status']?.toString().toLowerCase() ?? '';
-                        if (statusA == 'approved' && statusB == 'pending') return -1;
-                        if (statusA == 'pending' && statusB == 'approved') return 1;
-                        return 0;
-                      });
-                      
-                      final mostRecentNew = recentAppointments.first;
-                      final newAppointmentId = mostRecentNew['appointmentId'] ?? 
-                                               mostRecentNew['appointment_id'];
-                      
-                      // Only update if it's a NEW recent appointment
-                      if (_lastNotifiedAppointmentId != newAppointmentId) {
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (mounted) {
-                            setState(() {
-                              _persistentNotificationAppointment = mostRecentNew;
-                              _lastNotifiedAppointmentId = newAppointmentId;
-                            });
-                          }
-                        });
-                      }
-                    }
-
-                    // Show notification: persistent > most recent from all appointments
-                    final appointmentToShow = _persistentNotificationAppointment ?? allAppointments.first;
-                    return _buildAppointmentNotification(appointmentToShow);
-                  }
-
-                  // If no data but we have a persistent one, keep showing it
-                  if (_persistentNotificationAppointment != null) {
-                    return _buildAppointmentNotification(_persistentNotificationAppointment!);
-                  }
-
-                  // If no appointments at all, show a friendly message
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Colors.grey.shade50, Colors.grey.shade100],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.grey.shade300, width: 1.5),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade200,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            Icons.event_available_rounded,
-                            color: Colors.grey.shade600,
-                            size: 24,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'No Active Appointments',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.grey.shade700,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Book a new appointment to get started',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
+              // Notifications moved to landing page (planding_page.dart).
+              // Removed duplicate in-page persistent notification StreamBuilder.
+              SizedBox.shrink(),
 
               // Filter carousel
               SizedBox(

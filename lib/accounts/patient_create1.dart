@@ -10,6 +10,33 @@ class SignupScreen extends StatefulWidget {
   State<SignupScreen> createState() => _SignupScreenState();
 }
 
+class _Bullet extends StatelessWidget {
+  final String text;
+  const _Bullet(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            margin: const EdgeInsets.only(top: 6),
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(text, style: const TextStyle(fontSize: 14, height: 1.45)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SignupScreenState extends State<SignupScreen> {
   // TBDotsFacility? _selectedFacility;
   final _firstNameController = TextEditingController();
@@ -26,73 +53,188 @@ class _SignupScreenState extends State<SignupScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _showTermsDialog());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _showTermsDialog();
+    });
   }
-
   void _showTermsDialog() {
-    bool isChecked = false;
-
-    showDialog(
+    showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (context) {
+        bool isChecked = false;
         return StatefulBuilder(
           builder: (context, setStateDialog) {
-            return AlertDialog(
-              title: const Text('Terms of Use and Privacy Policy Agreement'),
-              content: SingleChildScrollView(
+            return Dialog(
+              backgroundColor: Colors.white,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: 520, maxHeight: MediaQuery.of(context).size.height * 0.75),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text(
-                      'Effective Date: June 11, 2025\n\n'
-                      'By accessing or using the TBisita platform, you hereby acknowledge and agree to be bound by the following Terms of Use and Privacy Policy. If you do not agree to these terms, you must discontinue use of the Service.\n\n'
-                      'By using TBisita, you expressly consent to the collection, processing, and storage of your personal data, which may include but is not limited to:\n'
-                      '• Full name, age, sex, and contact information\n'
-                      '• Health-related information (e.g., TB symptoms, medication schedules, treatment adherence)\n'
-                      '• Usage data such as check-ins, consultation logs, and communication with health workers\n\n'
-                      'This data will be used solely for the purpose of tracking, monitoring, and improving tuberculosis care. Authorized TB-DOTS health workers and licensed medical professionals may access your data to support treatment, provide follow-ups, and ensure medical compliance. Your data will be handled with strict confidentiality in accordance with the Data Privacy Act of 2012 (Republic Act No. 10173) of the Philippines.\n\n'
-                      'You agree to:\n'
-                      '• Provide true, accurate, and up-to-date information;\n'
-                      '• Use the Service in compliance with applicable laws and regulations;\n'
-                      '• Keep your login credentials secure and confidential.\n\n'
-                      'All content, features, source code, and design elements of TBisita are the exclusive property of the developers and may not be copied, modified, distributed, or used without prior written consent.',
-                      style: TextStyle(fontSize: 14),
-                    ),
-                    const SizedBox(height: 16),
-                    CheckboxListTile(
-                      contentPadding: EdgeInsets.zero,
-                      controlAffinity: ListTileControlAffinity.leading,
-                      title: const Text(
-                        'I agree to the Terms of Service and Privacy Policy',
-                        style: TextStyle(fontSize: 14),
+                    // Header (white background, redAccent theme)
+                      // Header (redAccent background, one-line title)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.redAccent,
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.privacy_tip, color: Colors.white, size: 20),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Text(
+                                    'Terms of Use & Privacy Policy',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700),
+                                  ),
+                                  SizedBox(height: 2),
+                                  Text('Effective Date: June 11, 2025', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      value: isChecked,
-                      onChanged: (value) {
-                        setStateDialog(() {
-                          isChecked = value ?? false;
-                        });
-                      },
+
+                    // Body (white background) with a Scrollbar to ensure content is visible
+                    Expanded(
+                      child: Container(
+                        color: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        child: Scrollbar(
+                          thumbVisibility: true,
+                          child: SingleChildScrollView(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 4),
+                                const Text(
+                                  'By accessing or using the TBisita platform, you hereby acknowledge and agree to be bound by the following Terms of Use and Privacy Policy. If you do not agree to these terms, you must discontinue use of the Service.',
+                                  style: TextStyle(fontSize: 13.5, height: 1.45),
+                                ),
+                                const SizedBox(height: 12),
+                                const Text('Data collected may include:', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
+                                const SizedBox(height: 8),
+                                const _Bullet('Full name, age, sex, and contact information'),
+                                const _Bullet('Health-related information (e.g., TB symptoms, medication schedules, treatment adherence)'),
+                                const _Bullet('Usage data such as check-ins, consultation logs, and communication with health workers'),
+                                const SizedBox(height: 10),
+                                // Modern info card (white with left red accent) with bold Data Privacy Act
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(10),
+                                    boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2))],
+                                    border: Border(left: BorderSide(color: Colors.redAccent, width: 4)),
+                                  ),
+                                  child: const Text.rich(
+                                    TextSpan(
+                                      text: 'This data will be used solely for the purpose of tracking, monitoring, and improving tuberculosis care. Authorized TB-DOTS health workers and licensed medical professionals may access your data to support treatment, provide follow-ups, and ensure medical compliance. Your data will be handled with strict confidentiality in accordance with the ',
+                                      children: [
+                                        TextSpan(text: 'Data Privacy Act of 2012 (Republic Act No. 10173)', style: TextStyle(fontWeight: FontWeight.w600)),
+                                        TextSpan(text: ' of the Philippines.'),
+                                      ],
+                                    ),
+                                    style: TextStyle(fontSize: 14, height: 1.45),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                const Text('You agree to:', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
+                                const SizedBox(height: 8),
+                                const _Bullet('Provide true, accurate, and up-to-date information'),
+                                const _Bullet('Use the Service in compliance with applicable laws and regulations'),
+                                const _Bullet('Keep your login credentials secure and confidential'),
+                                const SizedBox(height: 12),
+                                const Text('Intellectual Property', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
+                                const SizedBox(height: 8),
+                                const Text('All content, features, source code, and design elements of TBisita are the exclusive property of the developers and may not be copied, modified, distributed, or used without prior written consent.', style: TextStyle(fontSize: 13.5, height: 1.45)),
+                                const SizedBox(height: 12),
+                                // Agreement checkbox
+                                CheckboxListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  controlAffinity: ListTileControlAffinity.leading,
+                                  title: const Text('I agree to the Terms of Service and Privacy Policy', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                                  value: isChecked,
+                                  activeColor: Colors.redAccent,
+                                  onChanged: (value) {
+                                    setStateDialog(() {
+                                      isChecked = value ?? false;
+                                    });
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // Footer
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
+                      ),
+                      child: Row(
+                        children: [
+                          TextButton(
+                            style: TextButton.styleFrom(foregroundColor: Colors.white),
+                            onPressed: () {
+                              // Close dialog and navigate back to login screen
+                              Navigator.of(context).pop(false);
+                              Navigator.of(context).pushAndRemoveUntil(
+                                MaterialPageRoute(builder: (context) => const TBisitaLoginScreen()),
+                                (route) => false,
+                              );
+                            },
+                            child: const Text('Cancel', style: TextStyle(fontSize: 15, color: Color.fromARGB(255, 0, 0, 0))),
+                          ),
+                          const Spacer(),
+                          ElevatedButton.icon(
+                            onPressed: isChecked
+                                ? () {
+                                    setState(() => _hasAgreed = true);
+                                    Navigator.of(context).pop(true);
+                                  }
+                                : null,
+                            icon: isChecked ? const Icon(Icons.arrow_forward, color: Colors.white) : const SizedBox.shrink(),
+                            label: const Text('Continue', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.redAccent,
+                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
               ),
-              actions: [
-                TextButton(
-                  onPressed: isChecked
-                      ? () {
-                          setState(() => _hasAgreed = true);
-                          Navigator.of(context).pop();
-                        }
-                      : null,
-                  child: const Text('Continue'),
-                ),
-              ],
             );
           },
         );
       },
-    );
+    ).then((accepted) {
+      if (accepted == true) setState(() => _hasAgreed = true);
+    });
   }
 
   Future<void> _signUp() async {
@@ -126,11 +268,13 @@ class _SignupScreenState extends State<SignupScreen> {
   Widget build(BuildContext context) {
     if (!_hasAgreed) {
       return const Scaffold(
+        backgroundColor: Colors.white,
         body: Center(child: CircularProgressIndicator()),
       );
     }
 
     return Scaffold(
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),

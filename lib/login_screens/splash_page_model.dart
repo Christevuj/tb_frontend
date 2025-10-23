@@ -74,8 +74,7 @@ class _TbisitaSplashPageState extends State<TbisitaSplashPage>
                       height: 270,
                       fit: BoxFit.contain,
                     ),
-                    const SizedBox(height: 6),
-                    // Thin, small slogan directly under the logo
+                      // Thin, small slogan directly under the logo (no gap)
                     Text(
                       'Your telemedicine guide for TB care',
                       textAlign: TextAlign.center,

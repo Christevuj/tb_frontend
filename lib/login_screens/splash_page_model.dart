@@ -9,7 +9,7 @@ class TbisitaSplashPage extends StatefulWidget {
 }
 
 class _TbisitaSplashPageState extends State<TbisitaSplashPage>
-    with SingleTickerProviderStateMixin {
+  with TickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
   late Animation<double> _opacityAnimation;

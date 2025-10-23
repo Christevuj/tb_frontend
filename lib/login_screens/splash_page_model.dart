@@ -16,6 +16,7 @@ class _TbisitaSplashPageState extends State<TbisitaSplashPage>
   late AnimationController _logoController;
   late Animation<double> _logoScaleAnimation;
   late Animation<double> _logoRotationAnimation;
+  late Animation<double> _logoTranslationAnimation;
 
   @override
   void initState() {
@@ -37,19 +38,41 @@ class _TbisitaSplashPageState extends State<TbisitaSplashPage>
 
     _controller.forward();
 
-    // Independent, subtle repeating animation for the logo
+    // Heartbeat-like logo animation (pulse + bob + subtle rotation)
     _logoController = AnimationController(
-      duration: const Duration(milliseconds: 2000),
+      duration: const Duration(milliseconds: 1400),
       vsync: this,
-    )..repeat(reverse: true);
+    )..repeat();
 
-    _logoScaleAnimation = Tween<double>(begin: 0.98, end: 1.02).animate(
-      CurvedAnimation(parent: _logoController, curve: Curves.easeInOut),
-    );
+    // Scale: quick pulse then settle
+    _logoScaleAnimation = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween(begin: 1.0, end: 1.14).chain(CurveTween(curve: Curves.easeOut)),
+        weight: 25,
+      ),
+      TweenSequenceItem(
+        tween: Tween(begin: 1.14, end: 0.96).chain(CurveTween(curve: Curves.easeIn)),
+        weight: 35,
+      ),
+      TweenSequenceItem(
+        tween: Tween(begin: 0.96, end: 1.0).chain(CurveTween(curve: Curves.elasticOut)),
+        weight: 40,
+      ),
+    ]).animate(_logoController);
 
-    _logoRotationAnimation = Tween<double>(begin: -0.03, end: 0.03).animate(
-      CurvedAnimation(parent: _logoController, curve: Curves.easeInOut),
-    );
+    // Rotation: tiny sway in phase with the pulse
+    _logoRotationAnimation = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 0.04), weight: 30),
+      TweenSequenceItem(tween: Tween(begin: 0.04, end: -0.03), weight: 30),
+      TweenSequenceItem(tween: Tween(begin: -0.03, end: 0.0), weight: 40),
+    ]).animate(CurvedAnimation(parent: _logoController, curve: Curves.easeInOut));
+
+    // Vertical bob: slight lift on pulse then settle
+    _logoTranslationAnimation = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: -10.0), weight: 25),
+      TweenSequenceItem(tween: Tween(begin: -10.0, end: 6.0), weight: 35),
+      TweenSequenceItem(tween: Tween(begin: 6.0, end: 0.0), weight: 40),
+    ]).animate(CurvedAnimation(parent: _logoController, curve: Curves.easeInOut));
   }
 
   @override
@@ -86,18 +109,21 @@ class _TbisitaSplashPageState extends State<TbisitaSplashPage>
                     AnimatedBuilder(
                       animation: _logoController,
                       builder: (context, child) {
-                        return Transform.rotate(
-                          angle: _logoRotationAnimation.value,
-                          child: Transform.scale(
-                            scale: _logoScaleAnimation.value,
-                            child: child,
+                        return Transform.translate(
+                          offset: Offset(0, _logoTranslationAnimation.value),
+                          child: Transform.rotate(
+                            angle: _logoRotationAnimation.value,
+                            child: Transform.scale(
+                              scale: _logoScaleAnimation.value,
+                              child: child,
+                            ),
                           ),
                         );
                       },
                       child: Image.asset(
                         'assets/images/tbisita_logo2.png',
-                        width: 220,
-                        height: 220,
+                        width: 270,
+                        height: 270,
                         fit: BoxFit.contain,
                       ),
                     ),

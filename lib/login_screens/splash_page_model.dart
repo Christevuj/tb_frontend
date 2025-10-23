@@ -16,7 +16,7 @@ class _TbisitaSplashPageState extends State<TbisitaSplashPage>
   late AnimationController _logoController;
   late Animation<double> _logoScaleAnimation;
   late Animation<double> _logoRotationAnimation;
-  late Animation<double> _logoTranslationAnimation;
+  Animation<double>? _logoTranslationAnimation;
 
   @override
   void initState() {
@@ -110,7 +110,7 @@ class _TbisitaSplashPageState extends State<TbisitaSplashPage>
                       animation: _logoController,
                       builder: (context, child) {
                         return Transform.translate(
-                          offset: Offset(0, _logoTranslationAnimation.value),
+                          offset: Offset(0, _logoTranslationAnimation?.value ?? 0.0),
                           child: Transform.rotate(
                             angle: _logoRotationAnimation.value,
                             child: Transform.scale(

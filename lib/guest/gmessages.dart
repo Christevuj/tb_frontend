@@ -75,19 +75,8 @@ class _GmessagesState extends State<Gmessages> {
     }
   }
 
-  // Method to restore conversation when PATIENT sends a message (for archive only)
-  Future<void> _restoreConversationOnPatientMessage(String patientId) async {
-    try {
-      final conversationState = await _getConversationState(patientId);
-      if (conversationState != null && conversationState['state'] == 'archived') {
-        // Only restore archived conversations when patient messages, NOT muted ones
-        await _setConversationState(patientId, 'active');
-        debugPrint('Archived conversation restored by patient message: $patientId');
-      }
-    } catch (e) {
-      debugPrint('Error restoring conversation on patient message: $e');
-    }
-  }
+  // (Removed unused _restoreConversationOnPatientMessage) - archived-restore logic
+  // is handled when opening chats or by explicit restore flows.
 
   @override
   void initState() {
@@ -430,36 +419,20 @@ class _GmessagesState extends State<Gmessages> {
   Map<String, dynamic> _getRoleInfo(String? roleValue, {String? name}) {
     final role = roleValue?.toLowerCase();
 
-    // Special handling for guests or anonymous users
-    if (name == 'Anonymous' || name == 'Guest' || role == 'guest') {
+    // The guest UI is only intended to message Health Workers.
+    // Only provide a visible role label when the contact is a healthcare worker.
+    if (role == 'healthcare') {
       return {
-        'label': 'Guest',
-        'color': Colors.orange,
+        'label': 'Health Worker',
+        'color': Colors.redAccent,
       };
     }
 
-    switch (role) {
-      case 'healthcare':
-        return {
-          'label': 'Health Worker',
-          'color': Colors.redAccent,
-        };
-      case 'doctor':
-        return {
-          'label': 'Doctor',
-          'color': Colors.blueAccent,
-        };
-      case 'patient':
-        return {
-          'label': 'Patient',
-          'color': Colors.teal,
-        };
-      default:
-        return {
-          'label': null,
-          'color': Colors.teal,
-        };
-    }
+    // For all other roles (guest, doctor, patient, unknown) return no label.
+    return {
+      'label': null,
+      'color': Colors.teal,
+    };
   }
 
   String _formatTimeDetailed(Timestamp? timestamp) {
@@ -965,7 +938,8 @@ class _GmessagesState extends State<Gmessages> {
                                                         overflow: TextOverflow.ellipsis,
                                                       ),
                                                     ),
-                                                    if (roleLabel != null) ...[
+                                                    // Only show a role badge for Health Worker; hide Doctor, Patient, Guest
+                                                    if (roleLabel != null && roleLabel != 'Doctor' && roleLabel != 'Patient' && roleLabel != 'Guest') ...[
                                                       const SizedBox(width: 8),
                                                       Container(
                                                         padding: const EdgeInsets

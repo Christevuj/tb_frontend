@@ -535,30 +535,7 @@ class _PaccountState extends State<Paccount> {
                                   icon: Icons.lock, obscure: true, onEdit: () {
                                 _editField("Password", "********", (_) {});
                               }),
-                              Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      Colors.redAccent.withOpacity(0.1),
-                                      Colors.white
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Row(
-                                  children: const [
-                                    Icon(Icons.shield, color: Colors.redAccent),
-                                    SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        "Your account is secured. Last login: Today at 2:34 PM",
-                                        style: TextStyle(fontSize: 13),
-                                      ),
-                                    )
-                                  ],
-                                ),
-                              ),
+                              // (Removed static account status block as requested)
                             ],
                           ),
                           _buildSection(

@@ -74,7 +74,25 @@ class _TbisitaSplashPageState extends State<TbisitaSplashPage>
                       height: 270,
                       fit: BoxFit.contain,
                     ),
-                    // App name removed per UI update
+                    const SizedBox(height: 20),
+                    // Friendly slogan
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        'Your telemedicine guide for TB care',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.grey.shade800,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),

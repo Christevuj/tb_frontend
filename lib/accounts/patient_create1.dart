@@ -469,7 +469,7 @@ class _SignupScreenState extends State<SignupScreen> {
       width: double.infinity,
       height: 50,
       child: ElevatedButton(
-        onPressed: _isLoading ? null : _signUp,
+        onPressed: _isLoading ? null : () => _showSignupConfirmationDialog(),
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.redAccent,
           shape:
@@ -481,6 +481,213 @@ class _SignupScreenState extends State<SignupScreen> {
                 style: TextStyle(fontSize: 16, color: Colors.white)),
       ),
     );
+  }
+
+  Future<void> _showSignupConfirmationDialog() async {
+    // Build summary values
+    final firstName = _firstNameController.text.trim();
+    final lastName = _lastNameController.text.trim();
+    final email = _emailController.text.trim();
+    final visiblePassword = _passwordController.text;
+
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.5),
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            final showPassword = ValueNotifier<bool>(true);
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 520),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.12),
+                      blurRadius: 24,
+                      offset: const Offset(0, 12),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Colors.redAccent.shade200, Colors.redAccent.shade700],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+                      ),
+                      child: Row(
+                        children: const [
+                          Icon(Icons.person_add_alt_1, color: Colors.white, size: 22),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Confirm your details',
+                              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Text(
+                            'Please review the information below before submitting your account.',
+                            style: TextStyle(fontSize: 14, color: Colors.black87),
+                          ),
+                          const SizedBox(height: 12),
+
+                          // Summary table
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey.shade200),
+                            ),
+                            child: Table(
+                              columnWidths: const {0: FlexColumnWidth(0.4), 1: FlexColumnWidth(0.6)},
+                              children: [
+                                TableRow(children: [
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 8),
+                                    child: Text('First name', style: TextStyle(color: Colors.grey.shade700)),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 8),
+                                    child: Text(firstName.isEmpty ? '—' : firstName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                  ),
+                                ]),
+                                TableRow(children: [
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 8),
+                                    child: Text('Last name', style: TextStyle(color: Colors.grey.shade700)),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 8),
+                                    child: Text(lastName.isEmpty ? '—' : lastName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                  ),
+                                ]),
+                                TableRow(children: [
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 8),
+                                    child: Text('Email', style: TextStyle(color: Colors.grey.shade700)),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 8),
+                                    child: Text(email.isEmpty ? '—' : email, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                  ),
+                                ]),
+                                TableRow(children: [
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 8),
+                                    child: Text('Password', style: TextStyle(color: Colors.grey.shade700)),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 8),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: ValueListenableBuilder<bool>(
+                                            valueListenable: showPassword,
+                                            builder: (context, show, _) {
+                                              final passwordDisplay = visiblePassword.isEmpty
+                                                  ? '—'
+                                                  : (show
+                                                      ? visiblePassword
+                                                      : List.filled(visiblePassword.length, '*').join());
+                                              return Text(
+                                                passwordDisplay,
+                                                style: const TextStyle(letterSpacing: 1.2),
+                                              );
+                                            },
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        InkWell(
+                                          onTap: () => showPassword.value = !showPassword.value,
+                                          borderRadius: BorderRadius.circular(8),
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(6),
+                                            child: ValueListenableBuilder<bool>(
+                                              valueListenable: showPassword,
+                                              builder: (context, show, _) => Icon(
+                                                show ? Icons.visibility : Icons.visibility_off,
+                                                size: 20,
+                                                color: Colors.grey.shade700,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ]),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          // Buttons
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () => Navigator.of(context).pop(false),
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    side: BorderSide(color: Colors.grey.shade300),
+                                  ),
+                                  child: const Text('Cancel', style: TextStyle(color: Colors.black87)),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: () {
+                                    Navigator.of(context).pop(true);
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.redAccent,
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                  child: const Text('Submit', style: TextStyle(color: Colors.white)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (confirmed == true) {
+      // Proceed with actual sign up
+      await _signUp();
+    }
   }
 
   Widget _buildLoginLink() {

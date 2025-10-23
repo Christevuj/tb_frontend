@@ -54,6 +54,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
           'AGDAO':
               'Agdao Public Market Corner Lapu-Lapu & C. Bangoy St., Agdao, Davao City',
           'BAGUIO': 'Baguio District Health Center, Davao City',
+          'BUHANGIN (NHA BUHANGIN HC)': 'NHA Chapet St., Buhangin, Davao City',
           'BUNAWAN': 'Bunawan District Health Center, Davao City',
           'CALINAN': 'P34, Aurora St., Calinan, Davao City',
           'DAVAO CHEST CENTER': 'Villa Abrille St., Brgy 30-C, Davao City',
@@ -73,8 +74,21 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
           'TORIL A': 'Agton St., Toril, Davao City',
           'TORIL B': 'Juan Dela Cruz St., Daliao, Toril, Davao City',
           'TUGBOK': 'Sampaguita St., Mintal, Tugbok District, Davao City',
-          'WAAN': 'Waan District Health Center, Davao City'
         };
+
+        // Seed these defaults into Firestore so other app lists (eg. pdoclist.dart) pick them up
+        try {
+          final batch = FirebaseFirestore.instance.batch();
+          final col = FirebaseFirestore.instance.collection('facilities');
+          loadedFacilities.forEach((name, address) {
+            final docRef = col.doc();
+            batch.set(docRef, {'name': name, 'address': address});
+          });
+          await batch.commit();
+          debugPrint('Seeded default facilities into Firestore');
+        } catch (e) {
+          debugPrint('Error seeding facilities to Firestore: $e');
+        }
       }
 
       if (mounted) {

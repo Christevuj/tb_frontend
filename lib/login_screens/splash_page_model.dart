@@ -55,16 +55,7 @@ class _TbisitaSplashPageState extends State<TbisitaSplashPage>
         behavior: HitTestBehavior.opaque,
         onTap: _navigateToOnboarding,
         child: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0xFFFF9B9B),
-                Color(0xFFFF6C65),
-              ],
-            ),
-          ),
+          color: Colors.white,
           child: Center(
             child: FadeTransition(
               opacity: _opacityAnimation,
@@ -75,28 +66,11 @@ class _TbisitaSplashPageState extends State<TbisitaSplashPage>
                   children: [
                     // Logo
                     Image.asset(
-                      'assets/images/tbisita_logo1.png',
+                      'assets/images/tbisita_logo2.png',
                       width: 220,
                       height: 220,
                     ),
-                    const SizedBox(height: 10), // Reduced from 30 → 10
-                    // App Name
-                    const Text(
-                      'TBisita',
-                      style: TextStyle(
-                        fontSize: 44,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        letterSpacing: 3,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black26,
-                            offset: Offset(2, 2),
-                            blurRadius: 4,
-                          ),
-                        ],
-                      ),
-                    ),
+                    // App name removed per UI update
                   ],
                 ),
               ),

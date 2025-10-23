@@ -94,34 +94,11 @@ class _TbisitaSplashPageState extends State<TbisitaSplashPage>
                           ),
                         );
                       },
-                      child: Container(
+                      child: Image.asset(
+                        'assets/images/tbisita_logo2.png',
                         width: 220,
                         height: 220,
-                        decoration: BoxDecoration(
-                          // Make it circular and add layered shadows for depth
-                          borderRadius: BorderRadius.circular(120),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.16),
-                              blurRadius: 24,
-                              offset: const Offset(0, 10),
-                            ),
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.06),
-                              blurRadius: 8,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(120),
-                          child: Image.asset(
-                            'assets/images/tbisita_logo2.png',
-                            width: 220,
-                            height: 220,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
+                        fit: BoxFit.contain,
                       ),
                     ),
                     // App name removed per UI update

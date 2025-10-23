@@ -33,16 +33,10 @@ class _ViewhistoryState extends State<Viewhistory> {
       return false;
     }
 
-    // Show for appointments that have completed consultation or treatment
-    return status == "approved" ||
-        status == "completed" ||
-        status == "consultation_completed" ||
-        status == "treatment_completed" ||
-        widget.appointment["source"] == "completed_appointments" ||
-        widget.appointment["source"] == "appointment_history" ||
-        widget.appointment["prescriptionData"] != null ||
-        widget.appointment["completedAt"] != null ||
-        widget.appointment["treatmentCompletedAt"] != null;
+    // For the simplified history view requested: hide prescription/certificate
+    // UI here. The view should only show Patient Info, Uploaded ID,
+    // Appointment Schedule, Patient Journey Timeline and the final status.
+    return false;
   }
 
   @override
@@ -217,9 +211,75 @@ class _ViewhistoryState extends State<Viewhistory> {
 
                     const SizedBox(height: 16),
 
-                    // Patient Journey Timeline Section - Enhanced Design (show for completed consultations and treatments)
-                    if (_shouldShowPrescriptionAndCertificate()) ...[
-                      _buildTimelineCard(),
+                    // Patient Journey Timeline Section - Always show in the simplified history view
+                    _buildTimelineCard(),
+
+                    // Status: show Incomplete Consultation card when applicable
+                    if ((widget.appointment['status'] ?? '').toString().toLowerCase() == 'incomplete_consultation' || widget.appointment['incompleteMarkedAt'] != null) ...[
+                      const SizedBox(height: 12),
+                      Card(
+                        margin: const EdgeInsets.symmetric(vertical: 8),
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color: Colors.white,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.amber.shade600,
+                                  borderRadius: const BorderRadius.only(
+                                    topLeft: Radius.circular(12),
+                                    topRight: Radius.circular(12),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: Colors.amber.shade50,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    const Text(
+                                      'Incomplete Consultation',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'This appointment was marked as Incomplete Consultation.',
+                                      style: TextStyle(color: Colors.grey.shade800),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    if (widget.appointment['incompleteMarkedAt'] != null) ...[
+                                      Text('Marked at: ${_formatTimestamp(widget.appointment['incompleteMarkedAt'])}'),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ],
 
                     // Rejection Information Section (only show for rejected appointments)
@@ -431,9 +491,50 @@ class _ViewhistoryState extends State<Viewhistory> {
     }
   }
 
+  // Helper to format timestamps (Timestamp or DateTime)
+  String _formatTimestamp(dynamic ts) {
+    try {
+      if (ts == null) return '';
+      if (ts is DateTime) return ts.toLocal().toString();
+      if (ts is Timestamp) return ts.toDate().toLocal().toString();
+      return ts.toString();
+    } catch (e) {
+      return ts.toString();
+    }
+  }
+
   // Helper method to build timeline card
   Widget _buildTimelineCard() {
-    // For history view, all steps are completed since these are past appointments
+    // Determine if this appointment was marked incomplete
+    final appt = widget.appointment;
+    final status = appt['status']?.toString().toLowerCase();
+    final bool isIncomplete = status == 'incomplete_consultation' || appt['incompleteMarkedAt'] != null;
+
+    // Determine previous status where available; fallback heuristics when missing
+    String priorStatus = 'unknown';
+    if (appt['statusBeforeIncomplete'] != null) {
+      priorStatus = appt['statusBeforeIncomplete'].toString().toLowerCase();
+    } else if (appt['approvedAt'] != null || appt['approved'] == true) {
+      priorStatus = 'approved';
+    } else if (appt['treatmentCompletedAt'] != null || appt['treatmentCompleted'] == true) {
+      priorStatus = 'treatment_completed';
+    } else if (appt['completedAt'] != null || (appt['status'] ?? '').toString().toLowerCase() == 'completed') {
+      priorStatus = 'completed';
+    } else if (appt['rejectedAt'] != null || (appt['status'] ?? '').toString().toLowerCase() == 'rejected') {
+      priorStatus = 'rejected';
+    }
+
+    // Completed step color depends on whether the appointment was marked incomplete
+    final Color completedColor = isIncomplete ? Colors.amber.shade600 : Colors.green.shade600;
+    final Color completedBg = isIncomplete ? Colors.amber.shade50 : Colors.green.shade50;
+    final Color completedBorder = isIncomplete ? Colors.amber.shade200 : Colors.green.shade200;
+
+    // Decide which steps were completed before marking incomplete
+    final step1Completed = true; // Requested is always true for history entries
+    final step2Completed = priorStatus == 'approved' || priorStatus == 'completed' || priorStatus == 'treatment_completed';
+    final step3Completed = priorStatus == 'completed' || priorStatus == 'treatment_completed';
+    final step4Completed = priorStatus == 'treatment_completed';
+
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
       elevation: 3,
@@ -492,7 +593,7 @@ class _ViewhistoryState extends State<Viewhistory> {
                       ),
                       SizedBox(height: 2),
                       Text(
-                        'Complete treatment history',
+                        'Appointment progression',
                         style: TextStyle(
                           fontSize: 13,
                           color: Colors.grey,
@@ -514,9 +615,9 @@ class _ViewhistoryState extends State<Viewhistory> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.green.shade50,
+                    color: completedBg,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.green.shade200),
+                    border: Border.all(color: completedBorder),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -525,28 +626,32 @@ class _ViewhistoryState extends State<Viewhistory> {
                         stepNumber: '1',
                         instruction:
                             'Patient requested appointment with a Doctor',
-                        isCompleted: true,
+                        isCompleted: step1Completed,
+                        completedColor: completedColor,
                       ),
                       const SizedBox(height: 8),
                       _buildStepInstruction(
                         stepNumber: '2',
                         instruction:
                             'Doctor confirmed and approved the appointment schedule',
-                        isCompleted: true,
+                        isCompleted: step2Completed,
+                        completedColor: completedColor,
                       ),
                       const SizedBox(height: 8),
                       _buildStepInstruction(
                         stepNumber: '3',
                         instruction:
                             'Consultation completed with prescription issued',
-                        isCompleted: true,
+                        isCompleted: step3Completed,
+                        completedColor: completedColor,
                       ),
                       const SizedBox(height: 8),
                       _buildStepInstruction(
                         stepNumber: '4',
                         instruction:
                             'Treatment completion certificate delivered',
-                        isCompleted: true,
+                        isCompleted: step4Completed,
+                        completedColor: completedColor,
                       ),
                     ],
                   ),
@@ -676,6 +781,7 @@ class _ViewhistoryState extends State<Viewhistory> {
     required String stepNumber,
     required String instruction,
     required bool isCompleted,
+    Color? completedColor,
   }) {
     return Row(
       children: [
@@ -683,7 +789,7 @@ class _ViewhistoryState extends State<Viewhistory> {
           width: 24,
           height: 24,
           decoration: BoxDecoration(
-            color: isCompleted ? Colors.green.shade600 : Colors.grey.shade300,
+            color: isCompleted ? (completedColor ?? Colors.green.shade600) : Colors.grey.shade300,
             shape: BoxShape.circle,
           ),
           child: Center(
@@ -702,13 +808,14 @@ class _ViewhistoryState extends State<Viewhistory> {
         const SizedBox(width: 12),
         Expanded(
           child: Text(
-            instruction,
-            style: TextStyle(
-              fontSize: 13,
-              color: isCompleted ? Colors.green.shade800 : Colors.grey.shade700,
-              fontWeight: isCompleted ? FontWeight.w500 : FontWeight.normal,
+              instruction,
+              style: TextStyle(
+                fontSize: 13,
+                // Use a single consistent text color for the step instructions (old UI)
+                color: Colors.black87,
+                fontWeight: isCompleted ? FontWeight.w500 : FontWeight.normal,
+              ),
             ),
-          ),
         ),
       ],
     );
@@ -1682,28 +1789,4 @@ class InfoField extends StatelessWidget {
     );
   }
 
-  // Helper method to build styled text with bold labels
-  Widget _buildStyledBulletText(String text) {
-    final colonIndex = text.indexOf(':');
-    if (colonIndex != -1 && colonIndex < text.length - 1) {
-      final label = text.substring(0, colonIndex + 1);
-      final value = text.substring(colonIndex + 1);
-      return RichText(
-        text: TextSpan(
-          style: const TextStyle(fontSize: 14, color: Colors.black87),
-          children: [
-            TextSpan(
-              text: label,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-            TextSpan(text: value),
-          ],
-        ),
-      );
-    }
-    return Text(
-      text,
-      style: const TextStyle(fontSize: 14),
-    );
-  }
 }

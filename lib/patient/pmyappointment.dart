@@ -668,23 +668,24 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
     }
     // 6:00 AM to 8:00 AM - Sunrise (soft pastel)
     else if (totalMinutes >= 6 * 60 && totalMinutes <= 8 * 60) {
-      return [const Color(0xFFFEF3E8), const Color(0xFFFDEFEF)]; // Very light peach -> blush
+      return [const Color.fromARGB(255, 247, 205, 163), const Color(0xFFFDEFEF)]; // Very light peach -> blush
     }
     // 8:01 AM to 12:00 PM - Morning (soft warm pastel)
     else if (totalMinutes > 8 * 60 && totalMinutes <= 12 * 60) {
-      return [const Color(0xFFFFF8E7), const Color(0xFFFFF1D6)]; // Pale cream -> warm pastel yellow
+      return [const Color.fromARGB(255, 245, 210, 130), const Color(0xFFFFF1D6)]; // Pale cream -> warm pastel yellow
     }
     // 12:01 PM to 4:30 PM - Afternoon (soft coral/peach)
     else if (totalMinutes > 12 * 60 && totalMinutes <= 16 * 60 + 30) {
-      return [const Color(0xFFFFEDEB), const Color.fromARGB(255, 253, 234, 217)]; // Soft peach -> very light coral
+      return [const Color.fromARGB(255, 244, 175, 168), const Color.fromARGB(255, 253, 234, 217)]; // Soft peach -> very light coral
     }
     // 4:31 PM to 5:29 PM - Late afternoon (gentle warm)
     else if (totalMinutes > 16 * 60 + 30 && totalMinutes < 17 * 60 + 30) {
-      return [const Color(0xFFFFF6E9), const Color(0xFFFFF3E0)]; // Gentle warm beige/peach
+      return [const Color.fromARGB(255, 171, 223, 243), const Color(0xFFFFF3E0)]; // Gentle warm beige/peach
     }
 
     return [const Color(0xFF87CEEB), const Color(0xFF4682B4)]; // Default sky blue
   }
+
 
   // Get formatted time (12-hour format with AM/PM) - WITHOUT SECONDS
   String _getFormattedTime() {

@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:tb_frontend/doctor/viewhistory.dart';
-import 'package:tb_frontend/doctor/historyarchived.dart';
 import 'package:intl/intl.dart';
 import 'package:csv/csv.dart';
 import 'dart:io';
@@ -78,7 +77,7 @@ class _DhistoryState extends State<Dhistory> {
   Future<void> _archiveSelectedAppointments() async {
     if (_selectedAppointments.isEmpty) return;
 
-    // Show confirmation dialog
+    // Confirm marking as Incomplete Consultation
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -88,20 +87,25 @@ class _DhistoryState extends State<Dhistory> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.orange.shade100,
+                color: Colors.amber.shade100,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.archive_rounded, color: Colors.orange, size: 24),
+              child: const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 24),
             ),
             const SizedBox(width: 12),
-            const Text(
-              'Archive History',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Expanded(
+              child: Text(
+                'Mark as Incomplete Consultation',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                softWrap: true,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ),
         content: Text(
-          'Are you sure you want to archive ${_selectedAppointments.length} history item(s)?',
+          'Are you sure you want to mark ${_selectedAppointments.length} appointment(s) as Incomplete consultation?',
           style: const TextStyle(fontSize: 15),
         ),
         actions: [
@@ -115,12 +119,12 @@ class _DhistoryState extends State<Dhistory> {
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
+              backgroundColor: Colors.amber.shade700,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               elevation: 0,
             ),
             child: const Text(
-              'Archive',
+              'Confirm',
               style: TextStyle(color: Colors.white, fontSize: 15),
             ),
           ),
@@ -131,7 +135,6 @@ class _DhistoryState extends State<Dhistory> {
     if (confirmed != true) return;
 
     try {
-      // Show loading
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -146,7 +149,7 @@ class _DhistoryState extends State<Dhistory> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Text('Archiving ${_selectedAppointments.length} item(s)...'),
+                Text('Marking ${_selectedAppointments.length} appointment(s) as Incomplete...'),
               ],
             ),
             duration: const Duration(seconds: 2),
@@ -154,42 +157,51 @@ class _DhistoryState extends State<Dhistory> {
         );
       }
 
-      // Archive each selected appointment
       for (String appointmentId in _selectedAppointments) {
-        // Check if it's from appointment_history or completed_appointments
-        final historyDoc = await FirebaseFirestore.instance
-            .collection('appointment_history')
-            .doc(appointmentId)
-            .get();
+        // Try to find the appointment in appointment_history
+        final historyRef = FirebaseFirestore.instance.collection('appointment_history').doc(appointmentId);
+        final historyDoc = await historyRef.get();
 
         if (historyDoc.exists) {
-          // Update in appointment_history
-          await FirebaseFirestore.instance
-              .collection('appointment_history')
-              .doc(appointmentId)
-              .update({
-            'archived': true,
-            'archivedAt': FieldValue.serverTimestamp(),
+          // Update existing history doc
+          final prevData = historyDoc.data() as Map<String, dynamic>;
+          final String statusBefore = prevData['status']?.toString() ?? (prevData['treatmentCompletedAt'] != null ? 'treatment_completed' : 'unknown');
+          await historyRef.update({
+            'statusBeforeIncomplete': statusBefore,
+            'status': 'incomplete_consultation',
+            'incompleteMarkedAt': FieldValue.serverTimestamp(),
           });
         } else {
-          // Update in completed_appointments
-          await FirebaseFirestore.instance
-              .collection('completed_appointments')
-              .doc(appointmentId)
-              .update({
-            'archived': true,
-            'archivedAt': FieldValue.serverTimestamp(),
-          });
+          // If not in history, check completed_appointments and copy into appointment_history
+          final completedRef = FirebaseFirestore.instance.collection('completed_appointments').doc(appointmentId);
+          final completedDoc = await completedRef.get();
+          if (completedDoc.exists) {
+            final data = completedDoc.data() as Map<String, dynamic>;
+            final historyEntry = {
+              ...data,
+              'status': 'incomplete_consultation',
+              'incompleteMarkedAt': FieldValue.serverTimestamp(),
+              'source': 'completed_appointments',
+            };
+            await FirebaseFirestore.instance.collection('appointment_history').add(historyEntry);
+          } else {
+            // Fallback: if neither exists, create a minimal history entry with id
+            await FirebaseFirestore.instance.collection('appointment_history').add({
+              'appointmentId': appointmentId,
+              'status': 'incomplete_consultation',
+              'incompleteMarkedAt': FieldValue.serverTimestamp(),
+              'source': 'manual_mark',
+            });
+          }
         }
       }
 
-      // Exit selection mode
+      // Exit selection mode and clear
       setState(() {
         _isSelectionMode = false;
         _selectedAppointments.clear();
       });
 
-      // Show success message
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -204,7 +216,7 @@ class _DhistoryState extends State<Dhistory> {
                   child: const Icon(Icons.check_circle, color: Colors.white, size: 20),
                 ),
                 const SizedBox(width: 12),
-                const Text('History archived successfully'),
+                const Text('Marked as Incomplete Consultation'),
               ],
             ),
             backgroundColor: Colors.green,
@@ -217,7 +229,7 @@ class _DhistoryState extends State<Dhistory> {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error archiving history: $e'),
+            content: Text('Error marking appointments: $e'),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -1570,44 +1582,13 @@ class _DhistoryState extends State<Dhistory> {
                                   ],
                                 ),
                                 child: IconButton(
-                                  icon: const Icon(Icons.check_rounded,
-                                      color: Colors.white),
+                                  icon: const Icon(Icons.check_rounded, color: Colors.white),
                                   onPressed: _selectedAppointments.isNotEmpty
                                       ? _archiveSelectedAppointments
                                       : null,
                                 ),
                               )
-                            : Container(
-                                key: const ValueKey('archive_button'),
-                                width: 48,
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(16),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.grey.shade300,
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                ),
-                                child: IconButton(
-                                  icon: const Icon(
-                                    Icons.archive_outlined,
-                                    color: Color(0xFFFF9800),
-                                    size: 24,
-                                  ),
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => const Historyarchived(),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
+                            : const SizedBox(width: 48, height: 48),
                       ),
                     ],
                   ),
@@ -1736,8 +1717,8 @@ class _DhistoryState extends State<Dhistory> {
                           var rejectedAt = appointment['rejectedAt'];
 
                           if (approvedAt != null) {
-                            statusDisplayText = 'Approved';
-                            statusColor = Colors.green;
+                            statusDisplayText = 'Incomplete Consultation';
+                            statusColor = Colors.amber.shade600;
                           } else if (rejectedAt != null) {
                             statusDisplayText = 'Rejected';
                             statusColor = Colors.red;

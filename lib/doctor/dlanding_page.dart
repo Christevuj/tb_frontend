@@ -641,7 +641,7 @@ class _DlandingpageState extends State<Dlandingpage> {
     final minute = _currentTime.minute;
     final totalMinutes = hour * 60 + minute;
 
-    // 5:30 PM to 7:00 PM - Night but not so dark (dusk)
+   // 5:30 PM to 7:00 PM - Night but not so dark (dusk)
     if (totalMinutes >= 17 * 60 + 30 && totalMinutes < 19 * 60) {
       return [const Color(0xFF4A5568), const Color(0xFF2D3748)]; // Soft night
     }
@@ -653,21 +653,21 @@ class _DlandingpageState extends State<Dlandingpage> {
     else if (totalMinutes >= 4 * 60 + 1 && totalMinutes < 6 * 60) {
       return [const Color(0xFF4B5563), const Color(0xFF6B7280)]; // Light gray
     }
-    // 6:00 AM to 8:00 AM - Sunrise
+    // 6:00 AM to 8:00 AM - Sunrise (soft pastel)
     else if (totalMinutes >= 6 * 60 && totalMinutes <= 8 * 60) {
-      return [const Color(0xFFFFA500), const Color(0xFFFF6B6B)]; // Orange-pink
+      return [const Color.fromARGB(255, 247, 205, 163), const Color(0xFFFDEFEF)]; // Very light peach -> blush
     }
-    // 8:01 AM to 12:00 PM - Quite hot
+    // 8:01 AM to 12:00 PM - Morning (soft warm pastel)
     else if (totalMinutes > 8 * 60 && totalMinutes <= 12 * 60) {
-      return [const Color(0xFFFFD700), const Color(0xFFFFA500)]; // Golden yellow
+      return [const Color.fromARGB(255, 245, 210, 130), const Color(0xFFFFF1D6)]; // Pale cream -> warm pastel yellow
     }
-    // 12:01 PM to 4:30 PM - So hot
+    // 12:01 PM to 4:30 PM - Afternoon (soft coral/peach)
     else if (totalMinutes > 12 * 60 && totalMinutes <= 16 * 60 + 30) {
-      return [const Color(0xFFFF8C00), const Color(0xFFFF4500)]; // Hot orange-red
+      return [const Color.fromARGB(255, 244, 175, 168), const Color.fromARGB(255, 253, 234, 217)]; // Soft peach -> very light coral
     }
-    // 4:31 PM to 5:29 PM - Not so hot already
+    // 4:31 PM to 5:29 PM - Late afternoon (gentle warm)
     else if (totalMinutes > 16 * 60 + 30 && totalMinutes < 17 * 60 + 30) {
-      return [const Color(0xFFFFB347), const Color(0xFFFF8C42)]; // Soft orange
+      return [const Color.fromARGB(255, 171, 223, 243), const Color(0xFFFFF3E0)]; // Gentle warm beige/peach
     }
 
     return [const Color(0xFF87CEEB), const Color(0xFF4682B4)]; // Default sky blue
@@ -1736,11 +1736,16 @@ class _DlandingpageState extends State<Dlandingpage> {
                           appointment["time"] ??
                           "No time";
 
+            // Determine whether this appointment should be shown as "Incomplete Consultation"
+            // Note: do NOT make selection state change the visual styling.
+            final bool isIncomplete = (appointment['status'] == 'incomplete_consultation') ||
+              (appointment['incompleteMarkedAt'] != null);
+
                         return Container(
                           key: ValueKey(doc.id),
                           margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: isIncomplete ? Colors.amber.shade50 : Colors.white,
                             borderRadius: BorderRadius.circular(16),
                             boxShadow: [
                               BoxShadow(
@@ -1806,44 +1811,46 @@ class _DlandingpageState extends State<Dlandingpage> {
                                       ),
                                       const SizedBox(width: 8),
                                     ],
-                                    // DATE AVATAR
+                                    // DATE AVATAR (amber when incomplete)
                                     Container(
-                                    width: 52,
-                                    height: 52,
-                                    decoration: BoxDecoration(
-                                      gradient: const LinearGradient(
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                        colors: [Color(0xFF2E7D32), Color(0xFF66BB6A)],
+                                      width: 52,
+                                      height: 52,
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                          colors: isIncomplete
+                                              ? [Color(0xFFFFE082), Color(0xFFFFC107)]
+                                              : const [Color(0xFF2E7D32), Color(0xFF66BB6A)],
+                                        ),
+                                        borderRadius: BorderRadius.circular(12),
                                       ),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          appointmentDate != null
-                                              ? appointmentDate.day.toString()
-                                              : "?",
-                                          style: const TextStyle(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.w800,
-                                            color: Colors.white,
-                                            height: 1,
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Text(
+                                            appointmentDate != null
+                                                ? appointmentDate.day.toString()
+                                                : "?",
+                                            style: const TextStyle(
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.w800,
+                                              color: Colors.white,
+                                              height: 1,
+                                            ),
                                           ),
-                                        ),
-                                        Text(
-                                          appointmentDate != null
-                                              ? _getMonthAbbr(appointmentDate.month)
-                                              : "---",
-                                          style: const TextStyle(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.white70,
-                                            letterSpacing: 0.5,
+                                          Text(
+                                            appointmentDate != null
+                                                ? _getMonthAbbr(appointmentDate.month)
+                                                : "---",
+                                            style: const TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.white70,
+                                              letterSpacing: 0.5,
+                                            ),
                                           ),
-                                        ),
-                                      ],
+                                        ],
                                       ),
                                     ),
                                     const SizedBox(width: 14),
@@ -1855,10 +1862,10 @@ class _DlandingpageState extends State<Dlandingpage> {
                                           // TIME (BOLD)
                                           Text(
                                             appointmentTime,
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontSize: 16,
                                               fontWeight: FontWeight.w700,
-                                              color: Color(0xFF1A1A1A),
+                                              color: isIncomplete ? Colors.amber[800] : const Color(0xFF1A1A1A),
                                               letterSpacing: -0.3,
                                             ),
                                           ),
@@ -1872,6 +1879,24 @@ class _DlandingpageState extends State<Dlandingpage> {
                                               color: Colors.grey[700],
                                             ),
                                           ),
+                                          // Incomplete status label (doctor view only)
+                                          if (isIncomplete) ...[
+                                            const SizedBox(height: 6),
+                                            Row(
+                                              children: [
+                                                Icon(Icons.report_problem, color: Colors.amber, size: 14),
+                                                const SizedBox(width: 6),
+                                                Text(
+                                                  'Incomplete Consultation',
+                                                  style: TextStyle(
+                                                    color: Colors.amber[800],
+                                                    fontWeight: FontWeight.w700,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
                                         ],
                                       ),
                                     ),

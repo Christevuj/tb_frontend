@@ -46,6 +46,7 @@ class AppointmentStatusCard extends StatelessWidget {
         statusIcon = Icons.info;
         break;
       case 'incomplete_consultation':
+        // Keep incomplete consultation neutral in the appointment status card (timeline consistency)
         statusColor = Colors.grey.shade700;
         statusTitle = 'Incomplete consultation';
         statusDescription = 'Consultation marked incomplete by the doctor.';

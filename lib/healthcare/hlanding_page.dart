@@ -1007,11 +1007,9 @@ class _HlandingpageState extends State<Hlandingpage> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Image.asset(
-                    "assets/images/tbisita_logo2.png",
-                    height: 44,
-                    alignment: Alignment.centerLeft,
-                  ),
+                  Image.asset("assets/images/tbisita_logo2.png",
+                  height: 30, alignment: Alignment.centerLeft),
+              const SizedBox(height: 10),
                   // Archive Icon (moved down)
                   Padding(
                     padding: const EdgeInsets.only(top: 16),

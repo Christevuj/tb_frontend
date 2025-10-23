@@ -423,65 +423,61 @@ class _PlandingPageState extends State<PlandingPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      children: [
-                        Image.asset("assets/images/tbisita_logo2.png",
-                            height: 30, alignment: Alignment.centerLeft),
-                        const Spacer(),
-                        // Notification bell with badge (preserved)
-                        GestureDetector(
-                          onTap: () {
-                            // Mark all notifications as read (collapse badge) and persist
-                            for (var n in _notificationItems) {
-                              n['read'] = true;
-                              final docId = n['docId'];
-                              if (docId != null) {
-                                FirebaseFirestore.instance
-                                    .collection('patient_notifications')
-                                    .doc(docId)
-                                    .update({'read': true}).catchError(
-                                        (e) => debugPrint('Error marking read: $e'));
-                              }
-                            }
-                            setState(() {});
+                  Image.asset("assets/images/tbisita_logo2.png",
+                      height: 30, alignment: Alignment.centerLeft),
+                  const Spacer(),
+                  // Notification bell with badge
+                  GestureDetector(
+                    onTap: () {
+                      // Mark all notifications as read (collapse badge) and persist
+                      for (var n in _notificationItems) {
+                        n['read'] = true;
+                        final docId = n['docId'];
+                        if (docId != null) {
+                          FirebaseFirestore.instance
+                              .collection('patient_notifications')
+                              .doc(docId)
+                              .update({'read': true}).catchError(
+                                  (e) => debugPrint('Error marking read: $e'));
+                        }
+                      }
+                      setState(() {});
 
-                            // Open notifications modal
-                            showModalBottomSheet(
-                              context: context,
-                              isScrollControlled: true,
-                              shape: const RoundedRectangleBorder(
-                                borderRadius:
-                                    BorderRadius.vertical(top: Radius.circular(24)),
-                              ),
-                              builder: (ctx) {
-                                return DraggableScrollableSheet(
-                                  expand: false,
-                                  initialChildSize: 0.6,
-                                  minChildSize: 0.3,
-                                  maxChildSize: 0.95,
-                                  builder: (_, controller) {
-                                    return Container(
-                                      padding: const EdgeInsets.all(16),
-                                      decoration: const BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.vertical(
-                                            top: Radius.circular(24)),
+                      // Open notifications modal
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        shape: const RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.vertical(top: Radius.circular(24)),
+                        ),
+                        builder: (ctx) {
+                          return DraggableScrollableSheet(
+                            expand: false,
+                            initialChildSize: 0.6,
+                            minChildSize: 0.3,
+                            maxChildSize: 0.95,
+                            builder: (_, controller) {
+                              return Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: const BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.vertical(
+                                      top: Radius.circular(24)),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Container(
+                                      width: 40,
+                                      height: 6,
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade300,
+                                        borderRadius: BorderRadius.circular(6),
                                       ),
-                                      child: Column(
-                                        children: [
-                                          Container(
-                                            width: 40,
-                                            height: 6,
-                                            decoration: BoxDecoration(
-                                              color: Colors.grey.shade300,
-                                              borderRadius: BorderRadius.circular(6),
-                                            ),
-                                          ),
+                                    ),
                                     const SizedBox(height: 12),
                                     Row(
                                       mainAxisAlignment:
@@ -561,15 +557,11 @@ class _PlandingPageState extends State<PlandingPage> {
                                                         try {
                                                           await FirebaseFirestore
                                                               .instance
-                                                              .collection(
-                                                                  'patient_notifications')
+                                                              .collection('patient_notifications')
                                                               .doc(docId)
-                                                              .update({
-                                                            'read': true
-                                                          });
+                                                              .update({'read': true});
                                                         } catch (e) {
-                                                          debugPrint(
-                                                              'Error updating read flag: $e');
+                                                          debugPrint('Error updating read flag: $e');
                                                         }
                                                       }
                                                       Navigator.of(ctx).pop();
@@ -580,10 +572,23 @@ class _PlandingPageState extends State<PlandingPage> {
                                                                 const PMyAppointmentScreen()),
                                                       );
                                                     },
-                                                    child:
-                                                        AppointmentStatusCard(
-                                                            status:
-                                                                n['status']),
+                                                    child: Container(
+                                                      padding: const EdgeInsets.all(8),
+                                                      decoration: BoxDecoration(
+                                                        color: (n['read'] == true)
+                                                            ? Colors.transparent
+                                                            : Colors.redAccent.withOpacity(0.08),
+                                                        borderRadius:
+                                                            BorderRadius.circular(12),
+                                                        border: Border.all(
+                                                          color: (n['read'] == true)
+                                                              ? Colors.grey.shade200
+                                                              : Colors.redAccent.withOpacity(0.6),
+                                                          width: 1,
+                                                        ),
+                                                      ),
+                                                      child: AppointmentStatusCard(status: n['status']),
+                                                    ),
                                                   ),
                                                 );
                                               },
@@ -663,7 +668,7 @@ class _PlandingPageState extends State<PlandingPage> {
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 10),
 
               // ========== TB SYMPTOMS CHECKER SECTION ==========
               Container(

@@ -104,8 +104,8 @@ class _GlandingPageState extends State<GlandingPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Image.asset("assets/images/tbisita_logo2.png",
-                  height: 44, alignment: Alignment.centerLeft),
-              const SizedBox(height: 20),
+                  height: 30, alignment: Alignment.centerLeft),
+              const SizedBox(height: 10),
 
               // ========== TB SYMPTOMS CHECKER SECTION ==========
               Container(

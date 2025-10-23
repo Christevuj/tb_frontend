@@ -67,9 +67,6 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
   String? _highlightedAppointmentId;
   Timer? _highlightTimer;
 
-  // Persistent notification appointment
-  Map<String, dynamic>? _persistentNotificationAppointment;
-  String? _lastNotifiedAppointmentId;
 
   // Available filter options
   final List<Map<String, dynamic>> _filterOptions = [
@@ -663,43 +660,30 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
     }
     // 7:00 PM to 4:00 AM - So dark (deep night) with violet-black tones
     else if (totalMinutes >= 19 * 60 || totalMinutes < 4 * 60) {
-      return [
-        const Color(0xFF0a0015),
-        const Color(0xFF1a0033),
-        const Color(0xFF2d1b4e)
-      ]; // Very dark violet-black
+      return [const Color(0xFF0a0015), const Color(0xFF1a0033), const Color(0xFF2d1b4e)]; // Very dark violet-black
     }
     // 4:01 AM to 5:59 AM - Almost sunrise (light black/white)
     else if (totalMinutes >= 4 * 60 + 1 && totalMinutes < 6 * 60) {
       return [const Color(0xFF4B5563), const Color(0xFF6B7280)]; // Light gray
     }
-    // 6:00 AM to 8:00 AM - Sunrise
+    // 6:00 AM to 8:00 AM - Sunrise (soft pastel)
     else if (totalMinutes >= 6 * 60 && totalMinutes <= 8 * 60) {
-      return [const Color(0xFFFFA500), const Color(0xFFFF6B6B)]; // Orange-pink
+      return [const Color(0xFFFEF3E8), const Color(0xFFFDEFEF)]; // Very light peach -> blush
     }
-    // 8:01 AM to 12:00 PM - Quite hot
+    // 8:01 AM to 12:00 PM - Morning (soft warm pastel)
     else if (totalMinutes > 8 * 60 && totalMinutes <= 12 * 60) {
-      return [
-        const Color(0xFFFFD700),
-        const Color(0xFFFFA500)
-      ]; // Golden yellow
+      return [const Color(0xFFFFF8E7), const Color(0xFFFFF1D6)]; // Pale cream -> warm pastel yellow
     }
-    // 12:01 PM to 4:30 PM - So hot
+    // 12:01 PM to 4:30 PM - Afternoon (soft coral/peach)
     else if (totalMinutes > 12 * 60 && totalMinutes <= 16 * 60 + 30) {
-      return [
-        const Color(0xFFFF8C00),
-        const Color(0xFFFF4500)
-      ]; // Hot orange-red
+      return [const Color(0xFFFFEDEB), const Color.fromARGB(255, 253, 234, 217)]; // Soft peach -> very light coral
     }
-    // 4:31 PM to 5:29 PM - Not so hot already
+    // 4:31 PM to 5:29 PM - Late afternoon (gentle warm)
     else if (totalMinutes > 16 * 60 + 30 && totalMinutes < 17 * 60 + 30) {
-      return [const Color(0xFFFFB347), const Color(0xFFFF8C42)]; // Soft orange
+      return [const Color(0xFFFFF6E9), const Color(0xFFFFF3E0)]; // Gentle warm beige/peach
     }
 
-    return [
-      const Color(0xFF87CEEB),
-      const Color(0xFF4682B4)
-    ]; // Default sky blue
+    return [const Color(0xFF87CEEB), const Color(0xFF4682B4)]; // Default sky blue
   }
 
   // Get formatted time (12-hour format with AM/PM) - WITHOUT SECONDS
@@ -757,170 +741,9 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
     }
   }
 
-  // Handle notification tap - highlight the connected appointment
-  void _onNotificationTap(String appointmentId) {
-    setState(() {
-      _selectedFilter = 'Recent'; // Switch to Recent tab
-      _highlightedAppointmentId = appointmentId;
-    });
+  // Notification tap handling removed with persistent notification UI
 
-    // Auto-remove highlight after 3 seconds
-    _highlightTimer?.cancel();
-    _highlightTimer = Timer(const Duration(seconds: 3), () {
-      if (mounted) {
-        setState(() {
-          _highlightedAppointmentId = null;
-        });
-      }
-    });
-  }
-
-  // Build modern notification widget based on appointment status
-  Widget _buildAppointmentNotification(Map<String, dynamic> appointment) {
-    final status = appointment['status']?.toString().toLowerCase() ?? 'unknown';
-    final doctorName = appointment['doctorName'] ?? 'Doctor';
-    final bool isRead = appointment['read'] == true;
-
-    IconData icon;
-    Color iconColor;
-    String title;
-    String subtitle;
-    // Color logic for notification container (force, ignore status)
-    Color containerColor =
-        !isRead ? Colors.redAccent.withOpacity(0.15) : Colors.grey.shade300;
-    Color borderColor = !isRead ? Colors.redAccent : Colors.grey.shade400;
-
-    switch (status) {
-      case 'pending':
-        icon = Icons.schedule_rounded;
-        iconColor = Colors.orange;
-        title = 'Appointment Pending';
-        subtitle =
-            'Your appointment with Dr. $doctorName is waiting for approval';
-        break;
-      case 'approved':
-        icon = Icons.event_available_rounded;
-        iconColor = Colors.green;
-        title = 'Appointment Confirmed!';
-        subtitle = 'Dr. $doctorName • Date TBD • Soon';
-        break;
-      case 'with_prescription':
-        icon = Icons.medication_rounded;
-        iconColor = Colors.red.shade700;
-        title = 'E-Prescription Ready!';
-        subtitle = 'Dr. $doctorName has uploaded your prescription';
-        break;
-      case 'treatment_completed':
-        icon = Icons.verified_rounded;
-        iconColor = Colors.purple;
-        title = 'Congratulations! 🎉';
-        subtitle =
-            'You have completed your treatment with Dr. $doctorName! Certificate available.';
-        break;
-      case 'with_certificate':
-        icon = Icons.workspace_premium_rounded;
-        iconColor = Colors.indigo;
-        title = '🏆 Treatment Completed!';
-        subtitle =
-            'Congratulations on finishing your treatment! Your certificate is ready.';
-        break;
-      case 'consultation_finished':
-        icon = Icons.check_circle_rounded;
-        iconColor = Colors.blue;
-        title = '✓ Consultation Complete';
-        subtitle = 'Your consultation with Dr. $doctorName has been completed';
-        break;
-      case 'rejected':
-        icon = Icons.cancel_rounded;
-        iconColor = Colors.redAccent;
-        title = '❌ Appointment Not Approved';
-        subtitle =
-            'Your appointment request was not approved. Please try booking another slot.';
-        break;
-      default:
-        icon = Icons.info_rounded;
-        iconColor = Colors.grey;
-        title = 'Appointment Update';
-        subtitle = 'Status: ${status.toUpperCase()}';
-    }
-
-    return GestureDetector(
-      onTap: () {
-        final appointmentId =
-            appointment['appointmentId'] ?? appointment['id'] ?? '';
-        if (appointmentId.isNotEmpty) {
-          _onNotificationTap(appointmentId);
-        }
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        decoration: BoxDecoration(
-          color: containerColor,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: borderColor, width: 2),
-          boxShadow: [
-            BoxShadow(
-              color: borderColor.withOpacity(0.12),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: !isRead
-                      ? Colors.redAccent.withOpacity(0.15)
-                      : Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                      color: (!isRead ? Colors.redAccent : Colors.grey.shade400)
-                          .withOpacity(0.3),
-                      width: 1.5),
-                ),
-                child: Icon(
-                  icon,
-                  color: !isRead ? Colors.redAccent : Colors.grey.shade400,
-                  size: 22,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: borderColor,
-                        letterSpacing: 0.3,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.grey[700],
-                        height: 1.3,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  // (Persistent notification UI removed per request)
 
   Stream<List<Map<String, dynamic>>> _getCombinedAppointmentsStream() {
     if (_currentPatientId == null) {
@@ -1471,6 +1294,70 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
         if (status != 'rejected') ...[
           const SizedBox(height: 16),
           _buildTimelineCard(appointment),
+        ],
+        // If still pending, show a cancel appointment button below the timeline
+        if (status == 'pending') ...[
+          const SizedBox(height: 12),
+          Center(
+            child: SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () async {
+                  final apptId = appointment['appointmentId'] ?? appointment['id'] ?? '';
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (dCtx) => AlertDialog(
+                      title: const Text('Cancel appointment'),
+                      content: const Text('Are you sure you want to cancel this pending appointment?'),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.of(dCtx).pop(false), child: const Text('No')),
+                        TextButton(onPressed: () => Navigator.of(dCtx).pop(true), child: const Text('Yes')),
+                      ],
+                    ),
+                  );
+                  if (confirm != true) return;
+
+                  if (apptId == null || apptId == '') {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Appointment ID not found')));
+                    return;
+                  }
+
+                  try {
+                    // Try deleting from pending_patient_data
+                    await FirebaseFirestore.instance.collection('pending_patient_data').doc(apptId).delete();
+                  } catch (e) {
+                    // best-effort: try removing from approved_appointments as fallback
+                    try {
+                      await FirebaseFirestore.instance.collection('approved_appointments').doc(apptId).delete();
+                    } catch (e) {
+                      debugPrint('Could not delete appointment: $e');
+                    }
+                  }
+
+                  // Remove related notifications
+                  try {
+                    final q = await FirebaseFirestore.instance.collection('patient_notifications').where('appointmentId', isEqualTo: apptId).get();
+                    for (var doc in q.docs) {
+                      await doc.reference.delete();
+                    }
+                  } catch (e) {
+                    debugPrint('Error deleting related notifications: $e');
+                  }
+
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Appointment cancelled')));
+                    Navigator.of(context).pop();
+                  }
+                },
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: Colors.redAccent.shade200),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                child: Text('Cancel Appointment', style: TextStyle(color: Colors.redAccent.shade700)),
+              ),
+            ),
+          ),
         ],
       ],
     );
@@ -3312,179 +3199,6 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
               ),
 
               const SizedBox(height: 16),
-
-              // Real-time Appointment Notification (Persistent)
-              StreamBuilder<List<Map<String, dynamic>>>(
-                stream: _getCombinedAppointmentsStream(),
-                builder: (context, snapshot) {
-                  if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-                    // Get ALL appointments for notification display
-                    final allAppointments = snapshot.data!;
-
-                    // Also track RECENT appointments (pending and approved) for update detection
-                    final recentAppointments = snapshot.data!.where((apt) {
-                      final status =
-                          apt['status']?.toString().toLowerCase() ?? '';
-                      return status == 'pending' || status == 'approved';
-                    }).toList();
-
-                    // Sort all appointments by priority and date for display
-                    allAppointments.sort((a, b) {
-                      final statusA =
-                          a['status']?.toString().toLowerCase() ?? '';
-                      final statusB =
-                          b['status']?.toString().toLowerCase() ?? '';
-
-                      // Priority: approved > pending > treatment_completed > others
-                      const statusPriority = {
-                        'approved': 1,
-                        'pending': 2,
-                        'treatment_completed': 3,
-                        'with_prescription': 4,
-                      };
-
-                      final priorityA = statusPriority[statusA] ?? 99;
-                      final priorityB = statusPriority[statusB] ?? 99;
-
-                      if (priorityA != priorityB)
-                        return priorityA.compareTo(priorityB);
-
-                      // If same priority, sort by date (most recent first)
-                      try {
-                        DateTime? dateA;
-                        DateTime? dateB;
-
-                        final dynamicDateA = a['appointment_date'] ??
-                            a['appointmentDate'] ??
-                            a['date'];
-                        final dynamicDateB = b['appointment_date'] ??
-                            b['appointmentDate'] ??
-                            b['date'];
-
-                        if (dynamicDateA is Timestamp) {
-                          dateA = dynamicDateA.toDate();
-                        } else if (dynamicDateA is String) {
-                          dateA = DateTime.parse(dynamicDateA);
-                        }
-
-                        if (dynamicDateB is Timestamp) {
-                          dateB = dynamicDateB.toDate();
-                        } else if (dynamicDateB is String) {
-                          dateB = DateTime.parse(dynamicDateB);
-                        }
-
-                        if (dateA != null && dateB != null) {
-                          return dateB.compareTo(dateA); // More recent first
-                        }
-                      } catch (e) {
-                        debugPrint('Error sorting by date: $e');
-                      }
-
-                      return 0;
-                    });
-
-                    // Check if there's a new RECENT appointment (pending/approved)
-                    if (recentAppointments.isNotEmpty) {
-                      recentAppointments.sort((a, b) {
-                        final statusA =
-                            a['status']?.toString().toLowerCase() ?? '';
-                        final statusB =
-                            b['status']?.toString().toLowerCase() ?? '';
-                        if (statusA == 'approved' && statusB == 'pending')
-                          return -1;
-                        if (statusA == 'pending' && statusB == 'approved')
-                          return 1;
-                        return 0;
-                      });
-
-                      final mostRecentNew = recentAppointments.first;
-                      final newAppointmentId = mostRecentNew['appointmentId'] ??
-                          mostRecentNew['appointment_id'];
-
-                      // Only update if it's a NEW recent appointment
-                      if (_lastNotifiedAppointmentId != newAppointmentId) {
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (mounted) {
-                            setState(() {
-                              _persistentNotificationAppointment =
-                                  mostRecentNew;
-                              _lastNotifiedAppointmentId = newAppointmentId;
-                            });
-                          }
-                        });
-                      }
-                    }
-
-                    // Show notification: persistent > most recent from all appointments
-                    final appointmentToShow =
-                        _persistentNotificationAppointment ??
-                            allAppointments.first;
-                    return _buildAppointmentNotification(appointmentToShow);
-                  }
-
-                  // If no data but we have a persistent one, keep showing it
-                  if (_persistentNotificationAppointment != null) {
-                    return _buildAppointmentNotification(
-                        _persistentNotificationAppointment!);
-                  }
-
-                  // If no appointments at all, show a friendly message
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Colors.grey.shade50, Colors.grey.shade100],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                      border:
-                          Border.all(color: Colors.grey.shade300, width: 1.5),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade200,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            Icons.event_available_rounded,
-                            color: Colors.grey.shade600,
-                            size: 24,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'No Active Appointments',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.grey.shade700,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Book a new appointment to get started',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
 
               // Filter carousel
               SizedBox(

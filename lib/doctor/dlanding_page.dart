@@ -30,6 +30,9 @@ class _DlandingpageState extends State<Dlandingpage> {
   bool _isPatientInfoExpanded = false;
   bool _isScheduleExpanded = false;
   bool _isVideoCallExpanded = false;
+  // Selection mode for approved appointments
+  bool _isApprovedSelectionMode = false;
+  final Set<String> _selectedApprovedAppointments = {};
 
   // Timer for live time widget
   Timer? _timer;
@@ -1543,6 +1546,74 @@ class _DlandingpageState extends State<Dlandingpage> {
 
               const SizedBox(height: 20),
 
+              // Show bulk action icon only when in selection mode (entered via long-press)
+              if (_isApprovedSelectionMode)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0, right: 4.0),
+                    child: IconButton(
+                      iconSize: 36,
+                      icon: Icon(
+                        Icons.check_circle_outline_rounded,
+                        color: _selectedApprovedAppointments.isNotEmpty ? Colors.orange : Colors.grey.shade300,
+                      ),
+                      onPressed: _selectedApprovedAppointments.isEmpty
+                          ? null
+                          : () async {
+                              final confirmed = await showDialog<bool>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: const Text('Mark as Incomplete Consultation'),
+                                  content: Text('Are you sure you want to mark ${_selectedApprovedAppointments.length} appointment(s) as Incomplete consultation?'),
+                                  actions: [
+                                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                                    ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Confirm')),
+                                  ],
+                                ),
+                              );
+
+                              if (confirmed == true) {
+                                try {
+                                  for (final appointmentId in _selectedApprovedAppointments) {
+                                    final doc = await FirebaseFirestore.instance.collection('approved_appointments').doc(appointmentId).get();
+                                    if (!doc.exists) continue;
+                                    final data = doc.data() as Map<String, dynamic>;
+
+                                    final historyEntry = {
+                                      ...data,
+                                      'status': 'incomplete_consultation',
+                                      'incompleteMarkedAt': FieldValue.serverTimestamp(),
+                                      'source': 'appointment_history',
+                                    };
+
+                                    await FirebaseFirestore.instance.collection('appointment_history').add(historyEntry);
+                                    await FirebaseFirestore.instance.collection('approved_appointments').doc(appointmentId).delete();
+                                  }
+
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('${_selectedApprovedAppointments.length} appointment(s) marked as Incomplete')),
+                                    );
+                                  }
+
+                                  setState(() {
+                                    _isApprovedSelectionMode = false;
+                                    _selectedApprovedAppointments.clear();
+                                  });
+                                } catch (e) {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Error marking appointments: $e'), backgroundColor: Colors.red),
+                                    );
+                                  }
+                                }
+                              }
+                            },
+                    ),
+                  ),
+                ),
+
               StreamBuilder<QuerySnapshot>(
                 key: const ValueKey('appointments_stream'),
                 stream: _currentDoctorId != null
@@ -1689,12 +1760,52 @@ class _DlandingpageState extends State<Dlandingpage> {
                           child: Material(
                             color: Colors.transparent,
                             child: InkWell(
-                              onTap: () => _showAppointmentDetails(appointment),
+                              onTap: () {
+                                if (_isApprovedSelectionMode) {
+                                  setState(() {
+                                    if (_selectedApprovedAppointments.contains(doc.id)) {
+                                      _selectedApprovedAppointments.remove(doc.id);
+                                      if (_selectedApprovedAppointments.isEmpty) {
+                                        _isApprovedSelectionMode = false;
+                                      }
+                                    } else {
+                                      _selectedApprovedAppointments.add(doc.id);
+                                    }
+                                  });
+                                } else {
+                                  _showAppointmentDetails(appointment);
+                                }
+                              },
+                              onLongPress: () {
+                                setState(() {
+                                  _isApprovedSelectionMode = true;
+                                  _selectedApprovedAppointments.add(doc.id);
+                                });
+                              },
                               borderRadius: BorderRadius.circular(16),
                               child: Padding(
                                 padding: const EdgeInsets.all(12),
                                 child: Row(
                                   children: [
+                                    // Selection Checkbox (visible only in selection mode)
+                                    if (_isApprovedSelectionMode) ...[
+                                      Checkbox(
+                                        value: _selectedApprovedAppointments.contains(doc.id),
+                                        onChanged: (val) {
+                                          setState(() {
+                                            if (val == true) {
+                                              _selectedApprovedAppointments.add(doc.id);
+                                            } else {
+                                              _selectedApprovedAppointments.remove(doc.id);
+                                              if (_selectedApprovedAppointments.isEmpty) {
+                                                _isApprovedSelectionMode = false;
+                                              }
+                                            }
+                                          });
+                                        },
+                                      ),
+                                      const SizedBox(width: 8),
+                                    ],
                                     // DATE AVATAR
                                     Container(
                                     width: 52,

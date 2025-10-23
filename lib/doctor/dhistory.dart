@@ -1634,7 +1634,37 @@ class _DhistoryState extends State<Dhistory> {
 
                     final appointments = snapshot.data ?? [];
 
-                    if (appointments.isEmpty) {
+                    // Only show items that are either Treatment Completed or Rejected
+                    List<Map<String, dynamic>> filteredAppointments = appointments.where((appointment) {
+                      try {
+                        // From appointment_history: treat as Treatment Completed when movedToHistoryAt or treatmentCompletedAt exists
+                        if (appointment['source'] == 'appointment_history') {
+                          // Include treatment completed, movedToHistory, or explicitly marked incomplete consultations
+                          if (appointment['treatmentCompletedAt'] != null || appointment['movedToHistoryAt'] != null) {
+                            return true;
+                          }
+                          if ((appointment['status'] ?? '').toString().toLowerCase() == 'incomplete_consultation') return true;
+                          if (appointment['incompleteMarkedAt'] != null) return true;
+                        }
+
+                        // From completed_appointments: treat as Treatment Completed when a boolean flag is present
+                        if (appointment['source'] == 'completed_appointments') {
+                          if (appointment['treatmentCompleted'] == true) return true;
+                          if ((appointment['status'] ?? '').toString().toLowerCase() == 'treatment_completed') return true;
+                          if ((appointment['status'] ?? '').toString().toLowerCase() == 'incomplete_consultation') return true;
+                        }
+
+                        // Rejected: presence of rejectedAt or explicit status
+                        if (appointment['rejectedAt'] != null) return true;
+                        if ((appointment['status'] ?? '').toString().toLowerCase() == 'rejected') return true;
+                      } catch (e) {
+                        // If any unexpected structure, exclude by default
+                        debugPrint('Error while filtering appointment: $e');
+                      }
+                      return false;
+                    }).toList();
+
+                    if (filteredAppointments.isEmpty) {
                       return const Center(
                         child: Padding(
                           padding: EdgeInsets.all(40),
@@ -1671,9 +1701,9 @@ class _DhistoryState extends State<Dhistory> {
                     return ListView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      itemCount: appointments.length,
+                      itemCount: filteredAppointments.length,
                       itemBuilder: (context, index) {
-                        final appointment = appointments[index];
+                        final appointment = filteredAppointments[index];
 
                         // Determine status based on source
                         String statusDisplayText = 'Unknown';

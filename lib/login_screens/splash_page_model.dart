@@ -59,37 +59,23 @@ class _TbisitaSplashPageState extends State<TbisitaSplashPage>
         onTap: _navigateToOnboarding,
         child: Container(
           color: Colors.white,
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 48),
-              child: FadeTransition(
-                opacity: _opacityAnimation,
-                child: ScaleTransition(
-                  scale: _scaleAnimation,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Static logo (page-level animations still apply)
-                      Image.asset(
-                        'assets/images/tbisita_logo2.png',
-                        width: 270,
-                        height: 270,
-                        fit: BoxFit.contain,
-                      ),
-                      // Thin, small slogan directly under the logo (no gap)
-                      Text(
-                        'Your telemedicine guide for TB care',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.grey.shade700,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w300,
-                          letterSpacing: 0.2,
-                        ),
-                      ),
-                    ],
-                  ),
+          child: Center(
+            child: FadeTransition(
+              opacity: _opacityAnimation,
+              child: ScaleTransition(
+                scale: _scaleAnimation,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Static logo (page-level animations still apply)
+                    Image.asset(
+                      'assets/images/tbisita_logo3.png',
+                      width: 270,
+                      height: 270,
+                      fit: BoxFit.contain,
+                    ),
+                    // App name removed per UI update
+                  ],
                 ),
               ),
             ),

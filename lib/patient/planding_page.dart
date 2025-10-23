@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:async';
 import 'package:tb_frontend/patient/pdoclist.dart';
 import 'package:tb_frontend/patient/pmyappointment.dart';
+import 'package:tb_frontend/patient/appointment_status_card.dart';
 import 'package:tb_frontend/guest/gconsultant.dart';
 import 'package:tb_frontend/patient/ptbfacility.dart';
 
@@ -37,6 +38,16 @@ class _PlandingPageState extends State<PlandingPage> {
   void initState() {
     super.initState();
     _loadYoutubeUrl();
+    // Clear all state to avoid duplicates when revisiting
+    _appointmentsById.clear();
+    _knownStatuses.clear();
+    _notificationItems.clear();
+    for (final sub in _appointmentListeners) {
+      sub.cancel();
+    }
+    _appointmentListeners.clear();
+    _notificationsSub?.cancel();
+    _notificationsSub = null;
     _initNotifications();
   }
 
@@ -53,6 +64,7 @@ class _PlandingPageState extends State<PlandingPage> {
           .snapshots()
           .listen((snapshot) {
         _notificationItems.clear();
+        final Map<String, Map<String, dynamic>> latestByAppointment = {};
         for (final doc in snapshot.docs) {
           final data = doc.data();
           DateTime ts;
@@ -64,19 +76,23 @@ class _PlandingPageState extends State<PlandingPage> {
           } else {
             ts = DateTime.now();
           }
-
-          _notificationItems.add({
-            'docId': doc.id,
-            'appointmentId': data['appointmentId'],
-            'title': data['title'] ?? '',
-            'subtitle': data['subtitle'] ?? '',
-            'status': data['status'] ?? '',
-            'timestamp': ts,
-            'read': data['read'] == true,
-            'source': data['source'] ?? null,
-          });
+          final appointmentId = data['appointmentId']?.toString() ?? '';
+          if (appointmentId.isEmpty) continue;
+          // Only keep the latest notification per appointmentId
+          if (!latestByAppointment.containsKey(appointmentId) ||
+              ts.isAfter(latestByAppointment[appointmentId]!['timestamp'])) {
+            latestByAppointment[appointmentId] = {
+              'docId': doc.id,
+              'appointmentId': appointmentId,
+              'status': data['status'],
+              'read': data['read'] ?? false,
+              'timestamp': ts,
+              'title': data['title'],
+              'subtitle': data['subtitle'],
+            };
+          }
         }
-        setState(() {});
+        _notificationItems.addAll(latestByAppointment.values);
       }, onError: (e) => debugPrint('Error listening notifications: $e'));
     } catch (e) {
       debugPrint('Error initializing notifications listener: $e');
@@ -128,7 +144,8 @@ class _PlandingPageState extends State<PlandingPage> {
       if (status == 'consultation_finished') {
         // Consultation finished may imply e-prescription is available
         _addNotification(appt, 'consultation_finished');
-      } else if (status == 'treatment_completed' || status == 'with_certificate') {
+      } else if (status == 'treatment_completed' ||
+          status == 'with_certificate') {
         _addNotification(appt, 'treatment_completed');
       } else if (status == 'rejected' || status == 'not_approved') {
         _addNotification(appt, 'rejected');
@@ -145,9 +162,76 @@ class _PlandingPageState extends State<PlandingPage> {
 
   void _addNotification(Map<String, dynamic> appt, String reason) async {
     final apptId = appt['appointmentId'] ?? appt['id'] ?? '';
-    final status = (appt['status'] ?? '').toString().toLowerCase();
+    var status = (appt['status'] ?? '').toString().toLowerCase();
     String title;
     String subtitle;
+
+    // Prevent duplicate notification for same appointmentId and status in Firestore and local list
+    if (_notificationItems
+        .any((n) => n['appointmentId'] == apptId && n['status'] == status)) {
+      // Already exists locally, do not add
+      return;
+    }
+    try {
+      final query = await FirebaseFirestore.instance
+          .collection('patient_notifications')
+          .where('patientUid', isEqualTo: _currentPatientId)
+          .where('appointmentId', isEqualTo: apptId)
+          .where('status', isEqualTo: status)
+          .limit(1)
+          .get();
+      if (query.docs.isNotEmpty) {
+        // Already exists in Firestore, do not add
+        return;
+      }
+    } catch (e) {
+      debugPrint('Error checking for duplicate notification: $e');
+      // If error, continue to try to add (fail-safe)
+    }
+
+    // Always show the most advanced status for this appointment
+    String effectiveStatus = status;
+    // Query for more advanced statuses
+    final completedSnap = await FirebaseFirestore.instance
+        .collection('completed_appointments')
+        .where('appointmentId', isEqualTo: apptId)
+        .limit(1)
+        .get();
+    final historySnap = await FirebaseFirestore.instance
+        .collection('appointment_history')
+        .where('appointmentId', isEqualTo: apptId)
+        .limit(1)
+        .get();
+    if (historySnap.docs.isNotEmpty) {
+      effectiveStatus = 'treatment_completed';
+    } else if (completedSnap.docs.isNotEmpty) {
+      // Check the actual status in completed_appointments
+      final completedData = completedSnap.docs.first.data();
+      final completedStatus =
+          (completedData['status'] ?? '').toString().toLowerCase();
+      if (completedStatus == 'consultation_finished' ||
+          completedStatus == 'with_prescription') {
+        effectiveStatus = 'consultation_finished';
+      } else if (completedStatus == 'treatment_completed' ||
+          completedStatus == 'with_certificate') {
+        effectiveStatus = 'treatment_completed';
+      } else {
+        effectiveStatus = completedStatus;
+      }
+    }
+    // If the effective status is more advanced than 'approved', do not show 'approved' notification
+    if (status == 'approved' && effectiveStatus != 'approved') {
+      // Instead, show the correct notification for the advanced status
+      if (effectiveStatus == 'consultation_finished') {
+        reason = 'consultation_finished';
+      } else if (effectiveStatus == 'treatment_completed') {
+        reason = 'treatment_completed';
+      } else {
+        // fallback to status_changed
+        reason = 'status_changed';
+      }
+      status = effectiveStatus;
+    }
 
     final doctorName = appt['doctorName'] ?? appt['doctor_name'] ?? 'Doctor';
     if (reason == 'new') {
@@ -155,26 +239,36 @@ class _PlandingPageState extends State<PlandingPage> {
       if (status == 'approved') {
         title = 'Appointment Confirmed';
         subtitle = 'Your appointment with Dr. $doctorName has been confirmed.';
+      } else if (status == 'completed' || status == 'appointment_completed') {
+        title = 'Appointment Completed';
+        subtitle = 'Your appointment with Dr. $doctorName has been completed.';
       } else if (status == 'pending' || status.isEmpty) {
         title = 'Appointment Request Sent';
-        subtitle = 'Your appointment request with Dr. $doctorName has been submitted.';
+        subtitle =
+            'Your appointment request with Dr. $doctorName has been submitted.';
       } else {
         title = 'New Appointment';
         subtitle = 'You have a new appointment with Dr. $doctorName.';
       }
     } else if (reason == 'consultation_finished') {
-      title = 'Consultation Done';
+      title = 'Online Consultation Complete';
       // if prescription was added, mention it
-      final hasPrescription = (appt['status'] ?? '').toString().toLowerCase() == 'with_prescription' || (appt['hasPrescription'] == true);
+      final hasPrescription = (appt['status'] ?? '').toString().toLowerCase() ==
+              'with_prescription' ||
+          (appt['hasPrescription'] == true);
       subtitle = hasPrescription
-          ? 'Your online consultation with Dr. $doctorName is done. E-Prescription is available.'
-          : 'Your online consultation with Dr. $doctorName is done.';
+          ? 'Your online consultation with Dr. $doctorName is complete. E-Prescription is available.'
+          : 'Your online consultation with Dr. $doctorName is complete.';
     } else if (reason == 'treatment_completed') {
-      title = 'Congratulations!';
-      subtitle = 'Your TB treatment was completed. View your Certificate of Completion issued by Dr. $doctorName.';
+      title = 'Certificate Received';
+      subtitle =
+          'Congratulations! You have received your Certificate of Completion from Dr. $doctorName.';
     } else if (reason == 'rejected') {
       title = 'Appointment Was Rejected';
-      final rejectReason = appt['rejectReason'] ?? appt['rejectionReason'] ?? appt['reason'] ?? '';
+      final rejectReason = appt['rejectReason'] ??
+          appt['rejectionReason'] ??
+          appt['reason'] ??
+          '';
       subtitle = rejectReason != ''
           ? 'Your request appointment with Dr. $doctorName was rejected: $rejectReason'
           : 'Your request appointment with Dr. $doctorName was rejected.';
@@ -184,6 +278,10 @@ class _PlandingPageState extends State<PlandingPage> {
         case 'approved':
           title = 'Appointment Approved';
           break;
+        case 'completed':
+        case 'appointment_completed':
+          title = 'Appointment Completed';
+          break;
         case 'pending':
           title = 'Appointment Pending';
           break;
@@ -191,17 +289,31 @@ class _PlandingPageState extends State<PlandingPage> {
           title = 'E-Prescription Ready';
           break;
         case 'with_certificate':
-          title = 'Treatment Complete';
+          title = 'Certificate Received';
+          break;
+        case 'consultation_finished':
+          title = 'Online Consultation Complete';
           break;
         default:
           title = 'Appointment Update';
       }
-      subtitle = 'Dr. $doctorName • ${status.toUpperCase()}';
+      if (status == 'with_certificate' || status == 'treatment_completed') {
+        subtitle =
+            'Congratulations! You have received your Certificate of Completion from Dr. $doctorName.';
+      } else if (status == 'consultation_finished') {
+        subtitle = 'Your online consultation with Dr. $doctorName is complete.';
+      } else if (status == 'completed' || status == 'appointment_completed') {
+        subtitle = 'Your appointment with Dr. $doctorName has been completed.';
+      } else {
+        subtitle = 'Dr. $doctorName • ${status.toUpperCase()}';
+      }
     }
 
     try {
       // Mark source so we know this notification originates from pmyappointment updates
-      final docRef = await FirebaseFirestore.instance.collection('patient_notifications').add({
+      final docRef = await FirebaseFirestore.instance
+          .collection('patient_notifications')
+          .add({
         'patientUid': _currentPatientId,
         'appointmentId': apptId,
         'title': title,
@@ -299,8 +411,10 @@ class _PlandingPageState extends State<PlandingPage> {
 
   @override
   Widget build(BuildContext context) {
-  // Only count unread notifications that originate from pmyappointment (new/updated containers)
-  final int unreadCount = _notificationItems.where((n) => n['source'] == 'pmyappointment' && !(n['read'] == true)).length;
+    // Only count unread notifications that originate from pmyappointment (new/updated containers)
+    final int unreadCount = _notificationItems
+        .where((n) => n['source'] == 'pmyappointment' && !(n['read'] == true))
+        .length;
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -323,7 +437,11 @@ class _PlandingPageState extends State<PlandingPage> {
                         n['read'] = true;
                         final docId = n['docId'];
                         if (docId != null) {
-                          FirebaseFirestore.instance.collection('patient_notifications').doc(docId).update({'read': true}).catchError((e) => debugPrint('Error marking read: $e'));
+                          FirebaseFirestore.instance
+                              .collection('patient_notifications')
+                              .doc(docId)
+                              .update({'read': true}).catchError(
+                                  (e) => debugPrint('Error marking read: $e'));
                         }
                       }
                       setState(() {});
@@ -333,7 +451,8 @@ class _PlandingPageState extends State<PlandingPage> {
                         context: context,
                         isScrollControlled: true,
                         shape: const RoundedRectangleBorder(
-                          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                          borderRadius:
+                              BorderRadius.vertical(top: Radius.circular(24)),
                         ),
                         builder: (ctx) {
                           return DraggableScrollableSheet(
@@ -346,7 +465,8 @@ class _PlandingPageState extends State<PlandingPage> {
                                 padding: const EdgeInsets.all(16),
                                 decoration: const BoxDecoration(
                                   color: Colors.white,
-                                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                                  borderRadius: BorderRadius.vertical(
+                                      top: Radius.circular(24)),
                                 ),
                                 child: Column(
                                   children: [
@@ -360,139 +480,107 @@ class _PlandingPageState extends State<PlandingPage> {
                                     ),
                                     const SizedBox(height: 12),
                                     Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
-                                        const Text('Notifications', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                                        Text('${_notificationItems.where((n) => !(n['read'] == true)).length} new', style: const TextStyle(color: Colors.grey)),
+                                        const Text('Notifications',
+                                            style: TextStyle(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold)),
+                                        Text(
+                                            '${_notificationItems.where((n) => !(n['read'] == true)).length} new',
+                                            style: const TextStyle(
+                                                color: Colors.grey)),
                                       ],
                                     ),
                                     const SizedBox(height: 12),
                                     Expanded(
                                       child: _notificationItems.isEmpty
-                                          ? Center(child: Text('No notifications', style: TextStyle(color: Colors.grey.shade600)))
+                                          ? Center(
+                                              child: Text('No notifications',
+                                                  style: TextStyle(
+                                                      color: Colors
+                                                          .grey.shade600)))
                                           : ListView.builder(
                                               controller: controller,
-                                              itemCount: _notificationItems.length,
+                                              itemCount:
+                                                  _notificationItems.length,
                                               itemBuilder: (context, index) {
-                                                final n = _notificationItems[index];
-                                                // modern compact card
-                                                final unread = !(n['read'] == true);
-                                               // compute display values here so they're in scope for the whole item
-                                               final status = (n['status'] ?? '').toString().toLowerCase();
-                                               IconData iconData = Icons.event_note;
-                                               Color iconColor = Colors.grey.shade700;
-                                               String typeLabel = '';
-
-                                               if (status == 'rejected') {
-                                                 iconData = Icons.cancel_rounded;
-                                                 iconColor = Colors.redAccent;
-                                                 typeLabel = 'Rejected';
-                                               } else if (status == 'with_prescription' || (n['title'] ?? '').toString().toLowerCase().contains('consultation done')) {
-                                                 iconData = Icons.medication_rounded;
-                                                 iconColor = Colors.orange.shade700;
-                                                 typeLabel = 'Consultation';
-                                               } else if (status == 'treatment_completed' || status == 'with_certificate' || (n['title'] ?? '').toString().toLowerCase().contains('congratulations')) {
-                                                 iconData = Icons.workspace_premium_rounded;
-                                                 iconColor = Colors.purple;
-                                                 typeLabel = 'Certificate';
-                                               } else if (status == 'approved') {
-                                                 iconData = Icons.event_available_rounded;
-                                                 iconColor = Colors.green;
-                                                 typeLabel = 'Approved';
-                                               }
-                                                return GestureDetector(
-                                                  onTap: () async {
-                                                    // mark this notification as read locally and in Firestore
-                                                    setState(() {
-                                                      n['read'] = true;
-                                                    });
+                                                final n =
+                                                    _notificationItems[index];
+                                                return Dismissible(
+                                                  key: Key(n['docId'] ??
+                                                      n['appointmentId'] ??
+                                                      index.toString()),
+                                                  direction: DismissDirection
+                                                      .endToStart,
+                                                  background: Container(
+                                                    alignment:
+                                                        Alignment.centerRight,
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                        horizontal: 24),
+                                                    color: Colors.redAccent,
+                                                    child: const Icon(
+                                                        Icons.delete,
+                                                        color: Colors.white),
+                                                  ),
+                                                  onDismissed:
+                                                      (direction) async {
                                                     final docId = n['docId'];
                                                     if (docId != null) {
                                                       try {
-                                                        await FirebaseFirestore.instance.collection('patient_notifications').doc(docId).update({'read': true});
+                                                        await FirebaseFirestore
+                                                            .instance
+                                                            .collection(
+                                                                'patient_notifications')
+                                                            .doc(docId)
+                                                            .delete();
                                                       } catch (e) {
-                                                        debugPrint('Error updating read flag: $e');
+                                                        debugPrint(
+                                                            'Error deleting notification: $e');
                                                       }
                                                     }
-                                                    Navigator.of(ctx).pop();
-                                                    Navigator.push(
-                                                      context,
-                                                      MaterialPageRoute(builder: (_) => const PMyAppointmentScreen()),
-                                                    );
+                                                    setState(() {
+                                                      _notificationItems
+                                                          .removeAt(index);
+                                                    });
                                                   },
-                                                  child: Container(
-                                                      margin: const EdgeInsets.symmetric(vertical: 6),
-                                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                                      decoration: BoxDecoration(
-                                                        color: unread ? Colors.redAccent.withOpacity(0.06) : Colors.white,
-                                                        borderRadius: BorderRadius.circular(12),
-                                                        border: Border.all(color: unread ? Colors.redAccent.withOpacity(0.18) : Colors.grey.shade200),
-                                                        boxShadow: unread ? [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6, offset: Offset(0,2))] : null,
-                                                      ),
-                                                      child: Row(
-                                                        children: [
-                                                          // Accent bar for unread
-                                                          Container(
-                                                            width: 6,
-                                                            height: 56,
-                                                            decoration: BoxDecoration(
-                                                              color: unread ? Colors.redAccent : Colors.transparent,
-                                                              borderRadius: const BorderRadius.only(topLeft: Radius.circular(12), bottomLeft: Radius.circular(12)),
-                                                            ),
-                                                          ),
-                                                          const SizedBox(width: 10),
-                                                          // Dynamic icon by notification type
-                                                          Container(
-                                                            width: 40,
-                                                            height: 40,
-                                                            decoration: BoxDecoration(
-                                                              gradient: unread
-                                                                  ? LinearGradient(colors: [iconColor.withOpacity(0.14), iconColor.withOpacity(0.06)])
-                                                                  : LinearGradient(colors: [Colors.grey.shade100, Colors.grey.shade50]),
-                                                              borderRadius: BorderRadius.circular(10),
-                                                            ),
-                                                            child: Icon(iconData, size: 20, color: unread ? iconColor : Colors.grey.shade700),
-                                                          ),
-                                                          const SizedBox(width: 12),
-                                                          Expanded(
-                                                            child: Column(
-                                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                                              children: [
-                                                                Row(
-                                                                  children: [
-                                                                    Expanded(
-                                                                      child: Text(n['title'] ?? '', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Colors.black87)),
-                                                                    ),
-                                                                    Text(_formatTime(n['timestamp'] as DateTime), style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-                                                                  ],
-                                                                ),
-                                                                const SizedBox(height: 6),
-                                                                Text(n['subtitle'] ?? '', style: TextStyle(color: Colors.grey.shade700, fontSize: 13, height: 1.15)),
-                                                                const SizedBox(height: 6),
-                                                                // type label
-                                                                Align(
-                                                                  alignment: Alignment.centerLeft,
-                                                                  child: Container(
-                                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                                    decoration: BoxDecoration(
-                                                                      color: Colors.grey.shade100,
-                                                                      borderRadius: BorderRadius.circular(12),
-                                                                    ),
-                                                                    child: Text(
-                                                                      typeLabel.isNotEmpty ? typeLabel.toUpperCase() : ((n['status'] ?? '').toString().isNotEmpty ? (n['status'] ?? '').toString().toUpperCase() : ''),
-                                                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black54),
-                                                                    ),
-                                                                  ),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                          ),
-                                                          const SizedBox(width: 8),
-                                                          // simple right-arrow icon (no circle)
-                                                          Icon(Icons.arrow_forward_ios, size: 18, color: unread ? Colors.redAccent : Colors.grey.shade600),
-                                                        ],
-                                                      ),
-                                                    ),
+                                                  child: GestureDetector(
+                                                    onTap: () async {
+                                                      // mark this notification as read locally and in Firestore
+                                                      setState(() {
+                                                        n['read'] = true;
+                                                      });
+                                                      final docId = n['docId'];
+                                                      if (docId != null) {
+                                                        try {
+                                                          await FirebaseFirestore
+                                                              .instance
+                                                              .collection(
+                                                                  'patient_notifications')
+                                                              .doc(docId)
+                                                              .update({
+                                                            'read': true
+                                                          });
+                                                        } catch (e) {
+                                                          debugPrint(
+                                                              'Error updating read flag: $e');
+                                                        }
+                                                      }
+                                                      Navigator.of(ctx).pop();
+                                                      Navigator.push(
+                                                        context,
+                                                        MaterialPageRoute(
+                                                            builder: (_) =>
+                                                                const PMyAppointmentScreen()),
+                                                      );
+                                                    },
+                                                    child:
+                                                        AppointmentStatusCard(
+                                                            status:
+                                                                n['status']),
+                                                  ),
                                                 );
                                               },
                                             ),
@@ -513,24 +601,56 @@ class _PlandingPageState extends State<PlandingPage> {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(12),
-                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 6)],
+                            boxShadow: [
+                              BoxShadow(
+                                  color: Colors.black.withOpacity(0.05),
+                                  blurRadius: 6)
+                            ],
                           ),
-                          child: const Icon(Icons.notifications_none, size: 28, color: Colors.black),
+                          child: const Icon(Icons.notifications_none,
+                              size: 28, color: Colors.black),
                         ),
                         if (unreadCount > 0)
                           Positioned(
                             right: -4,
                             top: -4,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
                                 color: Colors.redAccent,
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.white, width: 1.5),
+                                border:
+                                    Border.all(color: Colors.white, width: 1.5),
                               ),
                               child: Text(
                                 unreadCount > 99 ? '99+' : '$unreadCount',
-                                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ),
+                        if (unreadCount == 0 && _notificationItems.isNotEmpty)
+                          Positioned(
+                            right: -4,
+                            top: -4,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.grey,
+                                borderRadius: BorderRadius.circular(12),
+                                border:
+                                    Border.all(color: Colors.white, width: 1.5),
+                              ),
+                              child: Text(
+                                '0',
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold),
                               ),
                             ),
                           ),
@@ -540,7 +660,7 @@ class _PlandingPageState extends State<PlandingPage> {
                 ],
               ),
               const SizedBox(height: 20),
-              
+
               // ========== TB SYMPTOMS CHECKER SECTION ==========
               Container(
                 decoration: BoxDecoration(
@@ -553,7 +673,8 @@ class _PlandingPageState extends State<PlandingPage> {
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.redAccent.withOpacity(0.3), width: 1.5),
+                  border: Border.all(
+                      color: Colors.redAccent.withOpacity(0.3), width: 1.5),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.redAccent.withOpacity(0.15),
@@ -589,7 +710,8 @@ class _PlandingPageState extends State<PlandingPage> {
                       const SizedBox(height: 8),
                       _symptomItem(Icons.thermostat, 'Unexplained fever'),
                       const SizedBox(height: 8),
-                      _symptomItem(Icons.trending_down, 'Unexplained weight loss'),
+                      _symptomItem(
+                          Icons.trending_down, 'Unexplained weight loss'),
                       const SizedBox(height: 8),
                       _symptomItem(Icons.nights_stay, 'Night sweat'),
                       const SizedBox(height: 16),
@@ -598,7 +720,8 @@ class _PlandingPageState extends State<PlandingPage> {
                         decoration: BoxDecoration(
                           color: Colors.redAccent.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
+                          border: Border.all(
+                              color: Colors.redAccent.withOpacity(0.3)),
                         ),
                         child: Row(
                           children: [
@@ -618,15 +741,20 @@ class _PlandingPageState extends State<PlandingPage> {
                                   children: const [
                                     TextSpan(
                                       text: 'If yes, ',
-                                      style: TextStyle(fontWeight: FontWeight.normal),
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.normal),
                                     ),
                                     TextSpan(
-                                      text: 'you might have Tuberculosis (TB). ',
-                                      style: TextStyle(fontWeight: FontWeight.bold),
+                                      text:
+                                          'you might have Tuberculosis (TB). ',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold),
                                     ),
                                     TextSpan(
-                                      text: 'Don\'t ignore the signs — get checked today!',
-                                      style: TextStyle(fontWeight: FontWeight.w600),
+                                      text:
+                                          'Don\'t ignore the signs — get checked today!',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.w600),
                                     ),
                                   ],
                                 ),
@@ -640,7 +768,7 @@ class _PlandingPageState extends State<PlandingPage> {
                 ),
               ),
               const SizedBox(height: 24),
-              
+
               const Text('Quick Actions',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
@@ -681,15 +809,19 @@ class _PlandingPageState extends State<PlandingPage> {
                               height: 200,
                               decoration: BoxDecoration(
                                 color: Colors.grey.shade100,
-                                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                                borderRadius: const BorderRadius.vertical(
+                                    top: Radius.circular(16)),
                               ),
                               child: const Center(
                                 child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    CircularProgressIndicator(color: Colors.redAccent),
+                                    CircularProgressIndicator(
+                                        color: Colors.redAccent),
                                     SizedBox(height: 8),
-                                    Text('Loading video...', style: TextStyle(color: Colors.black54)),
+                                    Text('Loading video...',
+                                        style:
+                                            TextStyle(color: Colors.black54)),
                                   ],
                                 ),
                               ),
@@ -703,15 +835,20 @@ class _PlandingPageState extends State<PlandingPage> {
                                   height: 200,
                                   decoration: BoxDecoration(
                                     color: Colors.grey.shade100,
-                                    borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                                    borderRadius: const BorderRadius.vertical(
+                                        top: Radius.circular(16)),
                                   ),
                                   child: const Center(
                                     child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
-                                        Icon(Icons.video_library_outlined, size: 48, color: Colors.black54),
+                                        Icon(Icons.video_library_outlined,
+                                            size: 48, color: Colors.black54),
                                         SizedBox(height: 8),
-                                        Text("No video available", style: TextStyle(color: Colors.black54)),
+                                        Text("No video available",
+                                            style: TextStyle(
+                                                color: Colors.black54)),
                                       ],
                                     ),
                                   ),
@@ -736,7 +873,7 @@ class _PlandingPageState extends State<PlandingPage> {
               const Text('Guidelines',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              
+
               // ========== NTP MOP 6th Edition ==========
               Container(
                 decoration: BoxDecoration(
@@ -800,10 +937,10 @@ class _PlandingPageState extends State<PlandingPage> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) =>
-                                      const PracticalPdfViewerScreen(
-                                          assetPath:
-                                              'assets/documents/NTP_MOP_6TH_EDITION.pdf'),
+                                  builder: (_) => PracticalPdfViewerScreen(
+                                      source:
+                                          'assets/documents/NTP_MOP_6TH_EDITION.pdf',
+                                      sourceType: PdfSourceType.asset),
                                 ),
                               );
                             },
@@ -827,7 +964,7 @@ class _PlandingPageState extends State<PlandingPage> {
                 ),
               ),
               const SizedBox(height: 12),
-              
+
               // ========== TB Screening, Diagnosis and Management Pocket Guide ==========
               Container(
                 decoration: BoxDecoration(
@@ -891,10 +1028,10 @@ class _PlandingPageState extends State<PlandingPage> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) =>
-                                      const PracticalPdfViewerScreen(
-                                          assetPath:
-                                              'assets/documents/TB_Screening,DiagnosisandManagement_PocketGuide.pdf'),
+                                  builder: (_) => PracticalPdfViewerScreen(
+                                      source:
+                                          'assets/documents/TB_Screening,DiagnosisandManagement_PocketGuide.pdf',
+                                      sourceType: PdfSourceType.asset),
                                 ),
                               );
                             },
@@ -959,15 +1096,6 @@ class _PlandingPageState extends State<PlandingPage> {
         ),
       ),
     );
-  }
-
-  String _formatTime(DateTime dt) {
-    final now = DateTime.now();
-    final diff = now.difference(dt);
-    if (diff.inSeconds < 60) return 'just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m';
-    if (diff.inHours < 24) return '${diff.inHours}h';
-    return '${dt.day}/${dt.month}/${dt.year}';
   }
 
   static Widget _quickAction(

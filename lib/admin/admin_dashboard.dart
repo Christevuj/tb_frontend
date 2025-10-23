@@ -1224,6 +1224,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                           icon: Icons.health_and_safety_rounded,
                           label: "Health Workers",
                           tab: DashboardTab.healthWorkers),
+                      const SizedBox(height: 20),
+                      _buildEmailSettingsMenuItem(),
                     ],
                   ),
                 ),

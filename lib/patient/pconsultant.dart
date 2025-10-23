@@ -24,7 +24,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     {
       "role": "system",
       "content":
-          "You are a helpful and knowledgeable TB (Tuberculosis) consultant. Keep your responses SHORT (2-4 sentences maximum), simple, and easy to understand. Use everyday language that anyone can understand. Only answer medical questions, especially those related to TB. If a question is not medical, politely redirect the user to ask about TB or medical topics."
+          "You are a helpful and knowledgeable TB (Tuberculosis) consultant. Greet the user as a TB consultant and only answer questions related to TB. If a question is not related to TB, politely redirect the user to ask about TB or medical topics."
     },
   ];
   bool _serviceAvailable = true;
@@ -38,7 +38,16 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   late final AnimationController _quickFadeController;
   late final Animation<Offset> _quickSlideAnimation;
 
-  late final GenerativeModel _geminiModel;
+  // List of Gemini models to try in order
+  final List<String> _geminiModels = [
+    'models/gemini-2.5-pro',
+    'models/gemini-2.5-flash',
+    'models/gemini-2.5-flash-lite',
+    'models/gemini-2.0-flash',
+    'models/gemini-2.0-flash-exp',
+    'models/gemini-2.0-flash-lite',
+  ];
+  final String _apiKey = 'AIzaSyDwzLT5nxbepTR5wQgwo3l3gL_0IYNhEQg';
 
   final List<String> _quickQuestions = [
     "What are the symptoms of TB?",
@@ -54,11 +63,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   void initState() {
     super.initState();
 
-    // Use the provided Gemini API key directly
-    _geminiModel = GenerativeModel(
-      model: 'models/gemini-2.5-pro',
-      apiKey: 'AIzaSyDwzLT5nxbepTR5wQgwo3l3gL_0IYNhEQg',
-    );
+    // No longer create a single model instance; will use fallback logic
 
     // Check Gemini service availability
     _checkGeminiService();
@@ -154,21 +159,35 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           })
           .whereType<Content>()
           .toList();
-      final response = await _geminiModel.generateContent(content);
-      // Live typing effect for AI response
-      final aiText = response.text ?? "(No response)";
-      _messages[botIndex]['content'] = "";
-      for (int i = 0; i < aiText.length; i++) {
-        await Future.delayed(const Duration(milliseconds: 18));
+
+      bool success = false;
+      String lastError = '';
+      for (final modelName in _geminiModels) {
+        try {
+          final model = GenerativeModel(model: modelName, apiKey: _apiKey);
+          final response = await model.generateContent(content);
+          final aiText = response.text ?? "(No response)";
+          _messages[botIndex]['content'] = "";
+          for (int i = 0; i < aiText.length; i++) {
+            await Future.delayed(const Duration(milliseconds: 18));
+            setState(() {
+              _messages[botIndex]['content'] =
+                  (_messages[botIndex]['content'] ?? '') + aiText[i];
+            });
+          }
+          success = true;
+          break;
+        } catch (e) {
+          lastError = e.toString();
+          // If quota error, try next model
+          continue;
+        }
+      }
+      if (!success) {
         setState(() {
-          _messages[botIndex]['content'] =
-              (_messages[botIndex]['content'] ?? '') + aiText[i];
+          _messages[botIndex]['content'] = "⚠️ Error: $lastError";
         });
       }
-    } catch (e) {
-      setState(() {
-        _messages[botIndex]['content'] = "⚠️ Error: $e";
-      });
     } finally {
       setState(() {
         _loading = false;
@@ -441,29 +460,31 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _checkGeminiService() async {
-    try {
-      // Send a minimal request to check service
-      final response =
-          await _geminiModel.generateContent([Content.text('ping')]);
-      if (response.text == null ||
-          response.text!.toLowerCase().contains('error')) {
-        setState(() {
-          _serviceAvailable = false;
-          _serviceError =
-              'The AI service is currently unavailable. Please try again later.';
-        });
-      } else {
-        setState(() {
-          _serviceAvailable = true;
-          _serviceError = null;
-        });
+    // Try each configured Gemini model until one responds successfully.
+    for (final modelName in _geminiModels) {
+      try {
+        final model = GenerativeModel(model: modelName, apiKey: _apiKey);
+        final response = await model.generateContent([Content.text('ping')]);
+        final text = response.text;
+        if (text != null && !text.toLowerCase().contains('error')) {
+          setState(() {
+            _serviceAvailable = true;
+            _serviceError = null;
+          });
+          return;
+        }
+        // otherwise try next model
+      } catch (e) {
+        // ignore and try next model
+        continue;
       }
-    } catch (e) {
-      setState(() {
-        _serviceAvailable = false;
-        _serviceError =
-            'The AI service is currently unavailable. Please try again later.';
-      });
     }
+
+    // If none of the models worked, mark service as unavailable.
+    setState(() {
+      _serviceAvailable = false;
+      _serviceError =
+          'The AI service is currently unavailable. Please try again later.';
+    });
   }
 }

@@ -178,6 +178,12 @@ class _EmailCredentialsPageState extends State<EmailCredentialsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
         title: Text(
           'Email Credentials',
           style: GoogleFonts.poppins(fontWeight: FontWeight.w600),

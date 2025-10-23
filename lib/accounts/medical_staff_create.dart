@@ -24,7 +24,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
   List<Map<String, dynamic>> affiliations = [];
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
-  
+
   // Facility management
   Map<String, String> facilities = {};
   bool isLoadingFacilities = true;
@@ -38,33 +38,37 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
   // Load facilities from Firebase
   Future<void> _loadFacilities() async {
     try {
-      final facilitiesSnapshot = await FirebaseFirestore.instance
-          .collection('facilities')
-          .get();
-      
+      final facilitiesSnapshot =
+          await FirebaseFirestore.instance.collection('facilities').get();
+
       Map<String, String> loadedFacilities = {};
       for (var doc in facilitiesSnapshot.docs) {
         final data = doc.data();
-        loadedFacilities[data['name'] ?? doc.id] = data['address'] ?? 'Address not available';
+        loadedFacilities[data['name'] ?? doc.id] =
+            data['address'] ?? 'Address not available';
       }
-      
+
       // If no facilities found in Firebase, add some default TB DOTS facilities
       if (loadedFacilities.isEmpty) {
         loadedFacilities = {
-          'AGDAO': 'Agdao Public Market Corner Lapu-Lapu & C. Bangoy St., Agdao, Davao City',
+          'AGDAO':
+              'Agdao Public Market Corner Lapu-Lapu & C. Bangoy St., Agdao, Davao City',
           'BAGUIO': 'Baguio District Health Center, Davao City',
           'BUNAWAN': 'Bunawan District Health Center, Davao City',
           'CALINAN': 'P34, Aurora St., Calinan, Davao City',
           'DAVAO CHEST CENTER': 'Villa Abrille St., Brgy 30-C, Davao City',
-          'DISTRICT A (TOMAS CLAUDIO HC)': 'Camus Ext., Corner Quirino Ave., Davao City',
+          'DISTRICT A (TOMAS CLAUDIO HC)':
+              'Camus Ext., Corner Quirino Ave., Davao City',
           'DISTRICT B (EL RIO HC)': 'Garcia Heights, Bajada, Davao City',
-          'DISTICT C (MINIFOREST HC)': 'Brgy 23-C, Quezon Boulevard, Davao City',
+          'DISTICT C (MINIFOREST HC)':
+              'Brgy 23-C, Quezon Boulevard, Davao City',
           'DISTRICT D (JACINTO HC)': 'Emilio Jacinto St., Davao City',
           'MARILOG (MARAHAN HC)': 'Sitio Marahan, Brgy. Marilog, Davao City',
           'PAQUIBATO (MALABOG HC)': 'Brgy Malabog, Davao City',
           'SASA': 'Bangoy Km 9, Sasa, Davao City',
           'TALOMO CENTRAL (GSIS HC)': 'GSIS Village, Matina, Davao City',
-          'TALOMO NORTH (SIR HC)': 'Daang Patnubay St., SIR Ph-1, Sandawa, Davao City',
+          'TALOMO NORTH (SIR HC)':
+              'Daang Patnubay St., SIR Ph-1, Sandawa, Davao City',
           'TALOMO SOUTH (PUAN HC)': 'Puan, Talomo, Davao City',
           'TORIL A': 'Agton St., Toril, Davao City',
           'TORIL B': 'Juan Dela Cruz St., Daliao, Toril, Davao City',
@@ -72,7 +76,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
           'WAAN': 'Waan District Health Center, Davao City'
         };
       }
-      
+
       if (mounted) {
         setState(() {
           facilities = loadedFacilities;
@@ -85,20 +89,24 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
         setState(() {
           isLoadingFacilities = false;
           facilities = {
-            'AGDAO': 'Agdao Public Market Corner Lapu-Lapu & C. Bangoy St., Agdao, Davao City',
+            'AGDAO':
+                'Agdao Public Market Corner Lapu-Lapu & C. Bangoy St., Agdao, Davao City',
             'BAGUIO': 'Baguio District Health Center, Davao City',
             'BUNAWAN': 'Bunawan District Health Center, Davao City',
             'CALINAN': 'P34, Aurora St., Calinan, Davao City',
             'DAVAO CHEST CENTER': 'Villa Abrille St., Brgy 30-C, Davao City',
-            'DISTRICT A (TOMAS CLAUDIO HC)': 'Camus Ext., Corner Quirino Ave., Davao City',
+            'DISTRICT A (TOMAS CLAUDIO HC)':
+                'Camus Ext., Corner Quirino Ave., Davao City',
             'DISTRICT B (EL RIO HC)': 'Garcia Heights, Bajada, Davao City',
-            'DISTICT C (MINIFOREST HC)': 'Brgy 23-C, Quezon Boulevard, Davao City',
+            'DISTICT C (MINIFOREST HC)':
+                'Brgy 23-C, Quezon Boulevard, Davao City',
             'DISTRICT D (JACINTO HC)': 'Emilio Jacinto St., Davao City',
             'MARILOG (MARAHAN HC)': 'Sitio Marahan, Brgy. Marilog, Davao City',
             'PAQUIBATO (MALABOG HC)': 'Brgy Malabog, Davao City',
             'SASA': 'Bangoy Km 9, Sasa, Davao City',
             'TALOMO CENTRAL (GSIS HC)': 'GSIS Village, Matina, Davao City',
-            'TALOMO NORTH (SIR HC)': 'Daang Patnubay St., SIR Ph-1, Sandawa, Davao City',
+            'TALOMO NORTH (SIR HC)':
+                'Daang Patnubay St., SIR Ph-1, Sandawa, Davao City',
             'TALOMO SOUTH (PUAN HC)': 'Puan, Talomo, Davao City',
           };
         });
@@ -109,7 +117,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
   void _showAddAffiliationDialog() {
     String? selectedFacility;
     String facilityAddress = '';
-    
+
     // DEFAULT SCHEDULE: Monday to Friday, 9 AM - 5 PM, Break 11 AM - 12 PM, 30 min sessions
     List<Map<String, String>> schedules = [
       {
@@ -123,7 +131,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
         "endDay": "Friday",
       }
     ];
-    
+
     const List<String> days = [
       'Monday',
       'Tuesday',
@@ -135,7 +143,8 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
     ];
 
     // Helper method to build time picker with hour, minute, and AM/PM dropdowns
-    Widget buildTimePicker(String currentTime, Function(String) onTimeChanged, StateSetter setState) {
+    Widget buildTimePicker(String currentTime, Function(String) onTimeChanged,
+        StateSetter setState) {
       // Parse current time or use default format 00:00 AM
       final parts = currentTime.split(' ');
       final timePart = parts[0];
@@ -162,13 +171,18 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                   borderRadius: BorderRadius.circular(6),
                   borderSide: const BorderSide(color: Colors.redAccent),
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
                 isDense: true,
               ),
               style: GoogleFonts.poppins(fontSize: 13),
               keyboardType: TextInputType.number,
               maxLength: 2,
-              buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
+              buildCounter: (context,
+                      {required currentLength,
+                      required isFocused,
+                      maxLength}) =>
+                  null,
               onChanged: (value) {
                 if (value.isNotEmpty && int.tryParse(value) != null) {
                   final paddedValue = value.padLeft(2, '0');
@@ -180,7 +194,9 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
             ),
           ),
           const SizedBox(width: 2),
-          Text(':', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold)),
+          Text(':',
+              style: GoogleFonts.poppins(
+                  fontSize: 12, fontWeight: FontWeight.bold)),
           const SizedBox(width: 2),
           // Minute text field
           Expanded(
@@ -198,13 +214,18 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                   borderRadius: BorderRadius.circular(6),
                   borderSide: const BorderSide(color: Colors.redAccent),
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
                 isDense: true,
               ),
               style: GoogleFonts.poppins(fontSize: 13),
               keyboardType: TextInputType.number,
               maxLength: 2,
-              buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
+              buildCounter: (context,
+                      {required currentLength,
+                      required isFocused,
+                      maxLength}) =>
+                  null,
               onChanged: (value) {
                 if (value.isNotEmpty && int.tryParse(value) != null) {
                   final paddedValue = value.padLeft(2, '0');
@@ -232,13 +253,18 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                   borderRadius: BorderRadius.circular(6),
                   borderSide: const BorderSide(color: Colors.redAccent),
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 isDense: true,
               ),
-              items: ['AM', 'PM'].map((p) => DropdownMenuItem(
-                value: p,
-                child: Text(p, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
-              )).toList(),
+              items: ['AM', 'PM']
+                  .map((p) => DropdownMenuItem(
+                        value: p,
+                        child: Text(p,
+                            style: GoogleFonts.poppins(
+                                fontSize: 13, fontWeight: FontWeight.w600)),
+                      ))
+                  .toList(),
               onChanged: (value) {
                 setState(() {
                   onTimeChanged('$hour:$minute $value');
@@ -251,20 +277,23 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
     }
 
     // Helper method to expand day ranges into individual days
-    List<Map<String, String>> expandScheduleRanges(List<Map<String, String>> inputSchedules) {
+    List<Map<String, String>> expandScheduleRanges(
+        List<Map<String, String>> inputSchedules) {
       List<Map<String, String>> expandedSchedules = [];
-      
+
       for (var schedule in inputSchedules) {
         bool isRange = schedule["isRange"] == "true";
-        
-        if (isRange && schedule["endDay"] != null && schedule["endDay"]!.isNotEmpty) {
+
+        if (isRange &&
+            schedule["endDay"] != null &&
+            schedule["endDay"]!.isNotEmpty) {
           // Handle range like "Monday to Friday"
           String startDay = schedule["day"] ?? "Monday";
           String endDay = schedule["endDay"]!;
-          
+
           int startIndex = days.indexOf(startDay);
           int endIndex = days.indexOf(endDay);
-          
+
           if (startIndex != -1 && endIndex != -1 && startIndex <= endIndex) {
             // Create individual schedules for each day in range
             for (int i = startIndex; i <= endIndex; i++) {
@@ -290,7 +319,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
           });
         }
       }
-      
+
       return expandedSchedules;
     }
 
@@ -354,7 +383,8 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                               color: Colors.white.withOpacity(0.2),
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: const Icon(Icons.local_hospital_rounded, color: Colors.white, size: 24),
+                            child: const Icon(Icons.local_hospital_rounded,
+                                color: Colors.white, size: 24),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -381,13 +411,14 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.close_rounded, color: Colors.white),
+                            icon: const Icon(Icons.close_rounded,
+                                color: Colors.white),
                             onPressed: () => Navigator.pop(context),
                           ),
                         ],
                       ),
                     ),
-                    
+
                     // Content
                     Flexible(
                       child: SingleChildScrollView(
@@ -408,573 +439,752 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                     blurRadius: 8,
                                     offset: const Offset(0, 2),
                                   ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Header
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: Colors.redAccent.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              'Facility Information',
-                              style: GoogleFonts.poppins(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.redAccent,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          
-                          // Facility Dropdown
-                          isLoadingFacilities
-                              ? Container(
-                                  padding: const EdgeInsets.all(16),
-                                  child: Row(
-                                    children: [
-                                      const SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(strokeWidth: 2),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Text(
-                                        'Loading facilities...',
-                                        style: GoogleFonts.poppins(fontSize: 11),
-                                      ),
-                                    ],
-                                  ),
-                                )
-                              : facilities.isEmpty
-                                  ? Container(
-                                      padding: const EdgeInsets.all(16),
-                                      decoration: BoxDecoration(
-                                        color: Colors.orange.withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(10),
-                                        border: Border.all(color: Colors.orange.withOpacity(0.3)),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Icon(Icons.warning, color: Colors.orange, size: 16),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: Text(
-                                              'No facilities available. Please contact administrator.',
-                                              style: GoogleFonts.poppins(fontSize: 11, color: Colors.orange.shade700),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    )
-                                  : DropdownButtonFormField<String>(
-                                      value: selectedFacility,
-                                      decoration: InputDecoration(
-                                        labelText: 'Select TB DOTS Facility',
-                                        labelStyle: GoogleFonts.poppins(fontSize: 11),
-                                        prefixIcon: const Icon(Icons.local_hospital, color: Colors.redAccent),
-                                        border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(10),
-                                          borderSide: BorderSide(color: Colors.grey.shade300),
-                                        ),
-                                        focusedBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(10),
-                                          borderSide: const BorderSide(color: Colors.redAccent),
-                                        ),
-                                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                                        isDense: true,
-                                        filled: true,
-                                        fillColor: Colors.white,
-                                      ),
-                                      items: facilities.keys.map((facility) => DropdownMenuItem(
-                                        value: facility,
-                                        child: Text(
-                                          facility,
-                                          style: GoogleFonts.poppins(fontSize: 14),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      )).toList(),
-                                      onChanged: (value) {
-                                        setModalState(() {
-                                          selectedFacility = value;
-                                          facilityAddress = facilities[value] ?? 'Address not available';
-                                        });
-                                      },
-                                      isExpanded: true,
-                                    ),
-                          
-                          if (selectedFacility != null) ...[
-                            const SizedBox(height: 12),
-                            // Address Display
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.blue.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                                ],
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    'Address',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.blue.shade700,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    facilityAddress,
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 11,
-                                      color: Colors.grey.shade600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // SCHEDULES SECTION - Modern Design matching daccount.dart
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.redAccent.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        'Work Schedules',
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.redAccent,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    
-                    // Info banner about default schedule
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.blue.withOpacity(0.3)),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.info_outline, color: Colors.blue.shade700, size: 20),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'Default schedule: Monday-Friday, 9 AM - 5 PM\nDoctor can update these later',
-                              style: GoogleFonts.poppins(
-                                fontSize: 11,
-                                color: Colors.blue.shade700,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    
-                    // Schedule cards
-                    ...schedules.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final schedule = entry.value;
-                      
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey.shade200),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.grey.withOpacity(0.1),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Header with schedule number and delete button
-                              Row(
-                                children: [
+                                  // Header
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 6),
                                     decoration: BoxDecoration(
                                       color: Colors.redAccent.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(16),
+                                      borderRadius: BorderRadius.circular(20),
                                     ),
                                     child: Text(
-                                      'Schedule ${index + 1}',
+                                      'Facility Information',
                                       style: GoogleFonts.poppins(
-                                        fontSize: 11,
+                                        fontSize: 12,
                                         fontWeight: FontWeight.w600,
                                         color: Colors.redAccent,
                                       ),
                                     ),
                                   ),
-                                  const Spacer(),
-                                  Material(
-                                    color: Colors.transparent,
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(6),
-                                      onTap: () {
-                                        setModalState(() {
-                                          schedules.removeAt(index);
-                                        });
-                                      },
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(6),
-                                        child: Icon(
-                                          Icons.delete_rounded,
-                                          color: Colors.red.shade400,
-                                          size: 18,
-                                        ),
+                                  const SizedBox(height: 16),
+
+                                  // Facility Dropdown
+                                  isLoadingFacilities
+                                      ? Container(
+                                          padding: const EdgeInsets.all(16),
+                                          child: Row(
+                                            children: [
+                                              const SizedBox(
+                                                width: 16,
+                                                height: 16,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                        strokeWidth: 2),
+                                              ),
+                                              const SizedBox(width: 12),
+                                              Text(
+                                                'Loading facilities...',
+                                                style: GoogleFonts.poppins(
+                                                    fontSize: 11),
+                                              ),
+                                            ],
+                                          ),
+                                        )
+                                      : facilities.isEmpty
+                                          ? Container(
+                                              padding: const EdgeInsets.all(16),
+                                              decoration: BoxDecoration(
+                                                color: Colors.orange
+                                                    .withOpacity(0.1),
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                                border: Border.all(
+                                                    color: Colors.orange
+                                                        .withOpacity(0.3)),
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons.warning,
+                                                      color: Colors.orange,
+                                                      size: 16),
+                                                  const SizedBox(width: 12),
+                                                  Expanded(
+                                                    child: Text(
+                                                      'No facilities available. Please contact administrator.',
+                                                      style:
+                                                          GoogleFonts.poppins(
+                                                              fontSize: 11,
+                                                              color: Colors
+                                                                  .orange
+                                                                  .shade700),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            )
+                                          : DropdownButtonFormField<String>(
+                                              value: selectedFacility,
+                                              decoration: InputDecoration(
+                                                labelText:
+                                                    'Select TB DOTS Facility',
+                                                labelStyle: GoogleFonts.poppins(
+                                                    fontSize: 11),
+                                                prefixIcon: const Icon(
+                                                    Icons.local_hospital,
+                                                    color: Colors.redAccent),
+                                                border: OutlineInputBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(10),
+                                                  borderSide: BorderSide(
+                                                      color:
+                                                          Colors.grey.shade300),
+                                                ),
+                                                focusedBorder:
+                                                    OutlineInputBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(10),
+                                                  borderSide: const BorderSide(
+                                                      color: Colors.redAccent),
+                                                ),
+                                                contentPadding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 10,
+                                                        vertical: 12),
+                                                isDense: true,
+                                                filled: true,
+                                                fillColor: Colors.white,
+                                              ),
+                                              items: facilities.keys
+                                                  .map((facility) =>
+                                                      DropdownMenuItem(
+                                                        value: facility,
+                                                        child: Text(
+                                                          facility,
+                                                          style: GoogleFonts
+                                                              .poppins(
+                                                                  fontSize: 14),
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                        ),
+                                                      ))
+                                                  .toList(),
+                                              onChanged: (value) {
+                                                setModalState(() {
+                                                  selectedFacility = value;
+                                                  facilityAddress = facilities[
+                                                          value] ??
+                                                      'Address not available';
+                                                });
+                                              },
+                                              isExpanded: true,
+                                            ),
+
+                                  if (selectedFacility != null) ...[
+                                    const SizedBox(height: 12),
+                                    // Address Display
+                                    Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: Colors.blue.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                            color:
+                                                Colors.blue.withOpacity(0.3)),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Address',
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.blue.shade700,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Text(
+                                            facilityAddress,
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 11,
+                                              color: Colors.grey.shade600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+
+                            // SCHEDULES SECTION - Modern Design matching daccount.dart
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.redAccent.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                'Work Schedules',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.redAccent,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+
+                            // Info banner about default schedule
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                    color: Colors.blue.withOpacity(0.3)),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.info_outline,
+                                      color: Colors.blue.shade700, size: 20),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      'Default schedule: Monday-Friday, 9 AM - 5 PM\nDoctor can update these later',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 11,
+                                        color: Colors.blue.shade700,
                                       ),
                                     ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 10),
-                              
-                              // Day Range Toggle
-                              CheckboxListTile(
-                                title: Text(
-                                  'Day Range',
-                                  style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500),
+                            ),
+                            const SizedBox(height: 12),
+
+                            // Schedule cards
+                            ...schedules.asMap().entries.map((entry) {
+                              final index = entry.key;
+                              final schedule = entry.value;
+
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border:
+                                      Border.all(color: Colors.grey.shade200),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.grey.withOpacity(0.1),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
                                 ),
-                                subtitle: Text(
-                                  'Apply to multiple consecutive days',
-                                  style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey.shade600),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      // Header with schedule number and delete button
+                                      Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 10, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: Colors.redAccent
+                                                  .withOpacity(0.1),
+                                              borderRadius:
+                                                  BorderRadius.circular(16),
+                                            ),
+                                            child: Text(
+                                              'Schedule ${index + 1}',
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.redAccent,
+                                              ),
+                                            ),
+                                          ),
+                                          const Spacer(),
+                                          Material(
+                                            color: Colors.transparent,
+                                            child: InkWell(
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
+                                              onTap: () {
+                                                setModalState(() {
+                                                  schedules.removeAt(index);
+                                                });
+                                              },
+                                              child: Padding(
+                                                padding:
+                                                    const EdgeInsets.all(6),
+                                                child: Icon(
+                                                  Icons.delete_rounded,
+                                                  color: Colors.red.shade400,
+                                                  size: 18,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 10),
+
+                                      // Day Range Toggle
+                                      CheckboxListTile(
+                                        title: Text(
+                                          'Day Range',
+                                          style: GoogleFonts.poppins(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w500),
+                                        ),
+                                        subtitle: Text(
+                                          'Apply to multiple consecutive days',
+                                          style: GoogleFonts.poppins(
+                                              fontSize: 10,
+                                              color: Colors.grey.shade600),
+                                        ),
+                                        value: schedule["isRange"] == "true",
+                                        onChanged: (value) {
+                                          setModalState(() {
+                                            schedules[index]["isRange"] =
+                                                value.toString();
+                                            if (!value!) {
+                                              schedules[index]["endDay"] = "";
+                                            }
+                                          });
+                                        },
+                                        controlAffinity:
+                                            ListTileControlAffinity.leading,
+                                        contentPadding: EdgeInsets.zero,
+                                        dense: true,
+                                      ),
+                                      const SizedBox(height: 8),
+
+                                      // Day Selection
+                                      if (schedule["isRange"] == "true") ...[
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                'Starts',
+                                                style: GoogleFonts.poppins(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Colors.grey.shade700,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                'Ends',
+                                                style: GoogleFonts.poppins(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Colors.grey.shade700,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: DropdownButtonFormField<
+                                                  String>(
+                                                value: days.contains(
+                                                        schedule["day"])
+                                                    ? schedule["day"]
+                                                    : days.first,
+                                                decoration: InputDecoration(
+                                                  labelText: 'Start Day',
+                                                  labelStyle:
+                                                      GoogleFonts.poppins(
+                                                          fontSize: 9),
+                                                  border: OutlineInputBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            6),
+                                                  ),
+                                                  contentPadding:
+                                                      const EdgeInsets
+                                                          .symmetric(
+                                                          horizontal: 6,
+                                                          vertical: 4),
+                                                  isDense: true,
+                                                ),
+                                                items: days
+                                                    .map((day) =>
+                                                        DropdownMenuItem(
+                                                          value: day,
+                                                          child: Text(
+                                                              day.substring(
+                                                                  0, 3),
+                                                              style: GoogleFonts
+                                                                  .poppins(
+                                                                      fontSize:
+                                                                          10)),
+                                                        ))
+                                                    .toList(),
+                                                onChanged: (value) {
+                                                  setModalState(() {
+                                                    schedules[index]["day"] =
+                                                        value ?? days.first;
+                                                  });
+                                                },
+                                                isExpanded: true,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Expanded(
+                                              child: DropdownButtonFormField<
+                                                  String>(
+                                                value: schedule["endDay"]
+                                                                ?.isNotEmpty ==
+                                                            true &&
+                                                        days.contains(
+                                                            schedule["endDay"])
+                                                    ? schedule["endDay"]
+                                                    : null,
+                                                decoration: InputDecoration(
+                                                  labelText: 'End Day',
+                                                  labelStyle:
+                                                      GoogleFonts.poppins(
+                                                          fontSize: 9),
+                                                  hintText: 'Friday',
+                                                  border: OutlineInputBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            6),
+                                                  ),
+                                                  contentPadding:
+                                                      const EdgeInsets
+                                                          .symmetric(
+                                                          horizontal: 6,
+                                                          vertical: 4),
+                                                  isDense: true,
+                                                ),
+                                                items: days
+                                                    .map((day) =>
+                                                        DropdownMenuItem(
+                                                          value: day,
+                                                          child: Text(
+                                                              day.substring(
+                                                                  0, 3),
+                                                              style: GoogleFonts
+                                                                  .poppins(
+                                                                      fontSize:
+                                                                          10)),
+                                                        ))
+                                                    .toList(),
+                                                onChanged: (value) {
+                                                  setModalState(() {
+                                                    schedules[index]["endDay"] =
+                                                        value ?? "";
+                                                  });
+                                                },
+                                                isExpanded: true,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ] else ...[
+                                        DropdownButtonFormField<String>(
+                                          value: days.contains(schedule["day"])
+                                              ? schedule["day"]
+                                              : days.first,
+                                          decoration: InputDecoration(
+                                            labelText: 'Day',
+                                            labelStyle: GoogleFonts.poppins(
+                                                fontSize: 11),
+                                            border: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
+                                            ),
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(
+                                                    horizontal: 8, vertical: 6),
+                                            isDense: true,
+                                          ),
+                                          items: days
+                                              .map((day) => DropdownMenuItem(
+                                                    value: day,
+                                                    child: Text(day,
+                                                        style:
+                                                            GoogleFonts.poppins(
+                                                                fontSize: 11)),
+                                                  ))
+                                              .toList(),
+                                          onChanged: (value) {
+                                            setModalState(() {
+                                              schedules[index]["day"] =
+                                                  value ?? days.first;
+                                            });
+                                          },
+                                          isExpanded: true,
+                                        ),
+                                      ],
+                                      const SizedBox(height: 12),
+
+                                      // Working Hours Section
+                                      Container(
+                                        padding: const EdgeInsets.all(10),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blue.withOpacity(0.1),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                          border: Border.all(
+                                              color:
+                                                  Colors.blue.withOpacity(0.3)),
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Working Hours',
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.blue.shade700,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 6),
+                                            Text('Start',
+                                                style: GoogleFonts.poppins(
+                                                    fontSize: 10,
+                                                    color:
+                                                        Colors.grey.shade600)),
+                                            const SizedBox(height: 4),
+                                            buildTimePicker(
+                                              schedule["start"] ?? "9:00 AM",
+                                              (value) {
+                                                schedules[index]["start"] =
+                                                    value;
+                                              },
+                                              setModalState,
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Text('End',
+                                                style: GoogleFonts.poppins(
+                                                    fontSize: 10,
+                                                    color:
+                                                        Colors.grey.shade600)),
+                                            const SizedBox(height: 4),
+                                            buildTimePicker(
+                                              schedule["end"] ?? "5:00 PM",
+                                              (value) {
+                                                schedules[index]["end"] = value;
+                                              },
+                                              setModalState,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(height: 10),
+
+                                      // Break Time Section
+                                      Container(
+                                        padding: const EdgeInsets.all(10),
+                                        decoration: BoxDecoration(
+                                          color: Colors.orange.withOpacity(0.1),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                          border: Border.all(
+                                              color: Colors.orange
+                                                  .withOpacity(0.3)),
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Break Time',
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.orange.shade700,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 6),
+                                            Text('Start',
+                                                style: GoogleFonts.poppins(
+                                                    fontSize: 10,
+                                                    color:
+                                                        Colors.grey.shade600)),
+                                            const SizedBox(height: 4),
+                                            buildTimePicker(
+                                              schedule["breakStart"] ??
+                                                  "11:00 AM",
+                                              (value) {
+                                                schedules[index]["breakStart"] =
+                                                    value;
+                                              },
+                                              setModalState,
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Text('End',
+                                                style: GoogleFonts.poppins(
+                                                    fontSize: 10,
+                                                    color:
+                                                        Colors.grey.shade600)),
+                                            const SizedBox(height: 4),
+                                            buildTimePicker(
+                                              schedule["breakEnd"] ??
+                                                  "12:00 PM",
+                                              (value) {
+                                                schedules[index]["breakEnd"] =
+                                                    value;
+                                              },
+                                              setModalState,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(height: 10),
+
+                                      // Session Duration Section
+                                      Container(
+                                        padding: const EdgeInsets.all(10),
+                                        decoration: BoxDecoration(
+                                          color: Colors.green.withOpacity(0.1),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                          border: Border.all(
+                                              color: Colors.green
+                                                  .withOpacity(0.3)),
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Session Duration',
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.green.shade700,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 6),
+                                            DropdownButtonFormField<String>(
+                                              value:
+                                                  schedule["sessionDuration"] ??
+                                                      "30",
+                                              decoration: InputDecoration(
+                                                labelText:
+                                                    'Duration per session',
+                                                labelStyle: GoogleFonts.poppins(
+                                                    fontSize: 9),
+                                                prefixIcon: const Icon(
+                                                    Icons.timer_outlined,
+                                                    size: 14),
+                                                border: OutlineInputBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                                contentPadding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 4),
+                                                isDense: true,
+                                              ),
+                                              items: [
+                                                DropdownMenuItem(
+                                                    value: "15",
+                                                    child: Text("15 min",
+                                                        style:
+                                                            GoogleFonts.poppins(
+                                                                fontSize: 10))),
+                                                DropdownMenuItem(
+                                                    value: "30",
+                                                    child: Text("30 min",
+                                                        style:
+                                                            GoogleFonts.poppins(
+                                                                fontSize: 10))),
+                                                DropdownMenuItem(
+                                                    value: "45",
+                                                    child: Text("45 min",
+                                                        style:
+                                                            GoogleFonts.poppins(
+                                                                fontSize: 10))),
+                                                DropdownMenuItem(
+                                                    value: "60",
+                                                    child: Text("60 min",
+                                                        style:
+                                                            GoogleFonts.poppins(
+                                                                fontSize: 10))),
+                                              ],
+                                              onChanged: (value) {
+                                                setModalState(() {
+                                                  schedules[index]
+                                                          ["sessionDuration"] =
+                                                      value ?? "30";
+                                                });
+                                              },
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                                value: schedule["isRange"] == "true",
-                                onChanged: (value) {
+                              );
+                            }),
+
+                            const SizedBox(height: 12),
+
+                            // Add Schedule Button
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.redAccent,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                onPressed: () {
                                   setModalState(() {
-                                    schedules[index]["isRange"] = value.toString();
-                                    if (!value!) {
-                                      schedules[index]["endDay"] = "";
-                                    }
+                                    schedules.add({
+                                      "day": "Monday",
+                                      "start": "9:00 AM",
+                                      "end": "5:00 PM",
+                                      "breakStart": "11:00 AM",
+                                      "breakEnd": "12:00 PM",
+                                      "sessionDuration": "30",
+                                      "isRange": "false",
+                                      "endDay": "",
+                                    });
                                   });
                                 },
-                                controlAffinity: ListTileControlAffinity.leading,
-                                contentPadding: EdgeInsets.zero,
-                                dense: true,
-                              ),
-                              const SizedBox(height: 8),
-                              
-                              // Day Selection
-                              if (schedule["isRange"] == "true") ...[
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        'Starts',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.grey.shade700,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        'Ends',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.grey.shade700,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 6),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: DropdownButtonFormField<String>(
-                                        value: days.contains(schedule["day"]) ? schedule["day"] : days.first,
-                                        decoration: InputDecoration(
-                                          labelText: 'Start Day',
-                                          labelStyle: GoogleFonts.poppins(fontSize: 9),
-                                          border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(6),
-                                          ),
-                                          contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                                          isDense: true,
-                                        ),
-                                        items: days.map((day) => DropdownMenuItem(
-                                          value: day,
-                                          child: Text(day.substring(0, 3), style: GoogleFonts.poppins(fontSize: 10)),
-                                        )).toList(),
-                                        onChanged: (value) {
-                                          setModalState(() {
-                                            schedules[index]["day"] = value ?? days.first;
-                                          });
-                                        },
-                                        isExpanded: true,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: DropdownButtonFormField<String>(
-                                        value: schedule["endDay"]?.isNotEmpty == true && days.contains(schedule["endDay"]) 
-                                            ? schedule["endDay"] 
-                                            : null,
-                                        decoration: InputDecoration(
-                                          labelText: 'End Day',
-                                          labelStyle: GoogleFonts.poppins(fontSize: 9),
-                                          hintText: 'Friday',
-                                          border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(6),
-                                          ),
-                                          contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                                          isDense: true,
-                                        ),
-                                        items: days.map((day) => DropdownMenuItem(
-                                          value: day,
-                                          child: Text(day.substring(0, 3), style: GoogleFonts.poppins(fontSize: 10)),
-                                        )).toList(),
-                                        onChanged: (value) {
-                                          setModalState(() {
-                                            schedules[index]["endDay"] = value ?? "";
-                                          });
-                                        },
-                                        isExpanded: true,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ] else ...[
-                                DropdownButtonFormField<String>(
-                                  value: days.contains(schedule["day"]) ? schedule["day"] : days.first,
-                                  decoration: InputDecoration(
-                                    labelText: 'Day',
-                                    labelStyle: GoogleFonts.poppins(fontSize: 11),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                                    isDense: true,
+                                icon: const Icon(Icons.add_rounded,
+                                    color: Colors.white, size: 20),
+                                label: Text(
+                                  "Add Schedule",
+                                  style: GoogleFonts.poppins(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
                                   ),
-                                  items: days.map((day) => DropdownMenuItem(
-                                    value: day,
-                                    child: Text(day, style: GoogleFonts.poppins(fontSize: 11)),
-                                  )).toList(),
-                                  onChanged: (value) {
-                                    setModalState(() {
-                                      schedules[index]["day"] = value ?? days.first;
-                                    });
-                                  },
-                                  isExpanded: true,
-                                ),
-                              ],
-                              const SizedBox(height: 12),
-                              
-                              // Working Hours Section
-                              Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.blue.withOpacity(0.3)),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Working Hours',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.blue.shade700,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text('Start', style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey.shade600)),
-                                    const SizedBox(height: 4),
-                                    buildTimePicker(
-                                      schedule["start"] ?? "9:00 AM",
-                                      (value) {
-                                        schedules[index]["start"] = value;
-                                      },
-                                      setModalState,
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text('End', style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey.shade600)),
-                                    const SizedBox(height: 4),
-                                    buildTimePicker(
-                                      schedule["end"] ?? "5:00 PM",
-                                      (value) {
-                                        schedules[index]["end"] = value;
-                                      },
-                                      setModalState,
-                                    ),
-                                  ],
                                 ),
                               ),
-                              const SizedBox(height: 10),
-                              
-                              // Break Time Section
-                              Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: Colors.orange.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.orange.withOpacity(0.3)),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Break Time',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.orange.shade700,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text('Start', style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey.shade600)),
-                                    const SizedBox(height: 4),
-                                    buildTimePicker(
-                                      schedule["breakStart"] ?? "11:00 AM",
-                                      (value) {
-                                        schedules[index]["breakStart"] = value;
-                                      },
-                                      setModalState,
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text('End', style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey.shade600)),
-                                    const SizedBox(height: 4),
-                                    buildTimePicker(
-                                      schedule["breakEnd"] ?? "12:00 PM",
-                                      (value) {
-                                        schedules[index]["breakEnd"] = value;
-                                      },
-                                      setModalState,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              
-                              // Session Duration Section
-                              Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: Colors.green.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.green.withOpacity(0.3)),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Session Duration',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.green.shade700,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    DropdownButtonFormField<String>(
-                                      value: schedule["sessionDuration"] ?? "30",
-                                      decoration: InputDecoration(
-                                        labelText: 'Duration per session',
-                                        labelStyle: GoogleFonts.poppins(fontSize: 9),
-                                        prefixIcon: const Icon(Icons.timer_outlined, size: 14),
-                                        border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                        isDense: true,
-                                      ),
-                                      items: [
-                                        DropdownMenuItem(value: "15", child: Text("15 min", style: GoogleFonts.poppins(fontSize: 10))),
-                                        DropdownMenuItem(value: "30", child: Text("30 min", style: GoogleFonts.poppins(fontSize: 10))),
-                                        DropdownMenuItem(value: "45", child: Text("45 min", style: GoogleFonts.poppins(fontSize: 10))),
-                                        DropdownMenuItem(value: "60", child: Text("60 min", style: GoogleFonts.poppins(fontSize: 10))),
-                                      ],
-                                      onChanged: (value) {
-                                        setModalState(() {
-                                          schedules[index]["sessionDuration"] = value ?? "30";
-                                        });
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                    
-                    const SizedBox(height: 12),
-                    
-                    // Add Schedule Button
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.redAccent,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        onPressed: () {
-                          setModalState(() {
-                            schedules.add({
-                              "day": "Monday",
-                              "start": "9:00 AM",
-                              "end": "5:00 PM",
-                              "breakStart": "11:00 AM",
-                              "breakEnd": "12:00 PM",
-                              "sessionDuration": "30",
-                              "isRange": "false",
-                              "endDay": "",
-                            });
-                          });
-                        },
-                        icon: const Icon(Icons.add_rounded, color: Colors.white, size: 20),
-                        label: Text(
-                          "Add Schedule",
-                          style: GoogleFonts.poppins(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                    ),
+                            ),
                           ],
                         ),
                       ),
                     ),
-                    
+
                     // Action Buttons
                     Container(
                       padding: const EdgeInsets.all(20),
@@ -994,7 +1204,8 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                             child: Container(
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.grey.shade300, width: 1.5),
+                                border: Border.all(
+                                    color: Colors.grey.shade300, width: 1.5),
                               ),
                               child: Material(
                                 color: Colors.transparent,
@@ -1002,7 +1213,8 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                   borderRadius: BorderRadius.circular(12),
                                   onTap: () => Navigator.pop(context),
                                   child: Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 14),
                                     child: Center(
                                       child: Text(
                                         "Cancel",
@@ -1024,7 +1236,10 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                             child: Container(
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
-                                  colors: [Colors.redAccent, Colors.redAccent.shade700],
+                                  colors: [
+                                    Colors.redAccent,
+                                    Colors.redAccent.shade700
+                                  ],
                                 ),
                                 borderRadius: BorderRadius.circular(12),
                                 boxShadow: [
@@ -1041,46 +1256,62 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                   borderRadius: BorderRadius.circular(12),
                                   onTap: () {
                                     if (selectedFacility == null) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
                                         SnackBar(
                                           content: Row(
                                             children: [
-                                              const Icon(Icons.warning_rounded, color: Colors.white, size: 20),
+                                              const Icon(Icons.warning_rounded,
+                                                  color: Colors.white,
+                                                  size: 20),
                                               const SizedBox(width: 12),
                                               Expanded(
                                                 child: Text(
                                                   'Please select a facility',
-                                                  style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+                                                  style: GoogleFonts.poppins(
+                                                      fontWeight:
+                                                          FontWeight.w500),
                                                 ),
                                               ),
                                             ],
                                           ),
-                                          backgroundColor: Colors.redAccent.shade700,
+                                          backgroundColor:
+                                              Colors.redAccent.shade700,
                                           behavior: SnackBarBehavior.floating,
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                          shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12)),
                                           margin: const EdgeInsets.all(16),
                                         ),
                                       );
                                       return;
                                     }
                                     if (schedules.isEmpty) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
                                         SnackBar(
                                           content: Row(
                                             children: [
-                                              const Icon(Icons.warning_rounded, color: Colors.white, size: 20),
+                                              const Icon(Icons.warning_rounded,
+                                                  color: Colors.white,
+                                                  size: 20),
                                               const SizedBox(width: 12),
                                               Expanded(
                                                 child: Text(
                                                   'Please add at least one schedule',
-                                                  style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+                                                  style: GoogleFonts.poppins(
+                                                      fontWeight:
+                                                          FontWeight.w500),
                                                 ),
                                               ),
                                             ],
                                           ),
-                                          backgroundColor: Colors.redAccent.shade700,
+                                          backgroundColor:
+                                              Colors.redAccent.shade700,
                                           behavior: SnackBarBehavior.floating,
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                          shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12)),
                                           margin: const EdgeInsets.all(16),
                                         ),
                                       );
@@ -1088,54 +1319,58 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                     }
 
                                     // Expand day ranges before saving
-                                    final expandedSchedules = expandScheduleRanges(schedules);
+                                    final expandedSchedules =
+                                        expandScheduleRanges(schedules);
 
                                     setState(() {
                                       affiliations.add({
                                         "name": selectedFacility!,
-                                  "address": facilityAddress,
-                                  "email": "",
-                                  "latitude": 0.0,
-                                  "longitude": 0.0,
-                                  "schedules": expandedSchedules,
-                                });
-                              });
-                              Navigator.pop(context);
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    "Add Affiliation",
-                                    style: GoogleFonts.poppins(
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white,
-                                      fontSize: 14,
+                                        "address": facilityAddress,
+                                        "email": "",
+                                        "latitude": 0.0,
+                                        "longitude": 0.0,
+                                        "schedules": expandedSchedules,
+                                      });
+                                    });
+                                    Navigator.pop(context);
+                                  },
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 14),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(Icons.check_circle_rounded,
+                                            color: Colors.white, size: 20),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          "Add Affiliation",
+                                          style: GoogleFonts.poppins(
+                                            fontWeight: FontWeight.w700,
+                                            color: Colors.white,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                ],
+                                ),
                               ),
                             ),
                           ),
-                        ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
-            ],
-          ),
-        ),
-      );
+            );
+          },
+        );
       },
     );
-  },
-  );
-}
+  }
 
   @override
   void dispose() {
@@ -1170,7 +1405,8 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
               // Modern Header with Glassmorphism
               Container(
                 margin: const EdgeInsets.all(16),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
@@ -1202,7 +1438,8 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: IconButton(
-                        icon: const Icon(Icons.arrow_back_rounded, color: Colors.redAccent),
+                        icon: const Icon(Icons.arrow_back_rounded,
+                            color: Colors.redAccent),
                         onPressed: () => Navigator.pop(context),
                       ),
                     ),
@@ -1258,7 +1495,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                   ],
                 ),
               ),
-              
+
               // Main Content Area
               Expanded(
                 child: SingleChildScrollView(
@@ -1269,7 +1506,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const SizedBox(height: 8),
-                        
+
                         // Personal Information Card
                         Container(
                           padding: const EdgeInsets.all(20),
@@ -1305,11 +1542,15 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                     padding: const EdgeInsets.all(8),
                                     decoration: BoxDecoration(
                                       gradient: LinearGradient(
-                                        colors: [Colors.blue.shade400, Colors.blue.shade600],
+                                        colors: [
+                                          Colors.blue.shade400,
+                                          Colors.blue.shade600
+                                        ],
                                       ),
                                       borderRadius: BorderRadius.circular(10),
                                     ),
-                                    child: const Icon(Icons.person_rounded, color: Colors.white, size: 20),
+                                    child: const Icon(Icons.person_rounded,
+                                        color: Colors.white, size: 20),
                                   ),
                                   const SizedBox(width: 12),
                                   Text(
@@ -1333,7 +1574,8 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                     fontSize: 13,
                                     color: Colors.grey.shade600,
                                   ),
-                                  prefixIcon: Icon(Icons.badge_rounded, color: Colors.blue.shade600, size: 20),
+                                  prefixIcon: Icon(Icons.badge_rounded,
+                                      color: Colors.blue.shade600, size: 20),
                                   filled: true,
                                   fillColor: Colors.grey.shade50,
                                   border: OutlineInputBorder(
@@ -1342,15 +1584,18 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                   ),
                                   enabledBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(color: Colors.grey.shade200),
+                                    borderSide:
+                                        BorderSide(color: Colors.grey.shade200),
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
+                                    borderSide: BorderSide(
+                                        color: Colors.blue.shade400, width: 2),
                                   ),
                                   errorBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(color: Colors.redAccent),
+                                    borderSide: const BorderSide(
+                                        color: Colors.redAccent),
                                   ),
                                 ),
                                 style: GoogleFonts.poppins(fontSize: 14),
@@ -1372,7 +1617,8 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                     fontSize: 13,
                                     color: Colors.grey.shade600,
                                   ),
-                                  prefixIcon: Icon(Icons.work_rounded, color: Colors.blue.shade600, size: 20),
+                                  prefixIcon: Icon(Icons.work_rounded,
+                                      color: Colors.blue.shade600, size: 20),
                                   filled: true,
                                   fillColor: Colors.grey.shade50,
                                   border: OutlineInputBorder(
@@ -1381,14 +1627,17 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                   ),
                                   enabledBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(color: Colors.grey.shade200),
+                                    borderSide:
+                                        BorderSide(color: Colors.grey.shade200),
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
+                                    borderSide: BorderSide(
+                                        color: Colors.blue.shade400, width: 2),
                                   ),
                                 ),
-                                items: ['Doctor', 'Health Worker'].map((String role) {
+                                items: ['Doctor', 'Health Worker']
+                                    .map((String role) {
                                   return DropdownMenuItem(
                                     value: role,
                                     child: Text(
@@ -1408,7 +1657,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        
+
                         // Account Security Card
                         Container(
                           padding: const EdgeInsets.all(20),
@@ -1444,11 +1693,15 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                     padding: const EdgeInsets.all(8),
                                     decoration: BoxDecoration(
                                       gradient: LinearGradient(
-                                        colors: [Colors.purple.shade400, Colors.purple.shade600],
+                                        colors: [
+                                          Colors.purple.shade400,
+                                          Colors.purple.shade600
+                                        ],
                                       ),
                                       borderRadius: BorderRadius.circular(10),
                                     ),
-                                    child: const Icon(Icons.security_rounded, color: Colors.white, size: 20),
+                                    child: const Icon(Icons.security_rounded,
+                                        color: Colors.white, size: 20),
                                   ),
                                   const SizedBox(width: 12),
                                   Text(
@@ -1472,7 +1725,8 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                     fontSize: 13,
                                     color: Colors.grey.shade600,
                                   ),
-                                  prefixIcon: Icon(Icons.email_rounded, color: Colors.purple.shade600, size: 20),
+                                  prefixIcon: Icon(Icons.email_rounded,
+                                      color: Colors.purple.shade600, size: 20),
                                   filled: true,
                                   fillColor: Colors.grey.shade50,
                                   border: OutlineInputBorder(
@@ -1481,15 +1735,19 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                   ),
                                   enabledBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(color: Colors.grey.shade200),
+                                    borderSide:
+                                        BorderSide(color: Colors.grey.shade200),
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(color: Colors.purple.shade400, width: 2),
+                                    borderSide: BorderSide(
+                                        color: Colors.purple.shade400,
+                                        width: 2),
                                   ),
                                   errorBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(color: Colors.redAccent),
+                                    borderSide: const BorderSide(
+                                        color: Colors.redAccent),
                                   ),
                                 ),
                                 style: GoogleFonts.poppins(fontSize: 14),
@@ -1516,7 +1774,8 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                     fontSize: 13,
                                     color: Colors.grey.shade600,
                                   ),
-                                  prefixIcon: Icon(Icons.lock_rounded, color: Colors.purple.shade600, size: 20),
+                                  prefixIcon: Icon(Icons.lock_rounded,
+                                      color: Colors.purple.shade600, size: 20),
                                   filled: true,
                                   fillColor: Colors.grey.shade50,
                                   border: OutlineInputBorder(
@@ -1525,15 +1784,19 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                   ),
                                   enabledBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(color: Colors.grey.shade200),
+                                    borderSide:
+                                        BorderSide(color: Colors.grey.shade200),
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(color: Colors.purple.shade400, width: 2),
+                                    borderSide: BorderSide(
+                                        color: Colors.purple.shade400,
+                                        width: 2),
                                   ),
                                   errorBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(color: Colors.redAccent),
+                                    borderSide: const BorderSide(
+                                        color: Colors.redAccent),
                                   ),
                                   suffixIcon: IconButton(
                                     icon: Icon(
@@ -1545,7 +1808,8 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                     ),
                                     onPressed: () {
                                       setState(() {
-                                        _isPasswordVisible = !_isPasswordVisible;
+                                        _isPasswordVisible =
+                                            !_isPasswordVisible;
                                       });
                                     },
                                   ),
@@ -1573,7 +1837,8 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                     fontSize: 13,
                                     color: Colors.grey.shade600,
                                   ),
-                                  prefixIcon: Icon(Icons.lock_outline_rounded, color: Colors.purple.shade600, size: 20),
+                                  prefixIcon: Icon(Icons.lock_outline_rounded,
+                                      color: Colors.purple.shade600, size: 20),
                                   filled: true,
                                   fillColor: Colors.grey.shade50,
                                   border: OutlineInputBorder(
@@ -1582,15 +1847,19 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                   ),
                                   enabledBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(color: Colors.grey.shade200),
+                                    borderSide:
+                                        BorderSide(color: Colors.grey.shade200),
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(color: Colors.purple.shade400, width: 2),
+                                    borderSide: BorderSide(
+                                        color: Colors.purple.shade400,
+                                        width: 2),
                                   ),
                                   errorBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(color: Colors.redAccent),
+                                    borderSide: const BorderSide(
+                                        color: Colors.redAccent),
                                   ),
                                   suffixIcon: IconButton(
                                     icon: Icon(
@@ -1602,7 +1871,8 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                     ),
                                     onPressed: () {
                                       setState(() {
-                                        _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
+                                        _isConfirmPasswordVisible =
+                                            !_isConfirmPasswordVisible;
                                       });
                                     },
                                   ),
@@ -1623,7 +1893,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                         const SizedBox(height: 16),
 
                         // Health Worker Facility Selection
-                        if (_selectedRole == 'Health Worker') ...[ 
+                        if (_selectedRole == 'Health Worker') ...[
                           Container(
                             padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
@@ -1658,11 +1928,17 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                       padding: const EdgeInsets.all(8),
                                       decoration: BoxDecoration(
                                         gradient: LinearGradient(
-                                          colors: [Colors.green.shade400, Colors.green.shade600],
+                                          colors: [
+                                            Colors.green.shade400,
+                                            Colors.green.shade600
+                                          ],
                                         ),
                                         borderRadius: BorderRadius.circular(10),
                                       ),
-                                      child: const Icon(Icons.local_hospital_rounded, color: Colors.white, size: 20),
+                                      child: const Icon(
+                                          Icons.local_hospital_rounded,
+                                          color: Colors.white,
+                                          size: 20),
                                     ),
                                     const SizedBox(width: 12),
                                     Text(
@@ -1676,7 +1952,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                   ],
                                 ),
                                 const SizedBox(height: 20),
-                                
+
                                 DropdownButtonFormField<TBDotsFacility>(
                                   decoration: InputDecoration(
                                     labelText: "Select Your Facility",
@@ -1684,7 +1960,8 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                       fontSize: 13,
                                       color: Colors.grey.shade600,
                                     ),
-                                    prefixIcon: Icon(Icons.business_rounded, color: Colors.green.shade600, size: 20),
+                                    prefixIcon: Icon(Icons.business_rounded,
+                                        color: Colors.green.shade600, size: 20),
                                     filled: true,
                                     fillColor: Colors.grey.shade50,
                                     border: OutlineInputBorder(
@@ -1693,11 +1970,14 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                     ),
                                     enabledBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
-                                      borderSide: BorderSide(color: Colors.grey.shade200),
+                                      borderSide: BorderSide(
+                                          color: Colors.grey.shade200),
                                     ),
                                     focusedBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
-                                      borderSide: BorderSide(color: Colors.green.shade400, width: 2),
+                                      borderSide: BorderSide(
+                                          color: Colors.green.shade400,
+                                          width: 2),
                                     ),
                                   ),
                                   items: tbDotsFacilities.map((facility) {
@@ -1705,7 +1985,8 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                       value: facility,
                                       child: Text(
                                         facility.name,
-                                        style: GoogleFonts.poppins(fontSize: 14),
+                                        style:
+                                            GoogleFonts.poppins(fontSize: 14),
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     );
@@ -1732,11 +2013,14 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                     decoration: BoxDecoration(
                                       color: Colors.green.withOpacity(0.1),
                                       borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: Colors.green.withOpacity(0.3)),
+                                      border: Border.all(
+                                          color: Colors.green.withOpacity(0.3)),
                                     ),
                                     child: Row(
                                       children: [
-                                        Icon(Icons.location_on_rounded, size: 20, color: Colors.green.shade700),
+                                        Icon(Icons.location_on_rounded,
+                                            size: 20,
+                                            color: Colors.green.shade700),
                                         const SizedBox(width: 10),
                                         Expanded(
                                           child: Text(
@@ -1792,11 +2076,15 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                       padding: const EdgeInsets.all(8),
                                       decoration: BoxDecoration(
                                         gradient: LinearGradient(
-                                          colors: [Colors.orange.shade400, Colors.orange.shade600],
+                                          colors: [
+                                            Colors.orange.shade400,
+                                            Colors.orange.shade600
+                                          ],
                                         ),
                                         borderRadius: BorderRadius.circular(10),
                                       ),
-                                      child: const Icon(Icons.apartment_rounded, color: Colors.white, size: 20),
+                                      child: const Icon(Icons.apartment_rounded,
+                                          color: Colors.white, size: 20),
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(
@@ -1813,12 +2101,16 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                     Container(
                                       decoration: BoxDecoration(
                                         gradient: LinearGradient(
-                                          colors: [Colors.redAccent, Colors.redAccent.shade700],
+                                          colors: [
+                                            Colors.redAccent,
+                                            Colors.redAccent.shade700
+                                          ],
                                         ),
                                         borderRadius: BorderRadius.circular(10),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: Colors.redAccent.withOpacity(0.3),
+                                            color: Colors.redAccent
+                                                .withOpacity(0.3),
                                             blurRadius: 8,
                                             offset: const Offset(0, 4),
                                           ),
@@ -1827,11 +2119,13 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                       child: Material(
                                         color: Colors.transparent,
                                         child: InkWell(
-                                          borderRadius: BorderRadius.circular(10),
+                                          borderRadius:
+                                              BorderRadius.circular(10),
                                           onTap: _showAddAffiliationDialog,
                                           child: const Padding(
                                             padding: EdgeInsets.all(8),
-                                            child: Icon(Icons.add_rounded, color: Colors.white, size: 20),
+                                            child: Icon(Icons.add_rounded,
+                                                color: Colors.white, size: 20),
                                           ),
                                         ),
                                       ),
@@ -1839,19 +2133,26 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                   ],
                                 ),
                                 const SizedBox(height: 16),
-                                
+
                                 // Affiliations List
                                 affiliations.isEmpty
                                     ? Container(
-                                        padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 32, horizontal: 16),
                                         decoration: BoxDecoration(
                                           color: Colors.grey.shade50,
-                                          borderRadius: BorderRadius.circular(12),
-                                          border: Border.all(color: Colors.grey.shade200, style: BorderStyle.solid, width: 2),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          border: Border.all(
+                                              color: Colors.grey.shade200,
+                                              style: BorderStyle.solid,
+                                              width: 2),
                                         ),
                                         child: Column(
                                           children: [
-                                            Icon(Icons.business_outlined, size: 48, color: Colors.grey.shade400),
+                                            Icon(Icons.business_outlined,
+                                                size: 48,
+                                                color: Colors.grey.shade400),
                                             const SizedBox(height: 12),
                                             Text(
                                               "No affiliations added yet",
@@ -1875,7 +2176,8 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                     : Column(
                                         children: affiliations.map((a) {
                                           return Container(
-                                            margin: const EdgeInsets.only(bottom: 12),
+                                            margin: const EdgeInsets.only(
+                                                bottom: 12),
                                             padding: const EdgeInsets.all(16),
                                             decoration: BoxDecoration(
                                               gradient: LinearGradient(
@@ -1883,40 +2185,59 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                                 end: Alignment.bottomRight,
                                                 colors: [
                                                   Colors.orange.shade50,
-                                                  Colors.orange.shade50.withOpacity(0.5),
+                                                  Colors.orange.shade50
+                                                      .withOpacity(0.5),
                                                 ],
                                               ),
-                                              borderRadius: BorderRadius.circular(12),
-                                              border: Border.all(color: Colors.orange.shade200),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              border: Border.all(
+                                                  color:
+                                                      Colors.orange.shade200),
                                               boxShadow: [
                                                 BoxShadow(
-                                                  color: Colors.orange.withOpacity(0.1),
+                                                  color: Colors.orange
+                                                      .withOpacity(0.1),
                                                   blurRadius: 8,
                                                   offset: const Offset(0, 2),
                                                 ),
                                               ],
                                             ),
                                             child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
                                               children: [
                                                 Row(
                                                   children: [
                                                     Container(
-                                                      padding: const EdgeInsets.all(6),
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                              6),
                                                       decoration: BoxDecoration(
-                                                        color: Colors.orange.shade100,
-                                                        borderRadius: BorderRadius.circular(8),
+                                                        color: Colors
+                                                            .orange.shade100,
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(8),
                                                       ),
-                                                      child: Icon(Icons.local_hospital_rounded, size: 16, color: Colors.orange.shade700),
+                                                      child: Icon(
+                                                          Icons
+                                                              .local_hospital_rounded,
+                                                          size: 16,
+                                                          color: Colors
+                                                              .orange.shade700),
                                                     ),
                                                     const SizedBox(width: 10),
                                                     Expanded(
                                                       child: Text(
                                                         a["name"],
-                                                        style: GoogleFonts.poppins(
-                                                          fontWeight: FontWeight.w600,
+                                                        style:
+                                                            GoogleFonts.poppins(
+                                                          fontWeight:
+                                                              FontWeight.w600,
                                                           fontSize: 15,
-                                                          color: Colors.grey.shade800,
+                                                          color: Colors
+                                                              .grey.shade800,
                                                         ),
                                                       ),
                                                     ),
@@ -1925,14 +2246,21 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                                 const SizedBox(height: 10),
                                                 Row(
                                                   children: [
-                                                    Icon(Icons.location_on_rounded, size: 16, color: Colors.grey.shade600),
+                                                    Icon(
+                                                        Icons
+                                                            .location_on_rounded,
+                                                        size: 16,
+                                                        color: Colors
+                                                            .grey.shade600),
                                                     const SizedBox(width: 6),
                                                     Expanded(
                                                       child: Text(
                                                         a["address"],
-                                                        style: GoogleFonts.poppins(
+                                                        style:
+                                                            GoogleFonts.poppins(
                                                           fontSize: 12,
-                                                          color: Colors.grey.shade600,
+                                                          color: Colors
+                                                              .grey.shade600,
                                                         ),
                                                       ),
                                                     ),
@@ -1940,41 +2268,64 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                                 ),
                                                 const SizedBox(height: 10),
                                                 Container(
-                                                  padding: const EdgeInsets.all(10),
+                                                  padding:
+                                                      const EdgeInsets.all(10),
                                                   decoration: BoxDecoration(
                                                     color: Colors.white,
-                                                    borderRadius: BorderRadius.circular(8),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8),
                                                   ),
                                                   child: Column(
-                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
                                                     children: [
                                                       Row(
                                                         children: [
-                                                          Icon(Icons.access_time_rounded, size: 14, color: Colors.blue.shade600),
-                                                          const SizedBox(width: 6),
+                                                          Icon(
+                                                              Icons
+                                                                  .access_time_rounded,
+                                                              size: 14,
+                                                              color: Colors.blue
+                                                                  .shade600),
+                                                          const SizedBox(
+                                                              width: 6),
                                                           Text(
                                                             'Schedules',
-                                                            style: GoogleFonts.poppins(
+                                                            style: GoogleFonts
+                                                                .poppins(
                                                               fontSize: 11,
-                                                              fontWeight: FontWeight.w600,
-                                                              color: Colors.blue.shade700,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600,
+                                                              color: Colors.blue
+                                                                  .shade700,
                                                             ),
                                                           ),
                                                         ],
                                                       ),
                                                       const SizedBox(height: 6),
-                                                      ...(a["schedules"] as List).map<Widget>(
+                                                      ...(a["schedules"]
+                                                              as List)
+                                                          .map<Widget>(
                                                         (s) => Padding(
-                                                          padding: const EdgeInsets.only(left: 20, top: 4),
+                                                          padding:
+                                                              const EdgeInsets
+                                                                  .only(
+                                                                  left: 20,
+                                                                  top: 4),
                                                           child: Text(
                                                             "${s["day"]}: ${s["start"]} - ${s["end"]}",
-                                                            style: GoogleFonts.poppins(
+                                                            style: GoogleFonts
+                                                                .poppins(
                                                               fontSize: 12,
-                                                              color: Colors.grey.shade700,
+                                                              color: Colors.grey
+                                                                  .shade700,
                                                             ),
                                                           ),
                                                         ),
-                                                      ).toList(),
+                                                      ),
                                                     ],
                                                   ),
                                                 ),
@@ -2023,14 +2374,17 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                   if (_selectedRole == 'Doctor') {
                                     if (affiliations.isEmpty) {
                                       isValid = false;
-                                      errorMessage = 'Please add at least one affiliation';
+                                      errorMessage =
+                                          'Please add at least one affiliation';
                                     } else {
                                       // Check if all affiliations have schedules
                                       for (var affiliation in affiliations) {
-                                        if (!affiliation.containsKey('schedules')) {
+                                        if (!affiliation
+                                            .containsKey('schedules')) {
                                           isValid = false;
                                           affiliations.clear();
-                                          errorMessage = 'Please add affiliations with schedules';
+                                          errorMessage =
+                                              'Please add affiliations with schedules';
                                           break;
                                         }
                                       }
@@ -2039,7 +2393,8 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                     // Health Worker validation
                                     if (affiliations.isEmpty) {
                                       isValid = false;
-                                      errorMessage = 'Please select your affiliated hospital';
+                                      errorMessage =
+                                          'Please select your affiliated hospital';
                                     }
                                   }
 
@@ -2048,19 +2403,25 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                       SnackBar(
                                         content: Row(
                                           children: [
-                                            const Icon(Icons.error_outline, color: Colors.white),
+                                            const Icon(Icons.error_outline,
+                                                color: Colors.white),
                                             const SizedBox(width: 12),
                                             Expanded(
                                               child: Text(
                                                 errorMessage!,
-                                                style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+                                                style: GoogleFonts.poppins(
+                                                    fontWeight:
+                                                        FontWeight.w500),
                                               ),
                                             ),
                                           ],
                                         ),
-                                        backgroundColor: Colors.redAccent.shade700,
+                                        backgroundColor:
+                                            Colors.redAccent.shade700,
                                         behavior: SnackBarBehavior.floating,
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(12)),
                                         margin: const EdgeInsets.all(16),
                                       ),
                                     );
@@ -2069,16 +2430,24 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (context) => MedicalStaffConfirmationPage(
+                                      builder: (context) =>
+                                          MedicalStaffConfirmationPage(
                                         email: _emailController.text.trim(),
-                                        password: _passwordController.text.trim(),
+                                        password:
+                                            _passwordController.text.trim(),
                                         fullName: _nameController.text.trim(),
                                         role: _selectedRole,
-                                        specialization: _specializationController.text.trim(),
-                                        affiliations: _selectedRole == 'Doctor' ? affiliations : null,
-                                        facility: _selectedRole == 'Health Worker' && affiliations.isNotEmpty
-                                            ? affiliations[0]
+                                        specialization:
+                                            _specializationController.text
+                                                .trim(),
+                                        affiliations: _selectedRole == 'Doctor'
+                                            ? affiliations
                                             : null,
+                                        facility:
+                                            _selectedRole == 'Health Worker' &&
+                                                    affiliations.isNotEmpty
+                                                ? affiliations[0]
+                                                : null,
                                       ),
                                     ),
                                   );
@@ -2086,11 +2455,13 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                               },
                               child: Container(
                                 width: double.infinity,
-                                padding: const EdgeInsets.symmetric(vertical: 18),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 18),
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 22),
+                                    const Icon(Icons.arrow_forward_rounded,
+                                        color: Colors.white, size: 22),
                                     const SizedBox(width: 12),
                                     Text(
                                       'Continue to Confirmation',

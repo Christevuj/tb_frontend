@@ -27,6 +27,7 @@ class GuestPatientChatScreen extends StatefulWidget {
 }
 
 class _GuestPatientChatScreenState extends State<GuestPatientChatScreen> {
+  final ScrollController _scrollController = ScrollController();
   final ChatService _chatService = ChatService();
   final TextEditingController _controller = TextEditingController();
   final PresenceService _presenceService = PresenceService();
@@ -418,7 +419,7 @@ class _GuestPatientChatScreenState extends State<GuestPatientChatScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    
+
                     Text(
                       'Choose how you want to add an image',
                       style: TextStyle(
@@ -428,7 +429,7 @@ class _GuestPatientChatScreenState extends State<GuestPatientChatScreen> {
                       ),
                     ),
                     const SizedBox(height: 32),
-                    
+
                     // Modern option cards
                     Row(
                       children: [
@@ -468,9 +469,9 @@ class _GuestPatientChatScreenState extends State<GuestPatientChatScreen> {
                       ],
                     ),
                     const SizedBox(height: 24),
-                    
+
                     // Cancel button
-                    Container(
+                    SizedBox(
                       width: double.infinity,
                       height: 50,
                       child: TextButton(
@@ -584,7 +585,8 @@ class _GuestPatientChatScreenState extends State<GuestPatientChatScreen> {
       print('🔍 DEBUG: Picked file: ${pickedFile?.path}');
 
       if (pickedFile != null) {
-        print('🔍 DEBUG: Image selected successfully, file size: ${await File(pickedFile.path).length()} bytes');
+        print(
+            '🔍 DEBUG: Image selected successfully, file size: ${await File(pickedFile.path).length()} bytes');
         // Show enhanced loading indicator
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -635,7 +637,8 @@ class _GuestPatientChatScreenState extends State<GuestPatientChatScreen> {
               borderRadius: BorderRadius.circular(16),
             ),
             margin: const EdgeInsets.all(16),
-            duration: const Duration(seconds: 10), // Longer duration for Cloudinary upload
+            duration: const Duration(
+                seconds: 10), // Longer duration for Cloudinary upload
           ),
         );
 
@@ -656,13 +659,13 @@ class _GuestPatientChatScreenState extends State<GuestPatientChatScreen> {
         print('🔍 DEBUG: Sender ID: ${widget.guestId}');
         print('🔍 DEBUG: Receiver ID: ${widget.patientId}');
         print('🔍 DEBUG: Image file path: ${pickedFile.path}');
-        
+
         await _chatService.sendImageMessage(
           senderId: widget.guestId,
           receiverId: widget.patientId,
           imageFile: File(pickedFile.path),
         );
-        
+
         print('🔍 DEBUG: Image message sent successfully via Cloudinary!');
 
         // Hide loading indicator and show success
@@ -1096,8 +1099,15 @@ class _GuestPatientChatScreenState extends State<GuestPatientChatScreen> {
                   );
                 }
 
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (_scrollController.hasClients) {
+                    _scrollController
+                        .jumpTo(_scrollController.position.maxScrollExtent);
+                  }
+                });
                 return ListView.builder(
-                  reverse: true,
+                  controller: _scrollController,
+                  reverse: false,
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                   itemCount: messages.length,
@@ -1313,9 +1323,10 @@ class _MessageBubble extends StatelessWidget {
                     constraints: BoxConstraints(
                       maxWidth: MediaQuery.of(context).size.width * 0.7,
                     ),
-                    padding: message.isImage 
+                    padding: message.isImage
                         ? const EdgeInsets.all(4)
-                        : const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        : const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
                       gradient: isMe
                           ? const LinearGradient(
@@ -1337,12 +1348,12 @@ class _MessageBubble extends StatelessWidget {
                         ),
                       ],
                     ),
-                    child: message.isImage 
+                    child: message.isImage
                         ? GestureDetector(
                             onTap: () {
                               HapticFeedback.lightImpact();
                               showZoomableImage(
-                                context, 
+                                context,
                                 message.imageUrl!,
                                 heroTag: 'guest_chat_image_${message.id}',
                               );
@@ -1366,7 +1377,8 @@ class _MessageBubble extends StatelessWidget {
                                         borderRadius: BorderRadius.circular(16),
                                       ),
                                       child: Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
                                         children: [
                                           const CircularProgressIndicator(
                                             color: Colors.redAccent,
@@ -1392,7 +1404,8 @@ class _MessageBubble extends StatelessWidget {
                                         borderRadius: BorderRadius.circular(16),
                                       ),
                                       child: const Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
                                         children: [
                                           Icon(
                                             Icons.error_outline,
@@ -1418,7 +1431,8 @@ class _MessageBubble extends StatelessWidget {
                         : Text(
                             message.text,
                             style: TextStyle(
-                              color: isMe ? Colors.white : const Color(0xFF2C2C2C),
+                              color:
+                                  isMe ? Colors.white : const Color(0xFF2C2C2C),
                               fontSize: 15,
                               height: 1.4,
                             ),

@@ -25,7 +25,7 @@ class _PmessagesState extends State<Pmessages> {
           .collection('conversation_states')
           .doc(chatId)
           .get();
-      
+
       if (stateDoc.exists) {
         return stateDoc.data();
       }
@@ -64,7 +64,8 @@ class _PmessagesState extends State<Pmessages> {
   Future<void> _restoreConversationOnUserReply(String doctorId) async {
     try {
       final conversationState = await _getConversationState(doctorId);
-      if (conversationState != null && conversationState['state'] == 'archived') {
+      if (conversationState != null &&
+          conversationState['state'] == 'archived') {
         // Only restore archived conversations when user replies, NOT muted ones
         await _setConversationState(doctorId, 'active');
         print('Archived conversation restored for doctor: $doctorId');
@@ -78,7 +79,8 @@ class _PmessagesState extends State<Pmessages> {
   Future<void> _restoreConversationOnDoctorMessage(String doctorId) async {
     try {
       final conversationState = await _getConversationState(doctorId);
-      if (conversationState != null && conversationState['state'] == 'archived') {
+      if (conversationState != null &&
+          conversationState['state'] == 'archived') {
         // Only restore archived conversations when doctor messages, NOT muted ones
         await _setConversationState(doctorId, 'active');
         print('Archived conversation restored by doctor message: $doctorId');
@@ -293,7 +295,8 @@ class _PmessagesState extends State<Pmessages> {
   }
 
   // Open chat without restoring conversation state (used in archived messages modal)
-  Future<void> _openChatWithoutRestore(String doctorId, String doctorName) async {
+  Future<void> _openChatWithoutRestore(
+      String doctorId, String doctorName) async {
     try {
       // Get current patient's ID
       final currentUser = FirebaseAuth.instance.currentUser;
@@ -446,7 +449,7 @@ class _PmessagesState extends State<Pmessages> {
           // Check conversation state - exclude archived, muted, or deleted
           final conversationState = await _getConversationState(doctorId);
           final state = conversationState?['state'] ?? 'active';
-          
+
           // Only include active conversations in main chat list
           if (state == 'active') {
             print('Found doctor ID: $doctorId');
@@ -751,7 +754,6 @@ class _PmessagesState extends State<Pmessages> {
                             ),
                           ),
                           const SizedBox(height: 12),
-                          
                         ],
                       ),
                     ),
@@ -1013,7 +1015,7 @@ class _PmessagesState extends State<Pmessages> {
         if (doctorId.isNotEmpty) {
           final conversationState = await _getConversationState(doctorId);
           final state = conversationState?['state'] ?? 'active';
-          
+
           // Only include archived and muted conversations (NOT deleted)
           if (state == 'archived' || state == 'muted') {
             final doctorName = await _getDoctorName(doctorId);
@@ -1164,15 +1166,25 @@ class _PmessagesState extends State<Pmessages> {
                         itemCount: archivedConversations.length,
                         itemBuilder: (context, index) {
                           final conversation = archivedConversations[index];
-                          final String? roleValue = (conversation['role'] as String?)?.toLowerCase();
-                          
+                          final String? roleValue =
+                              (conversation['role'] as String?)?.toLowerCase();
+
                           List<Color> avatarGradient;
                           if (roleValue == 'healthcare') {
-                            avatarGradient = [Colors.redAccent, Colors.deepOrange.shade400];
+                            avatarGradient = [
+                              Colors.redAccent,
+                              Colors.deepOrange.shade400
+                            ];
                           } else if (roleValue == 'doctor') {
-                            avatarGradient = [Colors.blueAccent, Colors.blue.shade400];
+                            avatarGradient = [
+                              Colors.blueAccent,
+                              Colors.blue.shade400
+                            ];
                           } else {
-                            avatarGradient = [Colors.teal, Colors.teal.shade400];
+                            avatarGradient = [
+                              Colors.teal,
+                              Colors.teal.shade400
+                            ];
                           }
 
                           return Container(
@@ -1225,10 +1237,12 @@ class _PmessagesState extends State<Pmessages> {
                               ),
                               trailing: ElevatedButton(
                                 onPressed: () async {
-                                  await _setConversationState(conversation['id'], 'active');
+                                  await _setConversationState(
+                                      conversation['id'], 'active');
                                   if (mounted) {
                                     Navigator.of(context).pop();
-                                    setState(() {}); // Trigger rebuild to show in main list
+                                    setState(
+                                        () {}); // Trigger rebuild to show in main list
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                         content: Text('Conversation restored'),
@@ -1248,7 +1262,8 @@ class _PmessagesState extends State<Pmessages> {
                               ),
                               onTap: () {
                                 Navigator.pop(context);
-                                _openChatWithoutRestore(conversation['id'], conversation['name']);
+                                _openChatWithoutRestore(
+                                    conversation['id'], conversation['name']);
                               },
                             ),
                           );
@@ -1426,13 +1441,14 @@ class _PmessagesState extends State<Pmessages> {
   void _deleteMessage(String doctorId) async {
     try {
       final chatId = _getChatId(_currentUserId!, doctorId);
-      
+
       // Show confirmation dialog
       bool? confirmDelete = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('Delete Conversation'),
-          content: const Text('This conversation will be permanently deleted. This action cannot be undone.'),
+          content: const Text(
+              'This conversation will be permanently deleted. This action cannot be undone.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -1449,9 +1465,15 @@ class _PmessagesState extends State<Pmessages> {
 
       if (confirmDelete == true) {
         // Permanently delete the chat document and conversation state
-        await FirebaseFirestore.instance.collection('chats').doc(chatId).delete();
-        await FirebaseFirestore.instance.collection('conversation_states').doc(chatId).delete();
-        
+        await FirebaseFirestore.instance
+            .collection('chats')
+            .doc(chatId)
+            .delete();
+        await FirebaseFirestore.instance
+            .collection('conversation_states')
+            .doc(chatId)
+            .delete();
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(

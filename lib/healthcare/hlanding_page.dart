@@ -29,7 +29,7 @@ class _HlandingpageState extends State<Hlandingpage> {
           .collection('conversation_states')
           .doc(chatId)
           .get();
-      
+
       if (stateDoc.exists) {
         return stateDoc.data();
       }
@@ -358,19 +358,22 @@ class _HlandingpageState extends State<Hlandingpage> {
       return Stream.value([]);
     }
 
-    debugPrint('📥 LANDING PAGE: Streaming ALL incoming messages for healthcare user: $_currentUserId');
+    debugPrint(
+        '📥 LANDING PAGE: Streaming ALL incoming messages for healthcare user: $_currentUserId');
 
     return FirebaseFirestore.instance
         .collection('chats')
         .where('participants', arrayContains: _currentUserId)
         .snapshots()
         .asyncMap((chatsSnapshot) async {
-      debugPrint('📥 LANDING PAGE: Found ${chatsSnapshot.docs.length} total chats');
+      debugPrint(
+          '📥 LANDING PAGE: Found ${chatsSnapshot.docs.length} total chats');
       final incomingMessages = <Map<String, dynamic>>[];
 
       // Get list of approved patients that healthcare worker initiated chat with
       final approvedPatientIds = await _getApprovedPatientIds();
-      debugPrint('📥 LANDING PAGE: Approved patients (initiated by healthcare): ${approvedPatientIds.length}');
+      debugPrint(
+          '📥 LANDING PAGE: Approved patients (initiated by healthcare): ${approvedPatientIds.length}');
 
       for (var chatDoc in chatsSnapshot.docs) {
         final chatData = chatDoc.data();
@@ -384,20 +387,22 @@ class _HlandingpageState extends State<Hlandingpage> {
         if (contactId.isNotEmpty) {
           // Check conversation state
           final conversationState = await _getConversationState(contactId);
-          final state = conversationState?['state'] ?? null;
-          
+          final state = conversationState?['state'];
+
           // LANDING PAGE shows:
           // 1. ALL conversations WITHOUT a state (new incoming messages from patients/guests)
           // 2. Conversations NOT in the approved patients list (patients/guests who messaged first)
           // 3. Exclude archived/deleted conversations
-          
+
           final isApprovedPatient = approvedPatientIds.contains(contactId);
-          final shouldShowInLanding = (state == null || state == 'active') && !isApprovedPatient;
-          
+          final shouldShowInLanding =
+              (state == null || state == 'active') && !isApprovedPatient;
+
           if (shouldShowInLanding) {
             final contactName = await _getPatientName(contactId);
-            final contactRole = await _chatService.getUserRole(contactId) ?? 'patient';
-            
+            final contactRole =
+                await _chatService.getUserRole(contactId) ?? 'patient';
+
             // Get or create alias for patients
             String displayName;
             if (contactRole == 'patient') {
@@ -409,9 +414,10 @@ class _HlandingpageState extends State<Hlandingpage> {
               // For doctors, healthcare, and guests, show real names
               displayName = contactName;
             }
-            
-            debugPrint('📥 LANDING PAGE: Including $displayName (role: $contactRole, state: $state)');
-            
+
+            debugPrint(
+                '📥 LANDING PAGE: Including $displayName (role: $contactRole, state: $state)');
+
             incomingMessages.add({
               'id': contactId,
               'name': displayName,
@@ -421,7 +427,8 @@ class _HlandingpageState extends State<Hlandingpage> {
               'role': contactRole,
             });
           } else {
-            debugPrint('📤 SKIP for LANDING: $contactId (approved: $isApprovedPatient, state: $state) - Should be in hmessages.dart');
+            debugPrint(
+                '📤 SKIP for LANDING: $contactId (approved: $isApprovedPatient, state: $state) - Should be in hmessages.dart');
           }
         }
       }
@@ -437,7 +444,8 @@ class _HlandingpageState extends State<Hlandingpage> {
         return bTime.compareTo(aTime);
       });
 
-      debugPrint('📥 LANDING PAGE: Showing ${incomingMessages.length} incoming conversations');
+      debugPrint(
+          '📥 LANDING PAGE: Showing ${incomingMessages.length} incoming conversations');
       return incomingMessages;
     }).handleError((error) {
       debugPrint('❌ LANDING PAGE: Stream error: $error');
@@ -455,7 +463,7 @@ class _HlandingpageState extends State<Hlandingpage> {
       // Get all patients that have 'active' conversation state set by this healthcare worker
       // This means the healthcare worker initiated the chat (from approved patients list)
       final approvedIds = <String>{};
-      
+
       final statesQuery = await FirebaseFirestore.instance
           .collection('conversation_states')
           .where('healthcareId', isEqualTo: _currentUserId)
@@ -470,7 +478,8 @@ class _HlandingpageState extends State<Hlandingpage> {
         }
       }
 
-      debugPrint('📋 Found ${approvedIds.length} approved patients with active state');
+      debugPrint(
+          '📋 Found ${approvedIds.length} approved patients with active state');
       return approvedIds;
     } catch (e) {
       debugPrint('Error getting approved patient IDs: $e');
@@ -608,7 +617,7 @@ class _HlandingpageState extends State<Hlandingpage> {
   void _deleteMessage(String patientId) async {
     try {
       final chatId = _getChatId(_currentUserId!, patientId);
-      
+
       // Show confirmation dialog
       bool? confirmDelete = await showDialog<bool>(
         context: context,
@@ -617,7 +626,8 @@ class _HlandingpageState extends State<Hlandingpage> {
             borderRadius: BorderRadius.circular(16),
           ),
           title: const Text('Delete Conversation'),
-          content: const Text('This conversation will be permanently deleted. This action cannot be undone.'),
+          content: const Text(
+              'This conversation will be permanently deleted. This action cannot be undone.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -634,9 +644,15 @@ class _HlandingpageState extends State<Hlandingpage> {
 
       if (confirmDelete == true) {
         // Permanently delete the chat document and conversation state
-        await FirebaseFirestore.instance.collection('chats').doc(chatId).delete();
-        await FirebaseFirestore.instance.collection('conversation_states').doc(chatId).delete();
-        
+        await FirebaseFirestore.instance
+            .collection('chats')
+            .doc(chatId)
+            .delete();
+        await FirebaseFirestore.instance
+            .collection('conversation_states')
+            .doc(chatId)
+            .delete();
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -684,12 +700,13 @@ class _HlandingpageState extends State<Hlandingpage> {
         if (patientId.isNotEmpty) {
           final conversationState = await _getConversationState(patientId);
           final state = conversationState?['state'] ?? 'active';
-          
+
           // Only include archived conversations (NOT deleted)
           if (state == 'archived') {
             final patientName = await _getPatientName(patientId);
-            final contactRole = await _chatService.getUserRole(patientId) ?? 'patient';
-            
+            final contactRole =
+                await _chatService.getUserRole(patientId) ?? 'patient';
+
             // Get display name with alias
             String displayName;
             if (contactRole == 'patient') {
@@ -700,7 +717,7 @@ class _HlandingpageState extends State<Hlandingpage> {
             } else {
               displayName = patientName;
             }
-            
+
             archivedConversations.add({
               'id': patientId,
               'name': displayName,
@@ -850,15 +867,25 @@ class _HlandingpageState extends State<Hlandingpage> {
                         itemCount: archivedConversations.length,
                         itemBuilder: (context, index) {
                           final conversation = archivedConversations[index];
-                          final String? roleValue = (conversation['role'] as String?)?.toLowerCase();
-                          
+                          final String? roleValue =
+                              (conversation['role'] as String?)?.toLowerCase();
+
                           List<Color> avatarGradient;
                           if (roleValue == 'healthcare') {
-                            avatarGradient = [Colors.redAccent, Colors.deepOrange.shade400];
+                            avatarGradient = [
+                              Colors.redAccent,
+                              Colors.deepOrange.shade400
+                            ];
                           } else if (roleValue == 'doctor') {
-                            avatarGradient = [Colors.blueAccent, Colors.blue.shade400];
+                            avatarGradient = [
+                              Colors.blueAccent,
+                              Colors.blue.shade400
+                            ];
                           } else {
-                            avatarGradient = [Colors.teal, Colors.teal.shade400];
+                            avatarGradient = [
+                              Colors.teal,
+                              Colors.teal.shade400
+                            ];
                           }
 
                           return Container(
@@ -911,10 +938,12 @@ class _HlandingpageState extends State<Hlandingpage> {
                               ),
                               trailing: ElevatedButton(
                                 onPressed: () async {
-                                  await _setConversationState(conversation['id'], 'active');
+                                  await _setConversationState(
+                                      conversation['id'], 'active');
                                   if (mounted) {
                                     Navigator.of(context).pop();
-                                    setState(() {}); // Trigger rebuild to show in main list
+                                    setState(
+                                        () {}); // Trigger rebuild to show in main list
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                         content: Text('Conversation restored'),
@@ -934,7 +963,8 @@ class _HlandingpageState extends State<Hlandingpage> {
                               ),
                               onTap: () {
                                 Navigator.pop(context);
-                                _openChat(conversation['id'], conversation['name']);
+                                _openChat(
+                                    conversation['id'], conversation['name']);
                               },
                             ),
                           );

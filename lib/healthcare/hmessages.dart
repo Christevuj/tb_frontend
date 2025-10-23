@@ -30,7 +30,7 @@ class _HmessagesState extends State<Hmessages> {
           .collection('conversation_states')
           .doc(chatId)
           .get();
-      
+
       if (stateDoc.exists) {
         return stateDoc.data();
       }
@@ -298,12 +298,14 @@ class _HmessagesState extends State<Hmessages> {
       for (String doctorId in sameFacilityDoctors) {
         final appointmentsQuery = await FirebaseFirestore.instance
             .collection('approved_appointments')
-            .where('doctorUid', isEqualTo: doctorId)
+            .where('doctorId', isEqualTo: doctorId)
             .get();
 
         for (var appointmentDoc in appointmentsQuery.docs) {
           final appointmentData = appointmentDoc.data();
-          final patientId = appointmentData['patientUid'];
+          // Use patientUid if present, else fallback to patientEmail
+          final patientId =
+              appointmentData['patientUid'] ?? appointmentData['patientEmail'];
           final patientName =
               appointmentData['patientName'] ?? 'Unknown Patient';
 
@@ -328,6 +330,7 @@ class _HmessagesState extends State<Hmessages> {
   }
 
   void _showApprovedPatientsDialog() async {
+    // Only show patients approved by a doctor from the same facility as the healthworker
     final patients = await _getApprovedPatientsFromSameFacility();
 
     if (!mounted) return;
@@ -472,12 +475,7 @@ class _HmessagesState extends State<Hmessages> {
                                     fontSize: 16,
                                   ),
                                 ),
-                                subtitle: Text(
-                                  'Status: ${patient['status']}',
-                                  style: TextStyle(
-                                    color: Colors.grey.shade600,
-                                  ),
-                                ),
+                                // No status subtitle, just the name
                                 trailing: ElevatedButton(
                                   onPressed: () {
                                     Navigator.of(context).pop();
@@ -531,7 +529,8 @@ class _HmessagesState extends State<Hmessages> {
 
       // 📤 SET STATE TO 'ACTIVE' - This marks the conversation as initiated by healthcare worker
       // This ensures it shows in hmessages.dart (approved patients) and NOT in hlanding_page.dart
-      debugPrint('📤 HMESSAGES: Setting conversation state to ACTIVE for patient: $patientId');
+      debugPrint(
+          '📤 HMESSAGES: Setting conversation state to ACTIVE for patient: $patientId');
       await _setConversationState(patientId, 'active');
 
       if (mounted) {
@@ -722,7 +721,7 @@ class _HmessagesState extends State<Hmessages> {
   void _deleteMessage(String patientId) async {
     try {
       final chatId = _getChatId(_currentUserId!, patientId);
-      
+
       // Show confirmation dialog
       bool? confirmDelete = await showDialog<bool>(
         context: context,
@@ -731,7 +730,8 @@ class _HmessagesState extends State<Hmessages> {
             borderRadius: BorderRadius.circular(16),
           ),
           title: const Text('Delete Conversation'),
-          content: const Text('This conversation will be permanently deleted. This action cannot be undone.'),
+          content: const Text(
+              'This conversation will be permanently deleted. This action cannot be undone.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -748,9 +748,15 @@ class _HmessagesState extends State<Hmessages> {
 
       if (confirmDelete == true) {
         // Permanently delete the chat document and conversation state
-        await FirebaseFirestore.instance.collection('chats').doc(chatId).delete();
-        await FirebaseFirestore.instance.collection('conversation_states').doc(chatId).delete();
-        
+        await FirebaseFirestore.instance
+            .collection('chats')
+            .doc(chatId)
+            .delete();
+        await FirebaseFirestore.instance
+            .collection('conversation_states')
+            .doc(chatId)
+            .delete();
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -779,14 +785,16 @@ class _HmessagesState extends State<Hmessages> {
       return Stream.value([]);
     }
 
-    debugPrint('📤 HMESSAGES: Streaming chats for healthcare user: $_currentUserId');
+    debugPrint(
+        '📤 HMESSAGES: Streaming chats for healthcare user: $_currentUserId');
 
     return FirebaseFirestore.instance
         .collection('chats')
         .where('participants', arrayContains: _currentUserId)
         .snapshots()
         .asyncMap((chatsSnapshot) async {
-      debugPrint('📤 HMESSAGES: Found ${chatsSnapshot.docs.length} total chats');
+      debugPrint(
+          '📤 HMESSAGES: Found ${chatsSnapshot.docs.length} total chats');
       final approvedPatientChats = <Map<String, dynamic>>[];
 
       for (var chatDoc in chatsSnapshot.docs) {
@@ -802,17 +810,18 @@ class _HmessagesState extends State<Hmessages> {
           // Check conversation state
           final conversationState = await _getConversationState(patientId);
           final state = conversationState?['state'];
-          
+
           // HMESSAGES.DART ONLY shows conversations where:
           // 1. state == 'active' (set when healthcare worker clicked "Chat" from approved patients)
           // 2. Exclude conversations with no state (those are new incoming messages shown in hlanding_page.dart)
           if (state == 'active') {
             // Get the patient's real name (for fallback)
             final patientName = await _getPatientName(patientId);
-            
+
             // Get the contact's role
-            final contactRole = await _chatService.getUserRole(patientId) ?? 'patient';
-            
+            final contactRole =
+                await _chatService.getUserRole(patientId) ?? 'patient';
+
             // Get or create alias for this patient
             String displayName;
             if (contactRole == 'patient') {
@@ -824,9 +833,10 @@ class _HmessagesState extends State<Hmessages> {
               // For doctors and other healthcare workers, show real names
               displayName = patientName;
             }
-            
-            debugPrint('📤 HMESSAGES: Including $displayName (state: $state, role: $contactRole)');
-            
+
+            debugPrint(
+                '📤 HMESSAGES: Including $displayName (state: $state, role: $contactRole)');
+
             approvedPatientChats.add({
               'id': patientId,
               'name': displayName,
@@ -836,7 +846,8 @@ class _HmessagesState extends State<Hmessages> {
               'role': contactRole,
             });
           } else {
-            debugPrint('📥 SKIP for HMESSAGES: $patientId (state: $state) - Should be in hlanding_page.dart');
+            debugPrint(
+                '📥 SKIP for HMESSAGES: $patientId (state: $state) - Should be in hlanding_page.dart');
           }
         }
       }
@@ -852,7 +863,8 @@ class _HmessagesState extends State<Hmessages> {
         return bTime.compareTo(aTime);
       });
 
-      debugPrint('📤 HMESSAGES: Showing ${approvedPatientChats.length} approved patient conversations');
+      debugPrint(
+          '📤 HMESSAGES: Showing ${approvedPatientChats.length} approved patient conversations');
       return approvedPatientChats;
     }).handleError((error) {
       debugPrint('❌ HMESSAGES: Stream error: $error');
@@ -885,12 +897,13 @@ class _HmessagesState extends State<Hmessages> {
         if (patientId.isNotEmpty) {
           final conversationState = await _getConversationState(patientId);
           final state = conversationState?['state'] ?? 'active';
-          
+
           // Only include archived conversations (NOT deleted)
           if (state == 'archived') {
             final patientName = await _getPatientName(patientId);
-            final contactRole = await _chatService.getUserRole(patientId) ?? 'patient';
-            
+            final contactRole =
+                await _chatService.getUserRole(patientId) ?? 'patient';
+
             // Get display name with alias
             String displayName;
             if (contactRole == 'patient') {
@@ -901,7 +914,7 @@ class _HmessagesState extends State<Hmessages> {
             } else {
               displayName = patientName;
             }
-            
+
             archivedConversations.add({
               'id': patientId,
               'name': displayName,
@@ -1051,15 +1064,25 @@ class _HmessagesState extends State<Hmessages> {
                         itemCount: archivedConversations.length,
                         itemBuilder: (context, index) {
                           final conversation = archivedConversations[index];
-                          final String? roleValue = (conversation['role'] as String?)?.toLowerCase();
-                          
+                          final String? roleValue =
+                              (conversation['role'] as String?)?.toLowerCase();
+
                           List<Color> avatarGradient;
                           if (roleValue == 'healthcare') {
-                            avatarGradient = [Colors.redAccent, Colors.deepOrange.shade400];
+                            avatarGradient = [
+                              Colors.redAccent,
+                              Colors.deepOrange.shade400
+                            ];
                           } else if (roleValue == 'doctor') {
-                            avatarGradient = [Colors.blueAccent, Colors.blue.shade400];
+                            avatarGradient = [
+                              Colors.blueAccent,
+                              Colors.blue.shade400
+                            ];
                           } else {
-                            avatarGradient = [Colors.teal, Colors.teal.shade400];
+                            avatarGradient = [
+                              Colors.teal,
+                              Colors.teal.shade400
+                            ];
                           }
 
                           return Container(
@@ -1112,10 +1135,12 @@ class _HmessagesState extends State<Hmessages> {
                               ),
                               trailing: ElevatedButton(
                                 onPressed: () async {
-                                  await _setConversationState(conversation['id'], 'active');
+                                  await _setConversationState(
+                                      conversation['id'], 'active');
                                   if (mounted) {
                                     Navigator.of(context).pop();
-                                    setState(() {}); // Trigger rebuild to show in main list
+                                    setState(
+                                        () {}); // Trigger rebuild to show in main list
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                         content: Text('Conversation restored'),
@@ -1135,7 +1160,8 @@ class _HmessagesState extends State<Hmessages> {
                               ),
                               onTap: () {
                                 Navigator.pop(context);
-                                _openChat(conversation['id'], conversation['name']);
+                                _openChat(
+                                    conversation['id'], conversation['name']);
                               },
                             ),
                           );
@@ -1205,7 +1231,7 @@ class _HmessagesState extends State<Hmessages> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Messages',
+                                    'MyCare',
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontSize: 28,
@@ -1418,7 +1444,6 @@ class _HmessagesState extends State<Hmessages> {
                             ),
                           ),
                           const SizedBox(height: 12),
-                        
                         ],
                       ),
                     ),

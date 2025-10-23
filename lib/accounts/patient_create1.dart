@@ -25,11 +25,13 @@ class _Bullet extends StatelessWidget {
             margin: const EdgeInsets.only(top: 6),
             width: 6,
             height: 6,
-            decoration: BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle),
+            decoration:
+                BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle),
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(text, style: const TextStyle(fontSize: 14, height: 1.45)),
+            child:
+                Text(text, style: const TextStyle(fontSize: 14, height: 1.45)),
           ),
         ],
       ),
@@ -58,6 +60,7 @@ class _SignupScreenState extends State<SignupScreen> {
       _showTermsDialog();
     });
   }
+
   void _showTermsDialog() {
     showDialog<bool>(
       context: context,
@@ -68,53 +71,66 @@ class _SignupScreenState extends State<SignupScreen> {
           builder: (context, setStateDialog) {
             return Dialog(
               backgroundColor: Colors.white,
-              insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: 520, maxHeight: MediaQuery.of(context).size.height * 0.75),
+              insetPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                    maxWidth: 520,
+                    maxHeight: MediaQuery.of(context).size.height * 0.75),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // Header (white background, redAccent theme)
-                      // Header (redAccent background, one-line title)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: Colors.redAccent,
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.privacy_tip, color: Colors.white, size: 20),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: const [
-                                  Text(
-                                    'Terms of Use & Privacy Policy',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700),
-                                  ),
-                                  SizedBox(height: 2),
-                                  Text('Effective Date: June 11, 2025', style: TextStyle(color: Colors.white70, fontSize: 11)),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
+                    // Header (redAccent background, one-line title)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent,
+                        borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(20)),
                       ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.privacy_tip,
+                              color: Colors.white, size: 20),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Text(
+                                  'Terms of Use & Privacy Policy',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w700),
+                                ),
+                                SizedBox(height: 2),
+                                Text('Effective Date: June 11, 2025',
+                                    style: TextStyle(
+                                        color: Colors.white70, fontSize: 11)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
 
                     // Body (white background) with a Scrollbar to ensure content is visible
                     Expanded(
                       child: Container(
                         color: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 12),
                         child: Scrollbar(
                           thumbVisibility: true,
                           child: SingleChildScrollView(
@@ -124,14 +140,21 @@ class _SignupScreenState extends State<SignupScreen> {
                                 const SizedBox(height: 4),
                                 const Text(
                                   'By accessing or using the TBisita platform, you hereby acknowledge and agree to be bound by the following Terms of Use and Privacy Policy. If you do not agree to these terms, you must discontinue use of the Service.',
-                                  style: TextStyle(fontSize: 13.5, height: 1.45),
+                                  style:
+                                      TextStyle(fontSize: 13.5, height: 1.45),
                                 ),
                                 const SizedBox(height: 12),
-                                const Text('Data collected may include:', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
+                                const Text('Data collected may include:',
+                                    style: TextStyle(
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w700)),
                                 const SizedBox(height: 8),
-                                const _Bullet('Full name, age, sex, and contact information'),
-                                const _Bullet('Health-related information (e.g., TB symptoms, medication schedules, treatment adherence)'),
-                                const _Bullet('Usage data such as check-ins, consultation logs, and communication with health workers'),
+                                const _Bullet(
+                                    'Full name, age, sex, and contact information'),
+                                const _Bullet(
+                                    'Health-related information (e.g., TB symptoms, medication schedules, treatment adherence)'),
+                                const _Bullet(
+                                    'Usage data such as check-ins, consultation logs, and communication with health workers'),
                                 const SizedBox(height: 10),
                                 // Modern info card (white with left red accent) with bold Data Privacy Act
                                 Container(
@@ -140,36 +163,66 @@ class _SignupScreenState extends State<SignupScreen> {
                                   decoration: BoxDecoration(
                                     color: Colors.white,
                                     borderRadius: BorderRadius.circular(10),
-                                    boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2))],
-                                    border: Border(left: BorderSide(color: Colors.redAccent, width: 4)),
+                                    boxShadow: const [
+                                      BoxShadow(
+                                          color: Colors.black12,
+                                          blurRadius: 6,
+                                          offset: Offset(0, 2))
+                                    ],
+                                    border: Border(
+                                        left: BorderSide(
+                                            color: Colors.redAccent, width: 4)),
                                   ),
                                   child: const Text.rich(
                                     TextSpan(
-                                      text: 'This data will be used solely for the purpose of tracking, monitoring, and improving tuberculosis care. Authorized TB-DOTS health workers and licensed medical professionals may access your data to support treatment, provide follow-ups, and ensure medical compliance. Your data will be handled with strict confidentiality in accordance with the ',
+                                      text:
+                                          'This data will be used solely for the purpose of tracking, monitoring, and improving tuberculosis care. Authorized TB-DOTS health workers and licensed medical professionals may access your data to support treatment, provide follow-ups, and ensure medical compliance. Your data will be handled with strict confidentiality in accordance with the ',
                                       children: [
-                                        TextSpan(text: 'Data Privacy Act of 2012 (Republic Act No. 10173)', style: TextStyle(fontWeight: FontWeight.w600)),
+                                        TextSpan(
+                                            text:
+                                                'Data Privacy Act of 2012 (Republic Act No. 10173)',
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.w600)),
                                         TextSpan(text: ' of the Philippines.'),
                                       ],
                                     ),
-                                    style: TextStyle(fontSize: 14, height: 1.45),
+                                    style:
+                                        TextStyle(fontSize: 14, height: 1.45),
                                   ),
                                 ),
                                 const SizedBox(height: 10),
-                                const Text('You agree to:', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
+                                const Text('You agree to:',
+                                    style: TextStyle(
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w700)),
                                 const SizedBox(height: 8),
-                                const _Bullet('Provide true, accurate, and up-to-date information'),
-                                const _Bullet('Use the Service in compliance with applicable laws and regulations'),
-                                const _Bullet('Keep your login credentials secure and confidential'),
+                                const _Bullet(
+                                    'Provide true, accurate, and up-to-date information'),
+                                const _Bullet(
+                                    'Use the Service in compliance with applicable laws and regulations'),
+                                const _Bullet(
+                                    'Keep your login credentials secure and confidential'),
                                 const SizedBox(height: 12),
-                                const Text('Intellectual Property', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
+                                const Text('Intellectual Property',
+                                    style: TextStyle(
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w700)),
                                 const SizedBox(height: 8),
-                                const Text('All content, features, source code, and design elements of TBisita are the exclusive property of the developers and may not be copied, modified, distributed, or used without prior written consent.', style: TextStyle(fontSize: 13.5, height: 1.45)),
+                                const Text(
+                                    'All content, features, source code, and design elements of TBisita are the exclusive property of the developers and may not be copied, modified, distributed, or used without prior written consent.',
+                                    style: TextStyle(
+                                        fontSize: 13.5, height: 1.45)),
                                 const SizedBox(height: 12),
                                 // Agreement checkbox
                                 CheckboxListTile(
                                   contentPadding: EdgeInsets.zero,
-                                  controlAffinity: ListTileControlAffinity.leading,
-                                  title: const Text('I agree to the Terms of Service and Privacy Policy', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                                  controlAffinity:
+                                      ListTileControlAffinity.leading,
+                                  title: const Text(
+                                      'I agree to the Terms of Service and Privacy Policy',
+                                      style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600)),
                                   value: isChecked,
                                   activeColor: Colors.redAccent,
                                   onChanged: (value) {
@@ -187,24 +240,32 @@ class _SignupScreenState extends State<SignupScreen> {
 
                     // Footer
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
                         color: Colors.grey[50],
-                        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
+                        borderRadius: const BorderRadius.vertical(
+                            bottom: Radius.circular(24)),
                       ),
                       child: Row(
                         children: [
                           TextButton(
-                            style: TextButton.styleFrom(foregroundColor: Colors.white),
+                            style: TextButton.styleFrom(
+                                foregroundColor: Colors.white),
                             onPressed: () {
                               // Close dialog and navigate back to login screen
                               Navigator.of(context).pop(false);
                               Navigator.of(context).pushAndRemoveUntil(
-                                MaterialPageRoute(builder: (context) => const TBisitaLoginScreen()),
+                                MaterialPageRoute(
+                                    builder: (context) =>
+                                        const TBisitaLoginScreen()),
                                 (route) => false,
                               );
                             },
-                            child: const Text('Cancel', style: TextStyle(fontSize: 15, color: Color.fromARGB(255, 0, 0, 0))),
+                            child: const Text('Cancel',
+                                style: TextStyle(
+                                    fontSize: 15,
+                                    color: Color.fromARGB(255, 0, 0, 0))),
                           ),
                           const Spacer(),
                           ElevatedButton.icon(
@@ -214,12 +275,21 @@ class _SignupScreenState extends State<SignupScreen> {
                                     Navigator.of(context).pop(true);
                                   }
                                 : null,
-                            icon: isChecked ? const Icon(Icons.arrow_forward, color: Colors.white) : const SizedBox.shrink(),
-                            label: const Text('Continue', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white)),
+                            icon: isChecked
+                                ? const Icon(Icons.arrow_forward,
+                                    color: Colors.white)
+                                : const SizedBox.shrink(),
+                            label: const Text('Continue',
+                                style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white)),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.redAccent,
-                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 18, vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
                             ),
                           ),
                         ],
@@ -259,9 +329,78 @@ class _SignupScreenState extends State<SignupScreen> {
 
     setState(() => _isLoading = false);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(error ?? 'An error occurred')),
-    );
+    if (error == null) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => Dialog(
+          backgroundColor: Colors.white,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.redAccent.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  padding: const EdgeInsets.all(18),
+                  child: const Icon(Icons.check_circle_outline,
+                      color: Colors.redAccent, size: 48),
+                ),
+                const SizedBox(height: 18),
+                const Text(
+                  'Account created successfully!',
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.redAccent),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'You can now log in with your credentials.',
+                  style: TextStyle(fontSize: 14, color: Colors.black87),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 28),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(
+                            builder: (context) => const TBisitaLoginScreen()),
+                        (route) => false,
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.redAccent,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: const Text('OK',
+                        style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error)),
+      );
+    }
   }
 
   @override

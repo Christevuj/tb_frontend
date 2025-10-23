@@ -106,7 +106,7 @@ class _GlandingPageState extends State<GlandingPage> {
               Image.asset("assets/images/tbisita_logo2.png",
                   height: 44, alignment: Alignment.centerLeft),
               const SizedBox(height: 20),
-              
+
               // ========== TB SYMPTOMS CHECKER SECTION ==========
               Container(
                 decoration: BoxDecoration(
@@ -119,7 +119,8 @@ class _GlandingPageState extends State<GlandingPage> {
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.redAccent.withOpacity(0.3), width: 1.5),
+                  border: Border.all(
+                      color: Colors.redAccent.withOpacity(0.3), width: 1.5),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.redAccent.withOpacity(0.15),
@@ -155,7 +156,8 @@ class _GlandingPageState extends State<GlandingPage> {
                       const SizedBox(height: 8),
                       _symptomItem(Icons.thermostat, 'Unexplained fever'),
                       const SizedBox(height: 8),
-                      _symptomItem(Icons.trending_down, 'Unexplained weight loss'),
+                      _symptomItem(
+                          Icons.trending_down, 'Unexplained weight loss'),
                       const SizedBox(height: 8),
                       _symptomItem(Icons.nights_stay, 'Night sweat'),
                       const SizedBox(height: 16),
@@ -164,7 +166,8 @@ class _GlandingPageState extends State<GlandingPage> {
                         decoration: BoxDecoration(
                           color: Colors.redAccent.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
+                          border: Border.all(
+                              color: Colors.redAccent.withOpacity(0.3)),
                         ),
                         child: Row(
                           children: [
@@ -184,15 +187,20 @@ class _GlandingPageState extends State<GlandingPage> {
                                   children: const [
                                     TextSpan(
                                       text: 'If yes, ',
-                                      style: TextStyle(fontWeight: FontWeight.normal),
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.normal),
                                     ),
                                     TextSpan(
-                                      text: 'you might have Tuberculosis (TB). ',
-                                      style: TextStyle(fontWeight: FontWeight.bold),
+                                      text:
+                                          'you might have Tuberculosis (TB). ',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold),
                                     ),
                                     TextSpan(
-                                      text: 'Don\'t ignore the signs — get checked today!',
-                                      style: TextStyle(fontWeight: FontWeight.w600),
+                                      text:
+                                          'Don\'t ignore the signs — get checked today!',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.w600),
                                     ),
                                   ],
                                 ),
@@ -206,7 +214,7 @@ class _GlandingPageState extends State<GlandingPage> {
                 ),
               ),
               const SizedBox(height: 24),
-              
+
               const Text('Quick Actions',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
@@ -311,7 +319,7 @@ class _GlandingPageState extends State<GlandingPage> {
               const Text('Guidelines',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              
+
               // ========== NTP MOP 6th Edition ==========
               Container(
                 decoration: BoxDecoration(
@@ -375,10 +383,10 @@ class _GlandingPageState extends State<GlandingPage> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) =>
-                                      const PracticalPdfViewerScreen(
-                                          assetPath:
-                                              'assets/documents/NTP_MOP_6TH_EDITION.pdf'),
+                                  builder: (_) => PracticalPdfViewerScreen(
+                                      source:
+                                          'assets/documents/NTP_MOP_6TH_EDITION.pdf',
+                                      sourceType: PdfSourceType.asset),
                                 ),
                               );
                             },
@@ -402,7 +410,7 @@ class _GlandingPageState extends State<GlandingPage> {
                 ),
               ),
               const SizedBox(height: 12),
-              
+
               // ========== TB Screening, Diagnosis and Management Pocket Guide ==========
               Container(
                 decoration: BoxDecoration(
@@ -466,10 +474,10 @@ class _GlandingPageState extends State<GlandingPage> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) =>
-                                      const PracticalPdfViewerScreen(
-                                          assetPath:
-                                              'assets/documents/TB_Screening,DiagnosisandManagement_PocketGuide.pdf'),
+                                  builder: (_) => PracticalPdfViewerScreen(
+                                      source:
+                                          'assets/documents/TB_Screening,DiagnosisandManagement_PocketGuide.pdf',
+                                      sourceType: PdfSourceType.asset),
                                 ),
                               );
                             },
@@ -540,10 +548,55 @@ class _GlandingPageState extends State<GlandingPage> {
       BuildContext context, IconData icon, String label, int tabIndex) {
     return GestureDetector(
       onTap: () {
-        // Use the callback to switch tabs
-        if (widget.onSwitchTab != null) {
-          widget.onSwitchTab!(tabIndex);
-        }
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.lock_outline,
+                        color: Colors.redAccent, size: 48),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Log in To Access',
+                      style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Gain full access to Tbisita',
+                      style: TextStyle(fontSize: 14, color: Colors.black54),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Close',
+                          style: TextStyle(color: Colors.white)),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
       },
       child: Column(
         children: [

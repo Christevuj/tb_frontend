@@ -2,10 +2,18 @@
 // This version works with your current pdfx package
 import 'package:flutter/material.dart';
 import 'package:pdfx/pdfx.dart';
+import 'package:flutter/services.dart';
+
+enum PdfSourceType { asset, file, url }
 
 class PracticalPdfViewerScreen extends StatefulWidget {
-  final String assetPath;
-  const PracticalPdfViewerScreen({super.key, required this.assetPath});
+  final String source;
+  final PdfSourceType sourceType;
+  const PracticalPdfViewerScreen({
+    super.key,
+    required this.source,
+    required this.sourceType,
+  });
 
   @override
   State<PracticalPdfViewerScreen> createState() =>
@@ -16,7 +24,9 @@ class _PracticalPdfViewerScreenState extends State<PracticalPdfViewerScreen> {
   final TextEditingController _searchController = TextEditingController();
   int _currentPage = 1;
   int _totalPages = 0;
-  late PdfController _pdfController;
+  PdfController? _pdfController;
+  bool _isLoading = true;
+  String? _errorMessage;
   List<int> _searchResults = [];
   int _currentSearchIndex = -1;
   bool _isSearching = false;
@@ -211,15 +221,48 @@ class _PracticalPdfViewerScreenState extends State<PracticalPdfViewerScreen> {
   @override
   void initState() {
     super.initState();
-    _pdfController = PdfController(
-      document: PdfDocument.openAsset(widget.assetPath),
-    );
+    _initializePdf();
+  }
+
+  Future<void> _initializePdf() async {
+    try {
+      switch (widget.sourceType) {
+        case PdfSourceType.asset:
+          _pdfController = PdfController(
+            document: PdfDocument.openAsset(widget.source),
+          );
+          break;
+        case PdfSourceType.file:
+          _pdfController = PdfController(
+            document: PdfDocument.openFile(widget.source),
+          );
+          break;
+        case PdfSourceType.url:
+          // Download PDF bytes from URL
+          final uri = Uri.tryParse(widget.source);
+          if (uri == null) throw Exception('Invalid URL');
+          final response = await NetworkAssetBundle(uri).load(uri.toString());
+          final pdfBytes = response.buffer.asUint8List();
+          _pdfController = PdfController(
+            document: PdfDocument.openData(pdfBytes),
+          );
+          break;
+      }
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Failed to load PDF: \\${e.toString()}';
+      });
+    }
   }
 
   @override
   void dispose() {
     _searchController.dispose();
-    _pdfController.dispose();
+    _pdfController?.dispose();
     super.dispose();
   }
 
@@ -291,7 +334,7 @@ class _PracticalPdfViewerScreenState extends State<PracticalPdfViewerScreen> {
         });
 
         // Navigate to first search result
-        await _pdfController.animateToPage(
+        await _pdfController?.animateToPage(
           _searchResults[0],
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
@@ -333,7 +376,7 @@ class _PracticalPdfViewerScreenState extends State<PracticalPdfViewerScreen> {
       setState(() {
         _currentSearchIndex++;
       });
-      _pdfController.animateToPage(
+      _pdfController?.animateToPage(
         _searchResults[_currentSearchIndex],
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
@@ -346,7 +389,7 @@ class _PracticalPdfViewerScreenState extends State<PracticalPdfViewerScreen> {
       setState(() {
         _currentSearchIndex--;
       });
-      _pdfController.animateToPage(
+      _pdfController?.animateToPage(
         _searchResults[_currentSearchIndex],
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
@@ -379,349 +422,370 @@ class _PracticalPdfViewerScreenState extends State<PracticalPdfViewerScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF2F3F5),
-      body: Column(
-        children: [
-          // Custom Header
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 40, 16, 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.shade300,
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: IconButton(
-                    icon: Icon(Icons.arrow_back_ios, color: themeRed),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ),
-                Text(
-                  "Manual Procedures",
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: themeRed,
-                  ),
-                ),
-                const SizedBox(width: 48),
-              ],
-            ),
-          ),
-
-          // Enhanced Search Bar
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Column(
-              children: [
-                Row(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _errorMessage != null
+              ? Center(
+                  child: Text(_errorMessage!,
+                      style: const TextStyle(color: Colors.red)))
+              : Column(
                   children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: "Search comprehensive TB content...",
-                          prefixIcon: _isSearching
-                              ? const Padding(
-                                  padding: EdgeInsets.all(12.0),
-                                  child: SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2),
-                                  ),
-                                )
-                              : const Icon(Icons.search),
-                          suffixIcon: _searchController.text.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear),
-                                  onPressed: _clearSearch,
-                                )
-                              : null,
-                          filled: true,
-                          fillColor: Colors.white,
-                          contentPadding: const EdgeInsets.symmetric(
-                              vertical: 0, horizontal: 12),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
+                    // Custom Header
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 40, 16, 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.grey.shade300,
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: IconButton(
+                              icon: Icon(Icons.arrow_back_ios, color: themeRed),
+                              onPressed: () => Navigator.of(context).pop(),
+                            ),
                           ),
-                        ),
-                        onSubmitted: (_) => _performSearch(),
-                        onChanged: (_) => setState(() {}),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Material(
-                      color: Colors.white,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                      child: InkWell(
-                        onTap: _isSearching ? null : _performSearch,
-                        borderRadius: BorderRadius.circular(12),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 12),
-                          child: Icon(
-                            Icons.search,
-                            color: _isSearching ? Colors.grey : themeRed,
+                          Text(
+                            "Manual Procedures",
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: themeRed,
+                            ),
                           ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-
-                // Search Results Navigation
-                if (_searchResults.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.shade200,
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
+                          const SizedBox(width: 48),
                         ],
                       ),
+                    ),
+
+                    // Enhanced Search Bar
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
                       child: Column(
                         children: [
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                'Page ${_currentSearchIndex + 1} of ${_searchResults.length} results',
-                                style: const TextStyle(
-                                    fontSize: 12, fontWeight: FontWeight.w500),
-                              ),
-                              Row(
-                                children: [
-                                  InkWell(
-                                    onTap: _currentSearchIndex > 0
-                                        ? _navigateToPreviousResult
-                                        : null,
-                                    borderRadius: BorderRadius.circular(6),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(4),
-                                      child: Icon(
-                                        Icons.keyboard_arrow_up,
-                                        size: 20,
-                                        color: _currentSearchIndex > 0
-                                            ? themeRed
-                                            : Colors.grey,
-                                      ),
+                              Expanded(
+                                child: TextField(
+                                  controller: _searchController,
+                                  decoration: InputDecoration(
+                                    hintText:
+                                        "Search comprehensive TB content...",
+                                    prefixIcon: _isSearching
+                                        ? const Padding(
+                                            padding: EdgeInsets.all(12.0),
+                                            child: SizedBox(
+                                              width: 20,
+                                              height: 20,
+                                              child: CircularProgressIndicator(
+                                                  strokeWidth: 2),
+                                            ),
+                                          )
+                                        : const Icon(Icons.search),
+                                    suffixIcon:
+                                        _searchController.text.isNotEmpty
+                                            ? IconButton(
+                                                icon: const Icon(Icons.clear),
+                                                onPressed: _clearSearch,
+                                              )
+                                            : null,
+                                    filled: true,
+                                    fillColor: Colors.white,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                        vertical: 0, horizontal: 12),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide.none,
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
-                                  InkWell(
-                                    onTap: _currentSearchIndex <
-                                            _searchResults.length - 1
-                                        ? _navigateToNextResult
-                                        : null,
-                                    borderRadius: BorderRadius.circular(6),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(4),
-                                      child: Icon(
-                                        Icons.keyboard_arrow_down,
-                                        size: 20,
-                                        color: _currentSearchIndex <
-                                                _searchResults.length - 1
-                                            ? themeRed
-                                            : Colors.grey,
+                                  onSubmitted: (_) => _performSearch(),
+                                  onChanged: (_) => setState(() {}),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Material(
+                                color: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
+                                child: InkWell(
+                                  onTap: _isSearching ? null : _performSearch,
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 12),
+                                    child: Icon(
+                                      Icons.search,
+                                      color:
+                                          _isSearching ? Colors.grey : themeRed,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          // Search Results Navigation
+                          if (_searchResults.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.grey.shade200,
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          'Page ${_currentSearchIndex + 1} of ${_searchResults.length} results',
+                                          style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w500),
+                                        ),
+                                        Row(
+                                          children: [
+                                            InkWell(
+                                              onTap: _currentSearchIndex > 0
+                                                  ? _navigateToPreviousResult
+                                                  : null,
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
+                                              child: Padding(
+                                                padding:
+                                                    const EdgeInsets.all(4),
+                                                child: Icon(
+                                                  Icons.keyboard_arrow_up,
+                                                  size: 20,
+                                                  color: _currentSearchIndex > 0
+                                                      ? themeRed
+                                                      : Colors.grey,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            InkWell(
+                                              onTap: _currentSearchIndex <
+                                                      _searchResults.length - 1
+                                                  ? _navigateToNextResult
+                                                  : null,
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
+                                              child: Padding(
+                                                padding:
+                                                    const EdgeInsets.all(4),
+                                                child: Icon(
+                                                  Icons.keyboard_arrow_down,
+                                                  size: 20,
+                                                  color: _currentSearchIndex <
+                                                          _searchResults
+                                                                  .length -
+                                                              1
+                                                      ? themeRed
+                                                      : Colors.grey,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    // Current search term and page indicator
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 10, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: Colors.yellow.withOpacity(0.2),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                            color:
+                                                Colors.orange.withOpacity(0.3)),
                                       ),
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.search,
+                                              size: 16,
+                                              color: Colors.orange.shade700),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            'Searching for: "${_searchController.text}"',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: Colors.orange.shade700,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                          const Spacer(),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 8, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: themeRed,
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                            child: Text(
+                                              'Page ${_searchResults[_currentSearchIndex]}',
+                                              style: const TextStyle(
+                                                fontSize: 10,
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 4),
+
+                    // PDF Viewer
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+                        child: Scrollbar(
+                          thumbVisibility: true,
+                          thickness: 12.0,
+                          radius: const Radius.circular(6.0),
+                          trackVisibility: true,
+                          interactive: true,
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.grey.shade300,
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 4),
+                                  )
+                                ],
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(14),
+                                child: PdfView(
+                                  controller: _pdfController!,
+                                  scrollDirection: Axis.vertical,
+                                  physics: const BouncingScrollPhysics(),
+                                  pageSnapping: false,
+                                  onPageChanged: (page) {
+                                    setState(() {
+                                      _currentPage = page;
+                                    });
+                                  },
+                                  onDocumentLoaded: (document) {
+                                    setState(() {
+                                      _totalPages = document.pagesCount;
+                                    });
+                                  },
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // Page Number Display with Search Indicator
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.grey.shade200,
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Text(
+                              'Page $_currentPage of $_totalPages',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+
+                          // Search Result Indicator
+                          if (_searchResults.contains(_currentPage) &&
+                              _searchController.text.isNotEmpty)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.green,
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.green.withOpacity(0.3),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.visibility,
+                                      color: Colors.white, size: 16),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Match Found!',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
                                     ),
                                   ),
                                 ],
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          // Current search term and page indicator
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: Colors.yellow.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                  color: Colors.orange.withOpacity(0.3)),
                             ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.search,
-                                    size: 16, color: Colors.orange.shade700),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'Searching for: "${_searchController.text}"',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.orange.shade700,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                const Spacer(),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: themeRed,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    'Page ${_searchResults[_currentSearchIndex]}',
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
                         ],
                       ),
                     ),
-                  ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 4),
-
-          // PDF Viewer
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
-              child: Scrollbar(
-                thumbVisibility: true,
-                thickness: 12.0,
-                radius: const Radius.circular(6.0),
-                trackVisibility: true,
-                interactive: true,
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.shade300,
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        )
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(14),
-                      child: PdfView(
-                        controller: _pdfController,
-                        scrollDirection: Axis.vertical,
-                        physics: const BouncingScrollPhysics(),
-                        pageSnapping: false,
-                        onPageChanged: (page) {
-                          setState(() {
-                            _currentPage = page;
-                          });
-                        },
-                        onDocumentLoaded: (document) {
-                          setState(() {
-                            _totalPages = document.pagesCount;
-                          });
-                        },
-                      ),
-                    ),
-                  ),
+                  ],
                 ),
-              ),
-            ),
-          ),
-
-          // Page Number Display with Search Indicator
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.shade200,
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Text(
-                    'Page $_currentPage of $_totalPages',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-
-                // Search Result Indicator
-                if (_searchResults.contains(_currentPage) &&
-                    _searchController.text.isNotEmpty)
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.green,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.green.withOpacity(0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.visibility,
-                            color: Colors.white, size: 16),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Match Found!',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

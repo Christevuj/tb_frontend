@@ -10,6 +10,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
+import 'package:crypto/crypto.dart';
 
 class Prescription extends StatefulWidget {
   final Map<String, dynamic> appointment;
@@ -259,7 +260,8 @@ class _PrescriptionState extends State<Prescription> {
                             Navigator.of(context).pop();
                             _showDrawSignatureDialog();
                           },
-                          icon: const Icon(Icons.draw, color: Colors.white, size: 18),
+                          icon: const Icon(Icons.draw,
+                              color: Colors.white, size: 18),
                           label: Text(
                             _doctorSignature == null
                                 ? 'Create Signature'
@@ -399,7 +401,8 @@ class _PrescriptionState extends State<Prescription> {
                       onPressed: () => Navigator.of(context).pop(),
                       child: const Text(
                         'Cancel',
-                        style: TextStyle(color: Color(0xFF718096), fontSize: 13),
+                        style:
+                            TextStyle(color: Color(0xFF718096), fontSize: 13),
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -410,7 +413,8 @@ class _PrescriptionState extends State<Prescription> {
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFF94F6D),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 10),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -640,11 +644,14 @@ class _PrescriptionState extends State<Prescription> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Name: $patientName', style: const TextStyle(fontSize: 11)),
+                              Text('Name: $patientName',
+                                  style: const TextStyle(fontSize: 11)),
                               const SizedBox(height: 8),
-                              Text('Address: $patientAddress', style: const TextStyle(fontSize: 11)),
+                              Text('Address: $patientAddress',
+                                  style: const TextStyle(fontSize: 11)),
                               const SizedBox(height: 8),
-                              Text('Age: $patientAge', style: const TextStyle(fontSize: 11)),
+                              Text('Age: $patientAge',
+                                  style: const TextStyle(fontSize: 11)),
                             ],
                           ),
                         ),
@@ -652,9 +659,11 @@ class _PrescriptionState extends State<Prescription> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            Text('Gender: $patientGender', style: const TextStyle(fontSize: 11)),
+                            Text('Gender: $patientGender',
+                                style: const TextStyle(fontSize: 11)),
                             const SizedBox(height: 8),
-                            Text('Date: $prescriptionDate', style: const TextStyle(fontSize: 11)),
+                            Text('Date: $prescriptionDate',
+                                style: const TextStyle(fontSize: 11)),
                           ],
                         ),
                       ],
@@ -742,7 +751,8 @@ class _PrescriptionState extends State<Prescription> {
                                 Container(
                                   height: 80,
                                   width: 200,
-                                  child: _doctorSignature!.startsWith('data:image')
+                                  child: _doctorSignature!
+                                          .startsWith('data:image')
                                       ? Image.memory(
                                           base64Decode(
                                               _doctorSignature!.split(',')[1]),
@@ -789,15 +799,19 @@ class _PrescriptionState extends State<Prescription> {
                               // Edit button
                               TextButton.icon(
                                 onPressed: _showSignatureDialog,
-                                icon: const Icon(Icons.edit, size: 14, color: Color(0xFFF94F6D)),
+                                icon: const Icon(Icons.edit,
+                                    size: 14, color: Color(0xFFF94F6D)),
                                 label: const Text(
                                   'Edit Signature',
-                                  style: TextStyle(fontSize: 11, color: Color(0xFFF94F6D)),
+                                  style: TextStyle(
+                                      fontSize: 11, color: Color(0xFFF94F6D)),
                                 ),
                                 style: TextButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
                                   minimumSize: Size.zero,
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
                                 ),
                               ),
                             ] else ...[
@@ -845,15 +859,19 @@ class _PrescriptionState extends State<Prescription> {
                               // Add button
                               TextButton.icon(
                                 onPressed: _showSignatureDialog,
-                                icon: const Icon(Icons.add, size: 14, color: Color(0xFFF94F6D)),
+                                icon: const Icon(Icons.add,
+                                    size: 14, color: Color(0xFFF94F6D)),
                                 label: const Text(
                                   'Add Signature',
-                                  style: TextStyle(fontSize: 11, color: Color(0xFFF94F6D)),
+                                  style: TextStyle(
+                                      fontSize: 11, color: Color(0xFFF94F6D)),
                                 ),
                                 style: TextButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
                                   minimumSize: Size.zero,
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
                                 ),
                               ),
                             ],
@@ -924,8 +942,22 @@ class _PrescriptionState extends State<Prescription> {
       // Generate PDF and upload to Cloudinary
       final prescriptionData = await _generateAndUploadPrescriptionPdf();
 
-      if (prescriptionData == null) {
-        throw Exception('Failed to generate or upload PDF');
+      if (prescriptionData == null ||
+          prescriptionData['cloudinaryUrl'] == null ||
+          prescriptionData['cloudinaryUrl']!.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content:
+                  Text('Cloudinary upload failed. Prescription not saved.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        setState(() {
+          _isLoading = false;
+        });
+        return;
       }
 
       if (_hasExistingPrescription) {
@@ -1008,20 +1040,16 @@ class _PrescriptionState extends State<Prescription> {
       // Prepare Cloudinary upload (you'll need to add your Cloudinary credentials)
       final cloudinaryUrl = await _uploadToCloudinary(bytes, publicId);
 
-      if (cloudinaryUrl != null) {
+      if (cloudinaryUrl != null && cloudinaryUrl.isNotEmpty) {
         return {
           'localPath': localPdfPath,
           'cloudinaryUrl': cloudinaryUrl,
           'publicId': publicId,
         };
+      } else {
+        debugPrint('Cloudinary upload failed or returned empty URL.');
+        return null;
       }
-
-      // Fallback to local path only if upload fails
-      return {
-        'localPath': localPdfPath,
-        'cloudinaryUrl': '',
-        'publicId': '',
-      };
     } catch (e) {
       print('Error generating/uploading PDF: $e');
       return null;
@@ -1031,14 +1059,14 @@ class _PrescriptionState extends State<Prescription> {
   Future<String?> _uploadToCloudinary(List<int> bytes, String publicId) async {
     try {
       // Replace these with your actual Cloudinary credentials
-      const cloudName = 'YOUR_CLOUD_NAME';
-      const apiKey = 'YOUR_API_KEY';
-      const apiSecret = 'YOUR_API_SECRET';
+      const cloudName = 'dcke8ojqe';
+      const apiKey = '758276369624158';
+      const apiSecret = 'r80xIYRxqgPyrNhBnle_uH99osU';
 
       final url = 'https://api.cloudinary.com/v1_1/$cloudName/raw/upload';
       final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
 
-      // Generate signature (you may need to implement this based on Cloudinary requirements)
+      // Generate signature (HMAC-SHA1, only public_id and timestamp)
       final signature =
           _generateCloudinarySignature(publicId, timestamp, apiSecret);
 
@@ -1060,9 +1088,10 @@ class _PrescriptionState extends State<Prescription> {
 
       if (response.statusCode == 200) {
         final jsonResponse = json.decode(responseData);
+        debugPrint('Cloudinary upload success: $jsonResponse');
         return jsonResponse['secure_url'];
       } else {
-        print('Cloudinary upload failed: $responseData');
+        debugPrint('Cloudinary upload failed: $responseData');
         return null;
       }
     } catch (e) {
@@ -1073,12 +1102,11 @@ class _PrescriptionState extends State<Prescription> {
 
   String _generateCloudinarySignature(
       String publicId, String timestamp, String apiSecret) {
-    // This is a simplified signature generation
-    // In production, you should implement proper HMAC-SHA1 signature
-    final paramsToSign =
-        'public_id=$publicId&timestamp=$timestamp&resource_type=raw';
-    // For now, return a placeholder based on params - implement proper signing in production
-    return 'sig_${paramsToSign.hashCode.abs()}';
+    // Cloudinary signature: sign only public_id and timestamp
+    final paramsToSign = 'public_id=$publicId&timestamp=$timestamp';
+    final hmacSha1 = Hmac(sha1, utf8.encode(apiSecret));
+    final digest = hmacSha1.convert(utf8.encode(paramsToSign));
+    return digest.toString();
   }
 
   Future<String?> _generatePrescriptionPdf() async {
@@ -1235,7 +1263,8 @@ class _PrescriptionState extends State<Prescription> {
                               child: _doctorSignature!.startsWith('data:image')
                                   ? pw.Image(
                                       pw.MemoryImage(
-                                        base64Decode(_doctorSignature!.split(',')[1]),
+                                        base64Decode(
+                                            _doctorSignature!.split(',')[1]),
                                       ),
                                       fit: pw.BoxFit.contain,
                                     )
@@ -1262,8 +1291,7 @@ class _PrescriptionState extends State<Prescription> {
                               style: const pw.TextStyle(fontSize: 12),
                             ),
                           ],
-                        ]
-                        else
+                        ] else
                           // When no signature, show name and placeholder line
                           pw.Column(
                             children: [
@@ -1395,7 +1423,8 @@ class _SignaturePadDialogState extends State<SignaturePadDialog> {
               border: Border.all(color: const Color(0xFFE2E8F0), width: 2),
             ),
             child: Padding(
-              padding: const EdgeInsets.all(4.0), // Padding to prevent edge clipping
+              padding:
+                  const EdgeInsets.all(4.0), // Padding to prevent edge clipping
               child: RepaintBoundary(
                 key: _signatureKey,
                 child: GestureDetector(
@@ -1404,7 +1433,7 @@ class _SignaturePadDialogState extends State<SignaturePadDialog> {
                         .findRenderObject() as RenderBox;
                     final Offset localPosition =
                         renderBox.globalToLocal(details.globalPosition);
-                    
+
                     setState(() {
                       _isDrawing = true;
                       _currentPath = [localPosition];
@@ -1416,7 +1445,7 @@ class _SignaturePadDialogState extends State<SignaturePadDialog> {
                           .findRenderObject() as RenderBox;
                       final Offset localPosition =
                           renderBox.globalToLocal(details.globalPosition);
-                      
+
                       setState(() {
                         _currentPath.add(localPosition);
                       });
@@ -1458,7 +1487,8 @@ class _SignaturePadDialogState extends State<SignaturePadDialog> {
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: _clearSignature,
-                icon: const Icon(Icons.clear, color: Color(0xFF718096), size: 16),
+                icon:
+                    const Icon(Icons.clear, color: Color(0xFF718096), size: 16),
                 label: const Text(
                   'Clear',
                   style: TextStyle(color: Color(0xFF718096), fontSize: 12),

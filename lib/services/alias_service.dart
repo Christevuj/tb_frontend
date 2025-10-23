@@ -13,10 +13,8 @@ class AliasService {
   }) async {
     try {
       final docId = '${healthcareId}_$patientId';
-      final doc = await _firestore
-          .collection('patient_aliases')
-          .doc(docId)
-          .get();
+      final doc =
+          await _firestore.collection('patient_aliases').doc(docId).get();
 
       if (doc.exists) {
         return doc.data()?['alias'] as String?;
@@ -28,22 +26,46 @@ class AliasService {
     }
   }
 
-  /// Auto-generate the next available patient number for a healthcare worker
-  /// Returns "Patient 1", "Patient 2", etc.
-  Future<String> _generateNextPatientNumber(String healthcareId) async {
+  /// Auto-generate the next available patient alias: first 3 letters of facility + patient number (e.g., ABC-01)
+  Future<String> _generateNextPatientAlias(String healthcareId) async {
     try {
+      // Get the healthcare worker's facility name
+      final healthcareDoc =
+          await _firestore.collection('healthcare').doc(healthcareId).get();
+      String facilityCode = 'FAC';
+      if (healthcareDoc.exists) {
+        final data = healthcareDoc.data();
+        String? facilityName;
+        if (data != null && data['facility'] != null) {
+          if (data['facility'] is Map) {
+            facilityName = data['facility']['name'] ?? data['facility']['id'];
+          } else if (data['facility'] is String) {
+            facilityName = data['facility'];
+          }
+        }
+        if (facilityName != null && facilityName.trim().isNotEmpty) {
+          facilityCode = facilityName
+              .replaceAll(RegExp(r'[^A-Za-z0-9]'), '')
+              .toUpperCase();
+          if (facilityCode.length > 3)
+            facilityCode = facilityCode.substring(0, 3);
+          if (facilityCode.length < 3)
+            facilityCode = facilityCode.padRight(3, 'X');
+        }
+      }
+
       // Get all existing aliases for this healthcare worker
       final querySnapshot = await _firestore
           .collection('patient_aliases')
           .where('healthcareId', isEqualTo: healthcareId)
           .get();
 
-      // Find the highest patient number
+      // Find the highest patient number for this facility code
       int maxNumber = 0;
       for (var doc in querySnapshot.docs) {
         final alias = doc.data()['alias'] as String?;
-        if (alias != null && alias.startsWith('Patient ')) {
-          final numberStr = alias.replaceFirst('Patient ', '');
+        if (alias != null && alias.startsWith('$facilityCode-')) {
+          final numberStr = alias.replaceFirst('$facilityCode-', '');
           final number = int.tryParse(numberStr);
           if (number != null && number > maxNumber) {
             maxNumber = number;
@@ -51,15 +73,16 @@ class AliasService {
         }
       }
 
-      return 'Patient ${maxNumber + 1}';
+      final nextNumber = (maxNumber + 1).toString().padLeft(2, '0');
+      return '$facilityCode-$nextNumber';
     } catch (e) {
-      print('Error generating patient number: $e');
-      return 'Patient 1';
+      print('Error generating patient alias: $e');
+      return 'FAC-01';
     }
   }
 
   /// Get or create an alias for a patient
-  /// If no alias exists, automatically generates "Patient X"
+  /// If no alias exists, automatically generates facility-based alias (e.g., ABC-01)
   Future<String> getOrCreatePatientAlias({
     required String healthcareId,
     required String patientId,
@@ -76,7 +99,7 @@ class AliasService {
       }
 
       // Generate new alias
-      final newAlias = await _generateNextPatientNumber(healthcareId);
+      final newAlias = await _generateNextPatientAlias(healthcareId);
 
       // Save to Firestore
       final docId = '${healthcareId}_$patientId';
@@ -91,7 +114,7 @@ class AliasService {
       return newAlias;
     } catch (e) {
       print('Error creating patient alias: $e');
-      return 'Patient';
+      return 'FAC-01';
     }
   }
 
@@ -113,7 +136,7 @@ class AliasService {
       print('🔍 Patient ID: $patientId');
       print('🔍 New Alias: ${newAlias.trim()}');
       print('🔍 Document ID: $docId');
-      
+
       await _firestore.collection('patient_aliases').doc(docId).set({
         'alias': newAlias.trim(),
         'healthcareId': healthcareId,
@@ -165,7 +188,7 @@ class AliasService {
     print('🔍 ALIAS_SERVICE - Healthcare ID: $healthcareId');
     print('🔍 ALIAS_SERVICE - Patient ID: $patientId');
     print('🔍 ALIAS_SERVICE - Collection: patient_aliases');
-    
+
     return _firestore
         .collection('patient_aliases')
         .doc(docId)
@@ -173,7 +196,7 @@ class AliasService {
         .map((doc) {
       print('🔍 ALIAS_SERVICE - Document snapshot received');
       print('🔍 ALIAS_SERVICE - Doc exists: ${doc.exists}');
-      
+
       if (doc.exists) {
         final alias = doc.data()?['alias'] as String?;
         print('🔍 ALIAS_SERVICE - Alias value: $alias');

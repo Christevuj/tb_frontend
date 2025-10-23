@@ -32,7 +32,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
   late final String _chatId;
   String _otherUserName = '';
-  String? _myAliasFromHealthcare; // The name healthcare worker uses for current user
+  String?
+      _myAliasFromHealthcare; // The name healthcare worker uses for current user
+  bool _showAliasBanner = true; // Controls visibility of alias banner
   String? _otherUserRole; // Track if other user is healthcare
   bool _isOtherUserOnline = false;
   String _otherUserStatus = 'Offline';
@@ -82,17 +84,18 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _checkAliases() async {
-    final currentUserRole = await _chatService.getUserRole(widget.currentUserId);
-    
-    // If current user is PATIENT and other user is HEALTHCARE
-    // Monitor if healthcare worker has given me an alias
-    if (currentUserRole == 'patient' && _otherUserRole == 'healthcare') {
-      debugPrint('🔍 PATIENT MODE - Monitoring alias from healthcare worker');
+    final currentUserRole =
+        await _chatService.getUserRole(widget.currentUserId);
+
+    // Always subscribe to alias stream for patient, regardless of other user's role
+    if (currentUserRole == 'patient') {
+      debugPrint(
+          '🔍 PATIENT MODE - Monitoring alias from other user (healthcare or doctor)');
       _aliasService
           .streamPatientAlias(
-            healthcareId: widget.otherUserId,
-            patientId: widget.currentUserId,
-          )
+        healthcareId: widget.otherUserId,
+        patientId: widget.currentUserId,
+      )
           .listen((alias) {
         if (mounted) {
           setState(() {
@@ -104,16 +107,16 @@ class _ChatScreenState extends State<ChatScreen> {
         }
       });
     }
-    
+
     // If current user is HEALTHCARE and other user is PATIENT
     // Monitor the alias I've given to the patient
     if (currentUserRole == 'healthcare' && _otherUserRole == 'patient') {
       debugPrint('🔍 HEALTHCARE MODE - Monitoring alias for patient');
       _aliasService
           .streamPatientAlias(
-            healthcareId: widget.currentUserId,
-            patientId: widget.otherUserId,
-          )
+        healthcareId: widget.currentUserId,
+        patientId: widget.otherUserId,
+      )
           .listen((alias) {
         if (mounted) {
           setState(() {
@@ -356,7 +359,7 @@ class _ChatScreenState extends State<ChatScreen> {
   void _showMenuOptions() async {
     final isHealthcare = await _isCurrentUserHealthcare();
     final profilePicture = await _getOtherUserProfilePicture();
-    
+
     if (!mounted) return;
 
     showDialog(
@@ -430,7 +433,9 @@ class _ChatScreenState extends State<ChatScreen> {
                       const SizedBox(height: 16),
                       // Name
                       Text(
-                        _otherUserName.isEmpty ? widget.otherUserId : _otherUserName,
+                        _otherUserName.isEmpty
+                            ? widget.otherUserId
+                            : _otherUserName,
                         style: const TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
@@ -449,8 +454,8 @@ class _ChatScreenState extends State<ChatScreen> {
                             height: 8,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: _isOtherUserOnline 
-                                  ? Colors.green.shade500 
+                              color: _isOtherUserOnline
+                                  ? Colors.green.shade500
                                   : Colors.grey.shade400,
                               boxShadow: _isOtherUserOnline
                                   ? [
@@ -477,7 +482,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     ],
                   ),
                 ),
-                
+
                 // Divider
                 Container(
                   height: 1,
@@ -492,7 +497,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                   ),
                 ),
-                
+
                 // Menu options
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
@@ -503,7 +508,10 @@ class _ChatScreenState extends State<ChatScreen> {
                           icon: Icons.edit_rounded,
                           label: 'Rename Patient',
                           subtitle: 'Set a custom name',
-                          gradient: [Colors.blue.shade400, Colors.blue.shade600],
+                          gradient: [
+                            Colors.blue.shade400,
+                            Colors.blue.shade600
+                          ],
                           onTap: () {
                             Navigator.pop(context);
                             _showRenameDialog();
@@ -514,7 +522,10 @@ class _ChatScreenState extends State<ChatScreen> {
                         icon: Icons.photo_library_rounded,
                         label: 'View Photos',
                         subtitle: 'See all shared images',
-                        gradient: [Colors.purple.shade400, Colors.purple.shade600],
+                        gradient: [
+                          Colors.purple.shade400,
+                          Colors.purple.shade600
+                        ],
                         onTap: () {
                           Navigator.pop(context);
                           _showPhotoGallery();
@@ -533,7 +544,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     ],
                   ),
                 ),
-                
+
                 // Close button
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -565,7 +576,7 @@ class _ChatScreenState extends State<ChatScreen> {
       },
     );
   }
-  
+
   // Modern menu option widget (Messenger style)
   Widget _buildModernMenuOption({
     required IconData icon,
@@ -697,7 +708,7 @@ class _ChatScreenState extends State<ChatScreen> {
       healthcareId: widget.currentUserId,
       patientId: widget.otherUserId,
     );
-    
+
     if (currentAlias != null) {
       controller.text = currentAlias;
     }
@@ -788,19 +799,21 @@ class _ChatScreenState extends State<ChatScreen> {
                     patientId: widget.otherUserId,
                     newAlias: newName,
                   );
-                  
+
                   if (mounted) {
                     Navigator.of(context).pop();
                     if (success) {
                       // Don't manually set _otherUserName here
                       // The stream listener will automatically update it
-                      debugPrint('✅ Alias update successful, waiting for stream update...');
-                      
+                      debugPrint(
+                          '✅ Alias update successful, waiting for stream update...');
+
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Row(
                             children: [
-                              const Icon(Icons.check_circle, color: Colors.white),
+                              const Icon(Icons.check_circle,
+                                  color: Colors.white),
                               const SizedBox(width: 12),
                               Text('Patient renamed to "$newName"'),
                             ],
@@ -1251,7 +1264,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    
+
                     Text(
                       'Choose how you want to add an image',
                       style: TextStyle(
@@ -1261,7 +1274,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       ),
                     ),
                     const SizedBox(height: 32),
-                    
+
                     // Modern option cards
                     Row(
                       children: [
@@ -1301,9 +1314,9 @@ class _ChatScreenState extends State<ChatScreen> {
                       ],
                     ),
                     const SizedBox(height: 24),
-                    
+
                     // Cancel button
-                    Container(
+                    SizedBox(
                       width: double.infinity,
                       height: 50,
                       child: TextButton(
@@ -1417,7 +1430,8 @@ class _ChatScreenState extends State<ChatScreen> {
       print('🔍 DEBUG: Picked file: ${pickedFile?.path}');
 
       if (pickedFile != null) {
-        print('🔍 DEBUG: Image selected successfully, file size: ${await File(pickedFile.path).length()} bytes');
+        print(
+            '🔍 DEBUG: Image selected successfully, file size: ${await File(pickedFile.path).length()} bytes');
         // Show enhanced loading indicator
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1489,13 +1503,13 @@ class _ChatScreenState extends State<ChatScreen> {
         print('🔍 DEBUG: Sender ID: ${widget.currentUserId}');
         print('🔍 DEBUG: Receiver ID: ${widget.otherUserId}');
         print('🔍 DEBUG: Image file path: ${pickedFile.path}');
-        
+
         await _chatService.sendImageMessage(
           senderId: widget.currentUserId,
           receiverId: widget.otherUserId,
           imageFile: File(pickedFile.path),
         );
-        
+
         print('🔍 DEBUG: Image message sent successfully!');
 
         // Hide loading indicator and show success
@@ -1610,10 +1624,12 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     // Debug: Print the alias state
-    debugPrint('🔍 CHAT_SCREEN BUILD - _myAliasFromHealthcare: $_myAliasFromHealthcare');
+    debugPrint(
+        '🔍 CHAT_SCREEN BUILD - _myAliasFromHealthcare: $_myAliasFromHealthcare');
     debugPrint('🔍 CHAT_SCREEN BUILD - _otherUserRole: $_otherUserRole');
-    debugPrint('🔍 CHAT_SCREEN BUILD - Should show banner: ${_myAliasFromHealthcare != null && _otherUserRole == 'healthcare'}');
-    
+    debugPrint(
+        '🔍 CHAT_SCREEN BUILD - Should show banner: ${_myAliasFromHealthcare != null}');
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FD),
       body: Column(
@@ -1779,197 +1795,83 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
           ),
-          // 🔹 Healthcare Worker Nickname Notice (Pinned Warning)
-          if (_myAliasFromHealthcare != null && _otherUserRole == 'healthcare')
+          // 🔹 Always show Nickname Notice (Pinned Banner) if alias exists and _showAliasBanner is true
+          if (_myAliasFromHealthcare != null && _showAliasBanner)
             Container(
-              margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 24),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Colors.amber.shade50,
-                    Colors.orange.shade50,
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(16),
+                color: const Color.fromARGB(255, 67, 67, 67),
+                borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: Colors.orange.shade200,
-                  width: 1.5,
+                  color: const Color.fromARGB(255, 67, 67, 67),
+                  width: 1,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.orange.withOpacity(0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
+                    color: const Color.fromARGB(255, 255, 255, 255)
+                        .withOpacity(0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
                   ),
                 ],
               ),
-              child: Column(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Header with pin icon
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade100.withOpacity(0.3),
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(15),
-                        topRight: Radius.circular(15),
-                      ),
-                    ),
-                    child: Row(
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.shade600,
-                            borderRadius: BorderRadius.circular(8),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.orange.withOpacity(0.3),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
+                        RichText(
+                          text: TextSpan(
+                            style: TextStyle(
+                              color: const Color.fromARGB(255, 255, 255, 255),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            children: [
+                              const TextSpan(text: 'You are identified as '),
+                              TextSpan(
+                                text: _myAliasFromHealthcare ?? '',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold),
                               ),
                             ],
                           ),
-                          child: const Icon(
-                            Icons.push_pin_rounded,
-                            color: Colors.white,
-                            size: 16,
-                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(height: 2),
                         Text(
-                          'PRIVACY NOTICE',
+                          'This helps protect your identity and privacy.',
                           style: TextStyle(
-                            color: Colors.orange.shade900,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.8,
+                            color: const Color.fromARGB(255, 255, 255, 255),
+                            fontSize: 10,
+                            fontStyle: FontStyle.italic,
                           ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
                   ),
-                  // Content
-                  Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                Colors.orange.shade400,
-                                Colors.orange.shade600,
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.orange.withOpacity(0.3),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: const Icon(
-                            Icons.badge_rounded,
-                            color: Colors.white,
-                            size: 24,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Your Healthcare ID',
-                                style: TextStyle(
-                                  color: Colors.orange.shade900,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: -0.2,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              RichText(
-                                text: TextSpan(
-                                  style: TextStyle(
-                                    color: Colors.grey.shade800,
-                                    fontSize: 13,
-                                    height: 1.4,
-                                  ),
-                                  children: [
-                                    const TextSpan(
-                                      text: 'The healthcare worker identifies you as ',
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      Colors.orange.shade600,
-                                      Colors.deepOrange.shade600,
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(8),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.orange.withOpacity(0.3),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(
-                                      Icons.person_outline_rounded,
-                                      color: Colors.white,
-                                      size: 16,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      '"$_myAliasFromHealthcare"',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: 0.2,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                'This helps protect your identity and privacy.',
-                                style: TextStyle(
-                                  color: Colors.grey.shade700,
-                                  fontSize: 11,
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+                  IconButton(
+                    icon: Icon(Icons.close_rounded,
+                        color: const Color.fromARGB(255, 255, 255, 255),
+                        size: 18),
+                    tooltip: 'Hide banner',
+                    padding: EdgeInsets.zero,
+                    constraints: BoxConstraints(),
+                    onPressed: () {
+                      setState(() {
+                        _showAliasBanner = false;
+                      });
+                    },
                   ),
                 ],
               ),
             ),
+          // ...existing code...
           // 🔹 Messages List
           Expanded(
             child: StreamBuilder<List<Message>>(
@@ -2103,7 +2005,9 @@ class _ChatScreenState extends State<ChatScreen> {
                         messages[reverseIndex - 1].senderId != m.senderId;
 
                     // Check if we need to show date separator (previous message is now next in reversed list)
-                    final previousMessage = reverseIndex < messages.length - 1 ? messages[reverseIndex + 1] : null;
+                    final previousMessage = reverseIndex < messages.length - 1
+                        ? messages[reverseIndex + 1]
+                        : null;
                     final showDateSeparator = _shouldShowDateSeparator(
                         m.timestamp, previousMessage?.timestamp);
 
@@ -2177,7 +2081,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                         });
                                       },
                                       child: Container(
-                                        padding: m.isImage 
+                                        padding: m.isImage
                                             ? const EdgeInsets.all(4)
                                             : const EdgeInsets.symmetric(
                                                 horizontal: 16,
@@ -2217,53 +2121,73 @@ class _ChatScreenState extends State<ChatScreen> {
                                             ),
                                           ],
                                         ),
-                                        child: m.isImage 
+                                        child: m.isImage
                                             ? GestureDetector(
                                                 onTap: () {
                                                   HapticFeedback.lightImpact();
                                                   showZoomableImage(
-                                                    context, 
+                                                    context,
                                                     m.imageUrl!,
-                                                    heroTag: 'chat_image_${m.id}',
+                                                    heroTag:
+                                                        'chat_image_${m.id}',
                                                   );
                                                 },
                                                 child: Hero(
                                                   tag: 'chat_image_${m.id}',
                                                   child: ClipRRect(
-                                                    borderRadius: BorderRadius.circular(16),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            16),
                                                     child: Image.network(
                                                       m.imageUrl!,
                                                       width: 200,
                                                       height: 200,
                                                       fit: BoxFit.cover,
-                                                      loadingBuilder: (context, child, progress) {
-                                                        if (progress == null) return child;
+                                                      loadingBuilder: (context,
+                                                          child, progress) {
+                                                        if (progress == null)
+                                                          return child;
                                                         return Container(
                                                           width: 200,
                                                           height: 200,
-                                                          decoration: BoxDecoration(
-                                                            color: Colors.grey[200],
-                                                            borderRadius: BorderRadius.circular(16),
+                                                          decoration:
+                                                              BoxDecoration(
+                                                            color: Colors
+                                                                .grey[200],
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        16),
                                                           ),
                                                           child: const Center(
-                                                            child: CircularProgressIndicator(
-                                                              color: Colors.redAccent,
+                                                            child:
+                                                                CircularProgressIndicator(
+                                                              color: Colors
+                                                                  .redAccent,
                                                             ),
                                                           ),
                                                         );
                                                       },
-                                                      errorBuilder: (context, error, stackTrace) {
+                                                      errorBuilder: (context,
+                                                          error, stackTrace) {
                                                         return Container(
                                                           width: 200,
                                                           height: 200,
-                                                          decoration: BoxDecoration(
-                                                            color: Colors.grey[200],
-                                                            borderRadius: BorderRadius.circular(16),
+                                                          decoration:
+                                                              BoxDecoration(
+                                                            color: Colors
+                                                                .grey[200],
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        16),
                                                           ),
                                                           child: const Center(
                                                             child: Icon(
-                                                              Icons.error_outline,
-                                                              color: Colors.grey,
+                                                              Icons
+                                                                  .error_outline,
+                                                              color:
+                                                                  Colors.grey,
                                                               size: 40,
                                                             ),
                                                           ),

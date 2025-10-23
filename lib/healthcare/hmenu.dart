@@ -94,7 +94,7 @@ class _HealthMainWrapperState extends State<HealthMainWrapper> {
                     child: const Icon(Icons.chat_rounded),
                   ),
                 ),
-                label: "Messages",
+                label: "MyCare",
               ),
               BottomNavigationBarItem(
                 icon: Padding(

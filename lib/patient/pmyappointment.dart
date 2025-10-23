@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tb_frontend/patient/appointment_status_card.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:table_calendar/table_calendar.dart';
@@ -25,12 +26,12 @@ class PMyAppointmentScreen extends StatefulWidget {
 class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay = DateTime.now();
-  CalendarFormat _calendarFormat = CalendarFormat.month;
+  final CalendarFormat _calendarFormat = CalendarFormat.month;
 
   String? _currentPatientId;
 
   String _selectedMonth = '';
-  int _selectedYear = DateTime.now().year;
+  final int _selectedYear = DateTime.now().year;
 
   final List<String> _months = [
     'January',
@@ -60,12 +61,15 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
   String _selectedFilter = 'Recent'; // Updated filter options
 
   // Map to track expansion state of schedule cards by appointment ID
-  Map<String, bool> _scheduleCardExpansionState = {};
+  final Map<String, bool> _scheduleCardExpansionState = {};
 
   // Highlighted appointment ID for notification click
   String? _highlightedAppointmentId;
   Timer? _highlightTimer;
 
+  // Persistent notification appointment
+  Map<String, dynamic>? _persistentNotificationAppointment;
+  String? _lastNotifiedAppointmentId;
 
   // Available filter options
   final List<Map<String, dynamic>> _filterOptions = [
@@ -88,7 +92,7 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
     super.initState();
     _selectedMonth = _months[DateTime.now().month - 1];
     _getCurrentPatientId();
-    
+
     // Initialize live time timer - Update every MINUTE to prevent blinking
     _timer = Timer.periodic(const Duration(minutes: 1), (_) {
       if (mounted) {
@@ -154,38 +158,174 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
 
   // Get month abbreviation
   String _getMonthAbbr(int month) {
-    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    const months = [
+      'JAN',
+      'FEB',
+      'MAR',
+      'APR',
+      'MAY',
+      'JUN',
+      'JUL',
+      'AUG',
+      'SEP',
+      'OCT',
+      'NOV',
+      'DEC'
+    ];
     return months[month - 1];
   }
 
   // Helper method to format appointment date/time
   String _formatAppointmentDateTime(Map<String, dynamic> appointment) {
-    // Minimal safe formatter kept for any remaining usages.
-    try {
-      final dynamic appointmentDate = appointment["date"] ?? appointment["appointmentDate"] ?? appointment["appointment_date"];
-      if (appointmentDate is Timestamp) {
-        final dt = appointmentDate.toDate();
-        return '${dt.day}/${dt.month}/${dt.year}';
-      } else if (appointmentDate is DateTime) {
-        final dt = appointmentDate;
-        return '${dt.day}/${dt.month}/${dt.year}';
-      } else if (appointmentDate is String) {
-        final dt = DateTime.parse(appointmentDate);
-        return '${dt.day}/${dt.month}/${dt.year}';
+    String status =
+        appointment['status']?.toString().toLowerCase() ?? 'unknown';
+    DateTime? displayDate;
+    String? displayTime;
+
+    // For approved appointments, use the appointment schedule
+    if (status == 'approved') {
+      try {
+        final dynamic appointmentDate = appointment["date"] ??
+            appointment["appointmentDate"] ??
+            appointment["appointment_date"];
+        if (appointmentDate is Timestamp) {
+          displayDate = appointmentDate.toDate();
+        } else if (appointmentDate is DateTime) {
+          displayDate = appointmentDate;
+        } else if (appointmentDate is String) {
+          displayDate = DateTime.parse(appointmentDate);
+        }
+        displayTime = appointment["appointmentTime"] ??
+            appointment["appointment_time"] ??
+            appointment["time"];
+      } catch (e) {
+        debugPrint('Error parsing appointment date: $e');
       }
-    } catch (e) {
-      debugPrint('Format appointment date error: $e');
+    } else {
+      // For other statuses, use the timestamp when the status was updated
+      var approvedAt = appointment['approvedAt'];
+      var rejectedAt = appointment['rejectedAt'];
+      var updatedAt = appointment['updatedAt'];
+      var completedAt = appointment['completedAt'];
+      var timestamp = approvedAt ?? rejectedAt ?? updatedAt ?? completedAt;
+
+      if (timestamp is Timestamp) {
+        displayDate = timestamp.toDate();
+        // Format time in AM/PM format
+        int hour = displayDate.hour;
+        int minute = displayDate.minute;
+        String period = hour >= 12 ? 'PM' : 'AM';
+        if (hour > 12) hour -= 12;
+        if (hour == 0) hour = 12;
+        displayTime =
+            "${hour.toString()}:${minute.toString().padLeft(2, '0')} $period";
+      } else if (timestamp is String) {
+        try {
+          displayDate = DateTime.parse(timestamp);
+          int hour = displayDate.hour;
+          int minute = displayDate.minute;
+          String period = hour >= 12 ? 'PM' : 'AM';
+          if (hour > 12) hour -= 12;
+          if (hour == 0) hour = 12;
+          displayTime =
+              "${hour.toString()}:${minute.toString().padLeft(2, '0')} $period";
+        } catch (e) {
+          displayDate = null;
+          displayTime = null;
+        }
+      }
     }
-    return 'Date TBD';
+
+    return displayDate != null
+        ? "${displayDate.day}/${displayDate.month}/${displayDate.year}${displayTime != null ? " at $displayTime" : ""}"
+        : "Date not set";
+  }
+
+  // Build avatar based on appointment status
+  Widget _buildAppointmentAvatar(
+      Map<String, dynamic> appointment, String status) {
+    if (status == 'approved') {
+      // For approved: Show date in avatar with same styling as dlanding_page.dart
+      DateTime? appointmentDate;
+      try {
+        final dynamic date = appointment["date"] ??
+            appointment["appointmentDate"] ??
+            appointment["appointment_date"];
+        if (date is Timestamp) {
+          appointmentDate = date.toDate();
+        } else if (date is DateTime) {
+          appointmentDate = date;
+        } else if (date is String) {
+          appointmentDate = DateTime.parse(date);
+        }
+      } catch (e) {
+        debugPrint('Error parsing date: $e');
+      }
+
+      return Container(
+        width: 52,
+        height: 52,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF2E7D32), Color(0xFF66BB6A)],
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              appointmentDate != null ? appointmentDate.day.toString() : "?",
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                height: 1,
+              ),
+            ),
+            Text(
+              appointmentDate != null
+                  ? _getMonthAbbr(appointmentDate.month)
+                  : "---",
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: Colors.white70,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      // For pending, with_prescription, treatment_completed: Show doctor initial
+      String doctorName =
+          appointment['doctorName'] ?? appointment['doctor_name'] ?? 'Doctor';
+      return CircleAvatar(
+        backgroundColor: _getStatusColor(status),
+        child: Text(
+          doctorName.substring(0, 1).toUpperCase(),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      );
+    }
   }
 
   // Build title based on appointment status
-  Widget _buildAppointmentTitle(Map<String, dynamic> appointment, String status) {
+  Widget _buildAppointmentTitle(
+      Map<String, dynamic> appointment, String status) {
     if (status == 'approved') {
       // For approved: Show TIME in bold
       String? displayTime;
       try {
-        final dynamic appointmentDate = appointment["date"] ?? appointment["appointmentDate"] ?? appointment["appointment_date"];
+        final dynamic appointmentDate = appointment["date"] ??
+            appointment["appointmentDate"] ??
+            appointment["appointment_date"];
         DateTime? date;
         if (appointmentDate is Timestamp) {
           date = appointmentDate.toDate();
@@ -201,13 +341,17 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
           String period = hour >= 12 ? 'PM' : 'AM';
           if (hour > 12) hour -= 12;
           if (hour == 0) hour = 12;
-          displayTime = "${hour.toString()}:${minute.toString().padLeft(2, '0')} $period";
+          displayTime =
+              "${hour.toString()}:${minute.toString().padLeft(2, '0')} $period";
         }
       } catch (e) {
         debugPrint('Error parsing time: $e');
       }
 
-      displayTime ??= appointment["appointmentTime"] ?? appointment["appointment_time"] ?? appointment["time"] ?? "Time not set";
+      displayTime ??= appointment["appointmentTime"] ??
+          appointment["appointment_time"] ??
+          appointment["time"] ??
+          "Time not set";
 
       return Text(
         displayTime ?? "Time not set",
@@ -218,7 +362,9 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
       );
     } else {
       // For pending, with_prescription, treatment_completed: Show doctor name
-      String doctorName = appointment['doctorName'] ?? appointment['doctor_name'] ?? 'Doctor Not Available';
+      String doctorName = appointment['doctorName'] ??
+          appointment['doctor_name'] ??
+          'Doctor Not Available';
       return Text(
         'Dr. $doctorName',
         style: const TextStyle(
@@ -230,7 +376,8 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
   }
 
   // Build subtitle based on appointment status
-  Widget _buildAppointmentSubtitle(Map<String, dynamic> appointment, String status) {
+  Widget _buildAppointmentSubtitle(
+      Map<String, dynamic> appointment, String status) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -433,10 +580,11 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
       // Process pending appointments
       for (var doc in pendingQuery.docs) {
         final data = doc.data();
-        
+
         // Check multiple possible date field names
-        final dynamic dateField = data['date'] ?? data['appointmentDate'] ?? data['appointment_date'];
-        
+        final dynamic dateField =
+            data['date'] ?? data['appointmentDate'] ?? data['appointment_date'];
+
         debugPrint('Processing pending appointment: $dateField');
 
         if (dateField != null) {
@@ -462,10 +610,11 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
       // Process approved appointments
       for (var doc in approvedQuery.docs) {
         final data = doc.data();
-        
+
         // Check multiple possible date field names
-        final dynamic dateField = data['date'] ?? data['appointmentDate'] ?? data['appointment_date'];
-        
+        final dynamic dateField =
+            data['date'] ?? data['appointmentDate'] ?? data['appointment_date'];
+
         debugPrint('Processing approved appointment: $dateField');
 
         if (dateField != null) {
@@ -502,30 +651,6 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
     return _appointmentDates.where((date) => isSameDay(date, day)).toList();
   }
 
-  // Avatar builder for appointment list tiles (keeps UI consistent)
-  Widget _buildAppointmentAvatar(Map<String, dynamic> appointment, String status) {
-    try {
-      String doctorName = appointment['doctorName'] ?? appointment['doctor_name'] ?? '';
-      if (doctorName.isNotEmpty) {
-        return CircleAvatar(
-          backgroundColor: _getStatusColor(status),
-          child: Text(
-            doctorName.substring(0, 1).toUpperCase(),
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-          ),
-        );
-      }
-    } catch (e) {
-      debugPrint('Error building avatar: $e');
-    }
-
-    // Fallback avatar
-    return CircleAvatar(
-      backgroundColor: _getStatusColor(status),
-      child: const Icon(Icons.person, color: Colors.white),
-    );
-  }
-
   // Get time-based gradient colors
   List<Color> _getTimeBasedGradient() {
     final hour = _currentTime.hour;
@@ -538,7 +663,11 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
     }
     // 7:00 PM to 4:00 AM - So dark (deep night) with violet-black tones
     else if (totalMinutes >= 19 * 60 || totalMinutes < 4 * 60) {
-      return [const Color(0xFF0a0015), const Color(0xFF1a0033), const Color(0xFF2d1b4e)]; // Very dark violet-black
+      return [
+        const Color(0xFF0a0015),
+        const Color(0xFF1a0033),
+        const Color(0xFF2d1b4e)
+      ]; // Very dark violet-black
     }
     // 4:01 AM to 5:59 AM - Almost sunrise (light black/white)
     else if (totalMinutes >= 4 * 60 + 1 && totalMinutes < 6 * 60) {
@@ -550,23 +679,34 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
     }
     // 8:01 AM to 12:00 PM - Quite hot
     else if (totalMinutes > 8 * 60 && totalMinutes <= 12 * 60) {
-      return [const Color(0xFFFFD700), const Color(0xFFFFA500)]; // Golden yellow
+      return [
+        const Color(0xFFFFD700),
+        const Color(0xFFFFA500)
+      ]; // Golden yellow
     }
     // 12:01 PM to 4:30 PM - So hot
     else if (totalMinutes > 12 * 60 && totalMinutes <= 16 * 60 + 30) {
-      return [const Color(0xFFFF8C00), const Color(0xFFFF4500)]; // Hot orange-red
+      return [
+        const Color(0xFFFF8C00),
+        const Color(0xFFFF4500)
+      ]; // Hot orange-red
     }
     // 4:31 PM to 5:29 PM - Not so hot already
     else if (totalMinutes > 16 * 60 + 30 && totalMinutes < 17 * 60 + 30) {
       return [const Color(0xFFFFB347), const Color(0xFFFF8C42)]; // Soft orange
     }
 
-    return [const Color(0xFF87CEEB), const Color(0xFF4682B4)]; // Default sky blue
+    return [
+      const Color(0xFF87CEEB),
+      const Color(0xFF4682B4)
+    ]; // Default sky blue
   }
 
   // Get formatted time (12-hour format with AM/PM) - WITHOUT SECONDS
   String _getFormattedTime() {
-    final hour = _currentTime.hour > 12 ? _currentTime.hour - 12 : (_currentTime.hour == 0 ? 12 : _currentTime.hour);
+    final hour = _currentTime.hour > 12
+        ? _currentTime.hour - 12
+        : (_currentTime.hour == 0 ? 12 : _currentTime.hour);
     final minute = _currentTime.minute.toString().padLeft(2, '0');
     final period = _currentTime.hour >= 12 ? 'PM' : 'AM';
     return '$hour:$minute $period';
@@ -574,8 +714,29 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
 
   // Get formatted date
   String _getFormattedDate() {
-    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    final days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    final months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
+    final days = [
+      'Sunday',
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday'
+    ];
     return '${days[_currentTime.weekday % 7]}, ${months[_currentTime.month - 1]} ${_currentTime.day}, ${_currentTime.year}';
   }
 
@@ -583,7 +744,7 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
   String _calculateTimeUntilAppointment(DateTime appointmentDate) {
     final now = DateTime.now();
     final difference = appointmentDate.difference(now);
-    
+
     if (difference.inDays > 7) {
       final weeks = (difference.inDays / 7).floor();
       return '$weeks week${weeks > 1 ? 's' : ''} left';
@@ -614,7 +775,152 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
     });
   }
 
-  // Notification UI moved to planding_page.dart; in-page notification widget removed.
+  // Build modern notification widget based on appointment status
+  Widget _buildAppointmentNotification(Map<String, dynamic> appointment) {
+    final status = appointment['status']?.toString().toLowerCase() ?? 'unknown';
+    final doctorName = appointment['doctorName'] ?? 'Doctor';
+    final bool isRead = appointment['read'] == true;
+
+    IconData icon;
+    Color iconColor;
+    String title;
+    String subtitle;
+    // Color logic for notification container (force, ignore status)
+    Color containerColor =
+        !isRead ? Colors.redAccent.withOpacity(0.15) : Colors.grey.shade300;
+    Color borderColor = !isRead ? Colors.redAccent : Colors.grey.shade400;
+
+    switch (status) {
+      case 'pending':
+        icon = Icons.schedule_rounded;
+        iconColor = Colors.orange;
+        title = 'Appointment Pending';
+        subtitle =
+            'Your appointment with Dr. $doctorName is waiting for approval';
+        break;
+      case 'approved':
+        icon = Icons.event_available_rounded;
+        iconColor = Colors.green;
+        title = 'Appointment Confirmed!';
+        subtitle = 'Dr. $doctorName • Date TBD • Soon';
+        break;
+      case 'with_prescription':
+        icon = Icons.medication_rounded;
+        iconColor = Colors.red.shade700;
+        title = 'E-Prescription Ready!';
+        subtitle = 'Dr. $doctorName has uploaded your prescription';
+        break;
+      case 'treatment_completed':
+        icon = Icons.verified_rounded;
+        iconColor = Colors.purple;
+        title = 'Congratulations! 🎉';
+        subtitle =
+            'You have completed your treatment with Dr. $doctorName! Certificate available.';
+        break;
+      case 'with_certificate':
+        icon = Icons.workspace_premium_rounded;
+        iconColor = Colors.indigo;
+        title = '🏆 Treatment Completed!';
+        subtitle =
+            'Congratulations on finishing your treatment! Your certificate is ready.';
+        break;
+      case 'consultation_finished':
+        icon = Icons.check_circle_rounded;
+        iconColor = Colors.blue;
+        title = '✓ Consultation Complete';
+        subtitle = 'Your consultation with Dr. $doctorName has been completed';
+        break;
+      case 'rejected':
+        icon = Icons.cancel_rounded;
+        iconColor = Colors.redAccent;
+        title = '❌ Appointment Not Approved';
+        subtitle =
+            'Your appointment request was not approved. Please try booking another slot.';
+        break;
+      default:
+        icon = Icons.info_rounded;
+        iconColor = Colors.grey;
+        title = 'Appointment Update';
+        subtitle = 'Status: ${status.toUpperCase()}';
+    }
+
+    return GestureDetector(
+      onTap: () {
+        final appointmentId =
+            appointment['appointmentId'] ?? appointment['id'] ?? '';
+        if (appointmentId.isNotEmpty) {
+          _onNotificationTap(appointmentId);
+        }
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          color: containerColor,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: borderColor, width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: borderColor.withOpacity(0.12),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: !isRead
+                      ? Colors.redAccent.withOpacity(0.15)
+                      : Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                      color: (!isRead ? Colors.redAccent : Colors.grey.shade400)
+                          .withOpacity(0.3),
+                      width: 1.5),
+                ),
+                child: Icon(
+                  icon,
+                  color: !isRead ? Colors.redAccent : Colors.grey.shade400,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: borderColor,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.grey[700],
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   Stream<List<Map<String, dynamic>>> _getCombinedAppointmentsStream() {
     if (_currentPatientId == null) {
@@ -1095,103 +1401,7 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
 
   // Status Card - shows above doctor information (Simplified for 30-50 year olds)
   Widget _buildStatusCard(Map<String, dynamic> appointment) {
-    String status =
-        appointment['status']?.toString().toLowerCase() ?? 'unknown';
-    Color statusColor;
-    String statusTitle;
-    String statusDescription;
-    IconData statusIcon;
-
-    switch (status) {
-      case 'pending':
-        statusColor = Colors.amber.shade600;
-        statusTitle = 'Waiting for Doctor';
-        statusDescription = 'Your appointment is being reviewed';
-        statusIcon = Icons.schedule;
-        break;
-      case 'approved':
-        statusColor = Colors.green.shade600;
-        statusTitle = 'Ready for Consultation';
-        statusDescription = 'You can now join your video call';
-        statusIcon = Icons.videocam;
-        break;
-      case 'consultation_finished':
-        statusColor = Colors.blue.shade600;
-        statusTitle = 'Consultation Done';
-        statusDescription = 'Your medicine prescription is ready';
-        statusIcon = Icons.medical_services;
-        break;
-      case 'treatment_completed':
-        statusColor = Colors.purple.shade600;
-        statusTitle = 'Treatment Finished';
-        statusDescription = 'All done! Your treatment is complete';
-        statusIcon = Icons.check_circle;
-        break;
-      case 'rejected':
-        statusColor = Colors.red.shade600;
-        statusTitle = 'Appointment Not Approved';
-        statusDescription = 'Please book another appointment';
-        statusIcon = Icons.info;
-        break;
-      default:
-        statusColor = Colors.grey.shade600;
-        statusTitle = 'Status Unknown';
-        statusDescription = 'Please check back later';
-        statusIcon = Icons.help_outline;
-        break;
-    }
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: statusColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: statusColor.withOpacity(0.3), width: 1),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: statusColor,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              statusIcon,
-              color: Colors.white,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  statusTitle,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: statusColor,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  statusDescription,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey.shade700,
-                    height: 1.2,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+    return AppointmentStatusCard(status: appointment['status']);
   }
 
   // Helper method to build status-based content
@@ -2339,7 +2549,8 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                             color: Colors.white.withOpacity(0.2),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: const Icon(Icons.calendar_month_rounded, color: Colors.white, size: 19),
+                          child: const Icon(Icons.calendar_month_rounded,
+                              color: Colors.white, size: 19),
                         ),
                         const SizedBox(width: 12),
                         const Text(
@@ -2362,7 +2573,8 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                             onTap: () {
                               Navigator.pop(context);
                             },
-                            child: const Icon(Icons.close_rounded, color: Colors.white, size: 19),
+                            child: const Icon(Icons.close_rounded,
+                                color: Colors.white, size: 19),
                           ),
                         ),
                       ],
@@ -2370,7 +2582,8 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                   ),
                   // Month-Year Selector Bar with Navigation Arrows
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
                     decoration: const BoxDecoration(
                       color: Colors.white,
                     ),
@@ -2380,7 +2593,8 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                         InkWell(
                           onTap: () {
                             setDialogState(() {
-                              tempFocusedDay = DateTime(tempFocusedDay.year, tempFocusedDay.month - 1, 1);
+                              tempFocusedDay = DateTime(tempFocusedDay.year,
+                                  tempFocusedDay.month - 1, 1);
                             });
                           },
                           borderRadius: BorderRadius.circular(12),
@@ -2389,7 +2603,9 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.redAccent.withOpacity(0.2), width: 1.5),
+                              border: Border.all(
+                                  color: Colors.redAccent.withOpacity(0.2),
+                                  width: 1.5),
                             ),
                             child: const Icon(
                               Icons.chevron_left_rounded,
@@ -2402,15 +2618,20 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                         // Month-Year Selector (Center)
                         Expanded(
                           child: GestureDetector(
-                            onTap: () => _showMonthYearPicker(context, setDialogState, tempFocusedDay, (newDate) {
+                            onTap: () => _showMonthYearPicker(
+                                context, setDialogState, tempFocusedDay,
+                                (newDate) {
                               tempFocusedDay = newDate;
                             }),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 10),
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: Colors.redAccent.withOpacity(0.3), width: 1.5),
+                                border: Border.all(
+                                    color: Colors.redAccent.withOpacity(0.3),
+                                    width: 1.5),
                                 boxShadow: [
                                   BoxShadow(
                                     color: Colors.grey.withOpacity(0.12),
@@ -2422,7 +2643,8 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.calendar_month_rounded, color: Colors.redAccent[700], size: 16),
+                                  Icon(Icons.calendar_month_rounded,
+                                      color: Colors.redAccent[700], size: 16),
                                   const SizedBox(width: 7),
                                   Text(
                                     '${_getMonthName(tempFocusedDay.month)} ${tempFocusedDay.year}',
@@ -2434,7 +2656,8 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                                     ),
                                   ),
                                   const SizedBox(width: 5),
-                                  Icon(Icons.expand_more_rounded, color: Colors.redAccent[700], size: 18),
+                                  Icon(Icons.expand_more_rounded,
+                                      color: Colors.redAccent[700], size: 18),
                                 ],
                               ),
                             ),
@@ -2445,7 +2668,8 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                         InkWell(
                           onTap: () {
                             setDialogState(() {
-                              tempFocusedDay = DateTime(tempFocusedDay.year, tempFocusedDay.month + 1, 1);
+                              tempFocusedDay = DateTime(tempFocusedDay.year,
+                                  tempFocusedDay.month + 1, 1);
                             });
                           },
                           borderRadius: BorderRadius.circular(12),
@@ -2454,7 +2678,9 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.redAccent.withOpacity(0.2), width: 1.5),
+                              border: Border.all(
+                                  color: Colors.redAccent.withOpacity(0.2),
+                                  width: 1.5),
                             ),
                             child: const Icon(
                               Icons.chevron_right_rounded,
@@ -2473,10 +2699,13 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                       firstDay: DateTime.utc(2020, 1, 1),
                       lastDay: DateTime.utc(2030, 12, 31),
                       focusedDay: tempFocusedDay,
-                      selectedDayPredicate: (day) => isSameDay(tempSelectedDay, day),
+                      selectedDayPredicate: (day) =>
+                          isSameDay(tempSelectedDay, day),
                       calendarFormat: CalendarFormat.month,
                       eventLoader: (day) {
-                        return _appointmentDates.where((d) => isSameDay(d, day)).toList();
+                        return _appointmentDates
+                            .where((d) => isSameDay(d, day))
+                            .toList();
                       },
                       onDaySelected: (selectedDay, focusedDay) {
                         setState(() {
@@ -2494,12 +2723,17 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                         // Today's date styling - Modern highlight
                         todayDecoration: BoxDecoration(
                           gradient: LinearGradient(
-                            colors: [Colors.redAccent.withOpacity(0.2), Colors.redAccent.withOpacity(0.15)],
+                            colors: [
+                              Colors.redAccent.withOpacity(0.2),
+                              Colors.redAccent.withOpacity(0.15)
+                            ],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.redAccent.withOpacity(0.4), width: 1.5),
+                          border: Border.all(
+                              color: Colors.redAccent.withOpacity(0.4),
+                              width: 1.5),
                         ),
                         todayTextStyle: const TextStyle(
                           color: Colors.redAccent,
@@ -2572,7 +2806,8 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                         ),
                         markersMaxCount: 3,
                         markerSize: 7.0,
-                        markerMargin: const EdgeInsets.symmetric(horizontal: 1.5),
+                        markerMargin:
+                            const EdgeInsets.symmetric(horizontal: 1.5),
                         // Cell decoration
                         cellMargin: const EdgeInsets.all(4),
                         cellPadding: const EdgeInsets.all(0),
@@ -2617,12 +2852,26 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
 
   // Get month name
   String _getMonthName(int month) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
     return months[month - 1];
   }
 
   // Show Month-Year Picker (Two-step: Year first, then Month)
-  void _showMonthYearPicker(BuildContext context, StateSetter setDialogState, DateTime currentDate, Function(DateTime) onDateChanged) async {
+  void _showMonthYearPicker(BuildContext context, StateSetter setDialogState,
+      DateTime currentDate, Function(DateTime) onDateChanged) async {
     int? selectedYear;
     int? selectedMonth;
 
@@ -2654,7 +2903,8 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                       ),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.event_note_rounded, color: Colors.white, size: 18),
+                    child: const Icon(Icons.event_note_rounded,
+                        color: Colors.white, size: 18),
                   ),
                   const SizedBox(width: 10),
                   const Text(
@@ -2692,7 +2942,10 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                         decoration: BoxDecoration(
                           gradient: isSelected
                               ? const LinearGradient(
-                                  colors: [Color(0xFFFF5252), Color(0xFFFF1744)],
+                                  colors: [
+                                    Color(0xFFFF5252),
+                                    Color(0xFFFF1744)
+                                  ],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 )
@@ -2703,7 +2956,9 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                                 ),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: isSelected ? Colors.redAccent : Colors.grey[300]!,
+                            color: isSelected
+                                ? Colors.redAccent
+                                : Colors.grey[300]!,
                             width: isSelected ? 1.5 : 1,
                           ),
                           boxShadow: isSelected
@@ -2727,8 +2982,11 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                             '$year',
                             style: TextStyle(
                               fontSize: 14,
-                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                              color: isSelected ? Colors.white : Colors.grey[800],
+                              fontWeight: isSelected
+                                  ? FontWeight.w700
+                                  : FontWeight.w600,
+                              color:
+                                  isSelected ? Colors.white : Colors.grey[800],
                               letterSpacing: 0.3,
                             ),
                           ),
@@ -2746,13 +3004,26 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
 
     // If year was selected, proceed to Step 2: Select Month
     if (selectedYear != null) {
-      const months = ['January', 'February', 'March', 'April', 'May', 'June', 
-                      'July', 'August', 'September', 'October', 'November', 'December'];
-      
+      const months = [
+        'January',
+        'February',
+        'March',
+        'April',
+        'May',
+        'June',
+        'July',
+        'August',
+        'September',
+        'October',
+        'November',
+        'December'
+      ];
+
       await showDialog(
         context: context,
         builder: (context) => Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -2776,7 +3047,8 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                         ),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(Icons.calendar_today_rounded, color: Colors.white, size: 18),
+                      child: const Icon(Icons.calendar_today_rounded,
+                          color: Colors.white, size: 18),
                     ),
                     const SizedBox(width: 10),
                     Flexible(
@@ -2797,7 +3069,8 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                   width: 280,
                   height: 320,
                   child: GridView.builder(
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
                       childAspectRatio: 2.5,
                       crossAxisSpacing: 10,
@@ -2806,7 +3079,8 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                     itemCount: 12,
                     itemBuilder: (context, index) {
                       final monthNum = index + 1;
-                      final isSelected = monthNum == currentDate.month && selectedYear == currentDate.year;
+                      final isSelected = monthNum == currentDate.month &&
+                          selectedYear == currentDate.year;
                       return InkWell(
                         onTap: () {
                           selectedMonth = monthNum;
@@ -2817,7 +3091,10 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                           decoration: BoxDecoration(
                             gradient: isSelected
                                 ? const LinearGradient(
-                                    colors: [Color(0xFFFF5252), Color(0xFFFF1744)],
+                                    colors: [
+                                      Color(0xFFFF5252),
+                                      Color(0xFFFF1744)
+                                    ],
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,
                                   )
@@ -2828,7 +3105,9 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                                   ),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: isSelected ? Colors.redAccent : Colors.grey[300]!,
+                              color: isSelected
+                                  ? Colors.redAccent
+                                  : Colors.grey[300]!,
                               width: isSelected ? 1.5 : 1,
                             ),
                             boxShadow: isSelected
@@ -2852,8 +3131,12 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                               months[index],
                               style: TextStyle(
                                 fontSize: 13,
-                                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                                color: isSelected ? Colors.white : Colors.grey[800],
+                                fontWeight: isSelected
+                                    ? FontWeight.w700
+                                    : FontWeight.w600,
+                                color: isSelected
+                                    ? Colors.white
+                                    : Colors.grey[800],
                                 letterSpacing: 0.2,
                               ),
                             ),
@@ -2916,13 +3199,14 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                             width: random % 3 == 0 ? 3 : 2,
                             height: random % 3 == 0 ? 3 : 2,
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(random % 2 == 0 ? 0.9 : 0.6),
+                              color: Colors.white
+                                  .withOpacity(random % 2 == 0 ? 0.9 : 0.6),
                               shape: BoxShape.circle,
                             ),
                           ),
                         );
                       }),
-                    
+
                     // MOON (only visible during night time)
                     if (_currentTime.hour >= 19 || _currentTime.hour < 6)
                       Positioned(
@@ -2944,7 +3228,7 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                           ),
                         ),
                       ),
-                    
+
                     // Mountain silhouette at the bottom
                     Positioned(
                       bottom: 0,
@@ -2966,7 +3250,8 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                           GestureDetector(
                             onTap: () => _showFullCalendar(context),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
                                 color: Colors.redAccent.withOpacity(0.9),
                                 borderRadius: BorderRadius.circular(20),
@@ -2974,7 +3259,8 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: const [
-                                  Icon(Icons.calendar_month_rounded, color: Colors.white, size: 14),
+                                  Icon(Icons.calendar_month_rounded,
+                                      color: Colors.white, size: 14),
                                   SizedBox(width: 6),
                                   Text(
                                     'VIEW CALENDAR',
@@ -2986,7 +3272,8 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                                     ),
                                   ),
                                   SizedBox(width: 4),
-                                  Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white, size: 16),
+                                  Icon(Icons.keyboard_arrow_down_rounded,
+                                      color: Colors.white, size: 16),
                                 ],
                               ),
                             ),
@@ -3026,9 +3313,178 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
 
               const SizedBox(height: 16),
 
-              // Notifications moved to landing page (planding_page.dart).
-              // Removed duplicate in-page persistent notification StreamBuilder.
-              SizedBox.shrink(),
+              // Real-time Appointment Notification (Persistent)
+              StreamBuilder<List<Map<String, dynamic>>>(
+                stream: _getCombinedAppointmentsStream(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                    // Get ALL appointments for notification display
+                    final allAppointments = snapshot.data!;
+
+                    // Also track RECENT appointments (pending and approved) for update detection
+                    final recentAppointments = snapshot.data!.where((apt) {
+                      final status =
+                          apt['status']?.toString().toLowerCase() ?? '';
+                      return status == 'pending' || status == 'approved';
+                    }).toList();
+
+                    // Sort all appointments by priority and date for display
+                    allAppointments.sort((a, b) {
+                      final statusA =
+                          a['status']?.toString().toLowerCase() ?? '';
+                      final statusB =
+                          b['status']?.toString().toLowerCase() ?? '';
+
+                      // Priority: approved > pending > treatment_completed > others
+                      const statusPriority = {
+                        'approved': 1,
+                        'pending': 2,
+                        'treatment_completed': 3,
+                        'with_prescription': 4,
+                      };
+
+                      final priorityA = statusPriority[statusA] ?? 99;
+                      final priorityB = statusPriority[statusB] ?? 99;
+
+                      if (priorityA != priorityB)
+                        return priorityA.compareTo(priorityB);
+
+                      // If same priority, sort by date (most recent first)
+                      try {
+                        DateTime? dateA;
+                        DateTime? dateB;
+
+                        final dynamicDateA = a['appointment_date'] ??
+                            a['appointmentDate'] ??
+                            a['date'];
+                        final dynamicDateB = b['appointment_date'] ??
+                            b['appointmentDate'] ??
+                            b['date'];
+
+                        if (dynamicDateA is Timestamp) {
+                          dateA = dynamicDateA.toDate();
+                        } else if (dynamicDateA is String) {
+                          dateA = DateTime.parse(dynamicDateA);
+                        }
+
+                        if (dynamicDateB is Timestamp) {
+                          dateB = dynamicDateB.toDate();
+                        } else if (dynamicDateB is String) {
+                          dateB = DateTime.parse(dynamicDateB);
+                        }
+
+                        if (dateA != null && dateB != null) {
+                          return dateB.compareTo(dateA); // More recent first
+                        }
+                      } catch (e) {
+                        debugPrint('Error sorting by date: $e');
+                      }
+
+                      return 0;
+                    });
+
+                    // Check if there's a new RECENT appointment (pending/approved)
+                    if (recentAppointments.isNotEmpty) {
+                      recentAppointments.sort((a, b) {
+                        final statusA =
+                            a['status']?.toString().toLowerCase() ?? '';
+                        final statusB =
+                            b['status']?.toString().toLowerCase() ?? '';
+                        if (statusA == 'approved' && statusB == 'pending')
+                          return -1;
+                        if (statusA == 'pending' && statusB == 'approved')
+                          return 1;
+                        return 0;
+                      });
+
+                      final mostRecentNew = recentAppointments.first;
+                      final newAppointmentId = mostRecentNew['appointmentId'] ??
+                          mostRecentNew['appointment_id'];
+
+                      // Only update if it's a NEW recent appointment
+                      if (_lastNotifiedAppointmentId != newAppointmentId) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) {
+                            setState(() {
+                              _persistentNotificationAppointment =
+                                  mostRecentNew;
+                              _lastNotifiedAppointmentId = newAppointmentId;
+                            });
+                          }
+                        });
+                      }
+                    }
+
+                    // Show notification: persistent > most recent from all appointments
+                    final appointmentToShow =
+                        _persistentNotificationAppointment ??
+                            allAppointments.first;
+                    return _buildAppointmentNotification(appointmentToShow);
+                  }
+
+                  // If no data but we have a persistent one, keep showing it
+                  if (_persistentNotificationAppointment != null) {
+                    return _buildAppointmentNotification(
+                        _persistentNotificationAppointment!);
+                  }
+
+                  // If no appointments at all, show a friendly message
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.grey.shade50, Colors.grey.shade100],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      border:
+                          Border.all(color: Colors.grey.shade300, width: 1.5),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            Icons.event_available_rounded,
+                            color: Colors.grey.shade600,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'No Active Appointments',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey.shade700,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Book a new appointment to get started',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
 
               // Filter carousel
               SizedBox(
@@ -3125,9 +3581,11 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                             .where((appointment) =>
                                 appointment['status'] == 'pending' ||
                                 appointment['status'] == 'approved' ||
-                                appointment['status'] == 'consultation_finished' ||
+                                appointment['status'] ==
+                                    'consultation_finished' ||
                                 appointment['status'] == 'rejected' ||
-                                appointment['status'] == 'treatment_completed' ||
+                                appointment['status'] ==
+                                    'treatment_completed' ||
                                 appointment['status'] == 'with_prescription' ||
                                 appointment['status'] == 'with_certificate')
                             .toList();
@@ -3171,10 +3629,14 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                         String status =
                             appointment['status']?.toString().toLowerCase() ??
                                 'unknown';
-                        
+
                         // Check if this appointment should be highlighted
-                        final appointmentId = appointment['appointmentId'] ?? appointment['id'] ?? '';
-                        final isHighlighted = _highlightedAppointmentId == appointmentId && appointmentId.isNotEmpty;
+                        final appointmentId = appointment['appointmentId'] ??
+                            appointment['id'] ??
+                            '';
+                        final isHighlighted =
+                            _highlightedAppointmentId == appointmentId &&
+                                appointmentId.isNotEmpty;
 
                         return AnimatedContainer(
                           duration: const Duration(milliseconds: 500),
@@ -3194,8 +3656,8 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                                 : [],
                           ),
                           child: Card(
-                            color: isHighlighted 
-                                ? Colors.blue.shade50 
+                            color: isHighlighted
+                                ? Colors.blue.shade50
                                 : Colors.white,
                             margin: EdgeInsets.zero,
                             shape: RoundedRectangleBorder(
@@ -3206,9 +3668,12 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                             ),
                             elevation: isHighlighted ? 8 : 2,
                             child: ListTile(
-                              leading: _buildAppointmentAvatar(appointment, status),
-                              title: _buildAppointmentTitle(appointment, status),
-                              subtitle: _buildAppointmentSubtitle(appointment, status),
+                              leading:
+                                  _buildAppointmentAvatar(appointment, status),
+                              title:
+                                  _buildAppointmentTitle(appointment, status),
+                              subtitle: _buildAppointmentSubtitle(
+                                  appointment, status),
                               trailing: appointment['status'] == 'rejected'
                                   ? IconButton(
                                       icon: const Icon(
@@ -3217,7 +3682,8 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                                         size: 24,
                                       ),
                                       onPressed: () =>
-                                          _deleteRejectedAppointment(appointment),
+                                          _deleteRejectedAppointment(
+                                              appointment),
                                     )
                                   : const Icon(Icons.chevron_right,
                                       color: Colors.grey),
@@ -4237,22 +4703,22 @@ class MountainPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     final path = Path();
-    
+
     // Start from bottom left
     path.moveTo(0, size.height);
-    
+
     // First mountain (left)
     path.lineTo(size.width * 0.2, size.height * 0.6);
     path.lineTo(size.width * 0.35, size.height * 0.4);
-    
+
     // Second mountain (center - tallest)
     path.lineTo(size.width * 0.5, size.height * 0.2);
     path.lineTo(size.width * 0.65, size.height * 0.5);
-    
+
     // Third mountain (right)
     path.lineTo(size.width * 0.8, size.height * 0.3);
     path.lineTo(size.width, size.height * 0.7);
-    
+
     // Complete the path
     path.lineTo(size.width, size.height);
     path.close();

@@ -8,6 +8,7 @@ import 'package:printing/printing.dart';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:crypto/crypto.dart';
 
 class Certificate extends StatefulWidget {
   final Map<String, dynamic> appointment;
@@ -312,7 +313,8 @@ class _CertificateState extends State<Certificate> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           CheckboxListTile(
-                            title: const Text("DS - TB Treatment", style: TextStyle(fontSize: 13)),
+                            title: const Text("DS - TB Treatment",
+                                style: TextStyle(fontSize: 13)),
                             value: _dsTreatment,
                             onChanged: (bool? value) {
                               setState(() {
@@ -325,7 +327,8 @@ class _CertificateState extends State<Certificate> {
                           ),
                           const SizedBox(height: 4),
                           CheckboxListTile(
-                            title: const Text("DR - TB Treatment", style: TextStyle(fontSize: 13)),
+                            title: const Text("DR - TB Treatment",
+                                style: TextStyle(fontSize: 13)),
                             value: _drTreatment,
                             onChanged: (bool? value) {
                               setState(() {
@@ -338,7 +341,8 @@ class _CertificateState extends State<Certificate> {
                           ),
                           const SizedBox(height: 4),
                           CheckboxListTile(
-                            title: const Text("TB Preventive Treatment", style: TextStyle(fontSize: 13)),
+                            title: const Text("TB Preventive Treatment",
+                                style: TextStyle(fontSize: 13)),
                             value: _preventiveTreatment,
                             onChanged: (bool? value) {
                               setState(() {
@@ -409,60 +413,60 @@ class _CertificateState extends State<Certificate> {
                                 width: 40,
                                 child: TextField(
                                   controller: _issuanceDayController,
-                                decoration: const InputDecoration(
-                                  border: UnderlineInputBorder(),
-                                  isDense: true,
-                                  contentPadding:
-                                      EdgeInsets.symmetric(vertical: 2),
+                                  decoration: const InputDecoration(
+                                    border: UnderlineInputBorder(),
+                                    isDense: true,
+                                    contentPadding:
+                                        EdgeInsets.symmetric(vertical: 2),
+                                  ),
+                                  style: const TextStyle(fontSize: 13),
+                                  textAlign: TextAlign.center,
                                 ),
-                                style: const TextStyle(fontSize: 13),
-                                textAlign: TextAlign.center,
                               ),
                             ),
-                          ),
-                          const TextSpan(text: "th day of "),
-                          WidgetSpan(
-                            child: SizedBox(
-                              width: 80,
-                              child: TextField(
-                                controller: _issuanceMonthController,
-                                decoration: const InputDecoration(
-                                  border: UnderlineInputBorder(),
-                                  isDense: true,
-                                  contentPadding:
-                                      EdgeInsets.symmetric(vertical: 2),
+                            const TextSpan(text: "th day of "),
+                            WidgetSpan(
+                              child: SizedBox(
+                                width: 80,
+                                child: TextField(
+                                  controller: _issuanceMonthController,
+                                  decoration: const InputDecoration(
+                                    border: UnderlineInputBorder(),
+                                    isDense: true,
+                                    contentPadding:
+                                        EdgeInsets.symmetric(vertical: 2),
+                                  ),
+                                  style: const TextStyle(fontSize: 13),
+                                  textAlign: TextAlign.center,
                                 ),
-                                style: const TextStyle(fontSize: 13),
-                                textAlign: TextAlign.center,
                               ),
                             ),
-                          ),
-                          const TextSpan(text: ", 20"),
-                          WidgetSpan(
-                            child: SizedBox(
-                              width: 35,
-                              child: TextField(
-                                controller: _issuanceYearController,
-                                decoration: const InputDecoration(
-                                  border: UnderlineInputBorder(),
-                                  isDense: true,
-                                  contentPadding:
-                                      EdgeInsets.symmetric(vertical: 2),
+                            const TextSpan(text: ", 20"),
+                            WidgetSpan(
+                              child: SizedBox(
+                                width: 35,
+                                child: TextField(
+                                  controller: _issuanceYearController,
+                                  decoration: const InputDecoration(
+                                    border: UnderlineInputBorder(),
+                                    isDense: true,
+                                    contentPadding:
+                                        EdgeInsets.symmetric(vertical: 2),
+                                  ),
+                                  style: const TextStyle(fontSize: 13),
+                                  textAlign: TextAlign.center,
+                                  maxLength: 2,
+                                  buildCounter: (context,
+                                          {required currentLength,
+                                          required isFocused,
+                                          maxLength}) =>
+                                      null,
                                 ),
-                                style: const TextStyle(fontSize: 13),
-                                textAlign: TextAlign.center,
-                                maxLength: 2,
-                                buildCounter: (context,
-                                        {required currentLength,
-                                        required isFocused,
-                                        maxLength}) =>
-                                    null,
                               ),
                             ),
-                          ),
-                          const TextSpan(text: "."),
-                        ],
-                      ),
+                            const TextSpan(text: "."),
+                          ],
+                        ),
                       ),
                     ),
 
@@ -663,8 +667,21 @@ class _CertificateState extends State<Certificate> {
       // Generate PDF and upload to Cloudinary
       final certificateData = await _generateAndUploadCertificatePdf();
 
-      if (certificateData == null) {
-        throw Exception('Failed to generate or upload PDF');
+      if (certificateData == null ||
+          certificateData['cloudinaryUrl'] == null ||
+          certificateData['cloudinaryUrl']!.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Cloudinary upload failed. Certificate not saved.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        setState(() {
+          _isLoading = false;
+        });
+        return;
       }
 
       final certificateInfo = {
@@ -778,13 +795,14 @@ class _CertificateState extends State<Certificate> {
       final file = File(localPdfPath);
       final bytes = await file.readAsBytes();
 
-      // Create form data for Cloudinary upload
+      // Generate timestamp ONCE and use everywhere
       final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
       final publicId =
           'certificates/certificate_${widget.appointment['appointmentId']}_$timestamp';
 
-      // Prepare Cloudinary upload (you'll need to add your Cloudinary credentials)
-      final cloudinaryUrl = await _uploadToCloudinary(bytes, publicId);
+      // Pass the same timestamp to both signature and request
+      final cloudinaryUrl =
+          await _uploadToCloudinary(bytes, publicId, timestamp);
 
       if (cloudinaryUrl != null) {
         return {
@@ -806,16 +824,17 @@ class _CertificateState extends State<Certificate> {
     }
   }
 
-  Future<String?> _uploadToCloudinary(List<int> bytes, String publicId) async {
+  Future<String?> _uploadToCloudinary(
+      List<int> bytes, String publicId, String timestamp) async {
     try {
       // Replace these with your actual Cloudinary credentials
-      const cloudName = 'YOUR_CLOUD_NAME';
-      const apiKey = 'YOUR_API_KEY';
-      const apiSecret = 'YOUR_API_SECRET';
+      const cloudName = 'dcke8ojqe';
+      const apiKey = '758276369624158';
+      const apiSecret = 'r80xIYRxqgPyrNhBnle_uH99osU';
 
       final url = 'https://api.cloudinary.com/v1_1/$cloudName/raw/upload';
-      final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
 
+      // timestamp is now passed in
       // Generate signature
       final signature =
           _generateCloudinarySignature(publicId, timestamp, apiSecret);
@@ -851,9 +870,14 @@ class _CertificateState extends State<Certificate> {
 
   String _generateCloudinarySignature(
       String publicId, String timestamp, String apiSecret) {
-    final paramsToSign =
-        'public_id=$publicId&timestamp=$timestamp&resource_type=raw';
-    return 'sig_${paramsToSign.hashCode.abs()}';
+    // For raw upload, Cloudinary expects only public_id and timestamp in the string to sign
+    final paramsToSign = 'public_id=$publicId&timestamp=$timestamp';
+    var key = utf8.encode(apiSecret);
+    var message = utf8.encode(paramsToSign);
+    var hmacSha1 = Hmac(sha1, key);
+    var digest = hmacSha1.convert(message);
+    print('Cloudinary signature string to sign: $paramsToSign');
+    return digest.toString();
   }
 
   Future<String?> _generateCertificatePdf() async {

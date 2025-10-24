@@ -260,14 +260,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                 flex: 2,
                                 child: ElevatedButton.icon(
                                   onPressed: () {
+                                    // Close the dialog first
                                     Navigator.of(context).pop();
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            const EmailCredentialsPage(),
-                                      ),
-                                    );
+                                    // Push the EmailCredentialsPage using the root navigator
+                                    // to avoid pushing on the dialog's nested navigator which
+                                    // can cause a black screen on pop.
+                                    Navigator.of(context, rootNavigator: true)
+                                        .push(MaterialPageRoute(
+                                      builder: (context) =>
+                                          const EmailCredentialsPage(),
+                                    ));
                                   },
                                   icon: const Icon(
                                     Icons.settings_rounded,
@@ -1124,15 +1126,23 @@ class _AdminDashboardState extends State<AdminDashboard> {
             child: Row(
               children: [
                 const Icon(Icons.email_outlined, color: Colors.white, size: 24),
-                const SizedBox(width: 16),
-                Text(
-                  'Email Settings',
-                  style: GoogleFonts.poppins(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
+                // Only show label text on wider screens or when sidebar is hovered
+                if (MediaQuery.of(context).size.width >= 800
+                    ? _isHovered
+                    : true) ...[
+                  const SizedBox(width: 16),
+                  Flexible(
+                    child: Text(
+                      'Email Settings',
+                      style: GoogleFonts.poppins(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),

@@ -9,8 +9,10 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
-import 'package:http/http.dart' as http;
-import 'package:crypto/crypto.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:tb_frontend/services/cloudinary_service.dart'
+    as cloudinary_service;
+// crypto not required here
 
 class Prescription extends StatefulWidget {
   final Map<String, dynamic> appointment;
@@ -748,7 +750,7 @@ class _PrescriptionState extends State<Prescription> {
                               ] else ...[
                                 // DRAWN SIGNATURE: SEQUENTIAL ORDER (Signature, Name, License)
                                 // 1. Signature FIRST (on top)
-                                Container(
+                                SizedBox(
                                   height: 80,
                                   width: 200,
                                   child: _doctorSignature!
@@ -942,14 +944,11 @@ class _PrescriptionState extends State<Prescription> {
       // Generate PDF and upload to Cloudinary
       final prescriptionData = await _generateAndUploadPrescriptionPdf();
 
-      if (prescriptionData == null ||
-          prescriptionData['cloudinaryUrl'] == null ||
-          prescriptionData['cloudinaryUrl']!.isEmpty) {
+      if (prescriptionData == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content:
-                  Text('Cloudinary upload failed. Prescription not saved.'),
+              content: Text('Error generating prescription PDF.'),
               backgroundColor: Colors.red,
             ),
           );
@@ -958,6 +957,19 @@ class _PrescriptionState extends State<Prescription> {
           _isLoading = false;
         });
         return;
+      }
+
+      // If cloud upload failed, proceed to save locally to Firestore so user work isn't lost.
+      final uploadedUrl = prescriptionData['cloudinaryUrl'];
+      if (uploadedUrl == null || uploadedUrl.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('PDF upload to cloud failed; saving locally.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
       }
 
       if (_hasExistingPrescription) {
@@ -1023,91 +1035,78 @@ class _PrescriptionState extends State<Prescription> {
   }
 
   Future<Map<String, String>?> _generateAndUploadPrescriptionPdf() async {
+    String? localPdfPath;
     try {
       // First generate the PDF locally
-      final localPdfPath = await _generatePrescriptionPdf();
+      localPdfPath = await _generatePrescriptionPdf();
       if (localPdfPath == null) return null;
 
-      // Read the PDF file for Cloudinary upload
+      // Prepare a default result that always includes the local path so Save can proceed
+      final result = <String, String>{
+        'localPath': localPdfPath,
+        'cloudinaryUrl': '',
+        'publicId': '',
+      };
+
+      // Read the PDF file for uploads
       final file = File(localPdfPath);
-      final bytes = await file.readAsBytes();
 
-      // Create form data for Cloudinary upload
-      final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-      final publicId =
-          'prescriptions/prescription_${widget.appointment['appointmentId']}_$timestamp';
+      // Primary: upload to Firebase Storage so Save works even if Cloudinary fails
+      try {
+        final fileName = file.path.split(Platform.pathSeparator).last;
+        final storagePath = 'prescriptions/$fileName';
+        final ref = FirebaseStorage.instance.ref().child(storagePath);
+        await ref.putFile(file);
+        final storageUrl = await ref.getDownloadURL();
+        debugPrint(
+            '[Storage-primary] Uploaded to Firebase Storage: $storagePath');
+        result['cloudinaryUrl'] = storageUrl;
+        result['publicId'] = storagePath;
+        return result;
+      } catch (e) {
+        debugPrint(
+            'Firebase Storage primary upload failed, trying Cloudinary: $e');
+      }
 
-      // Prepare Cloudinary upload (you'll need to add your Cloudinary credentials)
-      final cloudinaryUrl = await _uploadToCloudinary(bytes, publicId);
+      // Secondary: attempt Cloudinary (won't block save) — if it succeeds, set its URL
+      try {
+        final timestamp =
+            (DateTime.now().millisecondsSinceEpoch ~/ 1000).toString();
+        final publicId =
+            'prescriptions/prescription_${widget.appointment['appointmentId']}_$timestamp';
+        final dynamic cloudinarySvc =
+            cloudinary_service.CloudinaryService.instance;
+        final cloudinaryUrl = await cloudinarySvc.uploadRawFile(
+          file: file,
+          folder: 'prescriptions',
+          preset: cloudinary_service.CloudinaryService.uploadPreset,
+        );
 
-      if (cloudinaryUrl != null && cloudinaryUrl.isNotEmpty) {
+        if (cloudinaryUrl != null && cloudinaryUrl.isNotEmpty) {
+          result['cloudinaryUrl'] = cloudinaryUrl;
+          result['publicId'] = publicId;
+          return result;
+        }
+      } catch (e) {
+        debugPrint('Cloudinary upload also failed: $e');
+      }
+
+      // Return at least the local path so the caller can save the prescription entry
+      return result;
+    } catch (e) {
+      debugPrint('Error generating/uploading PDF: $e');
+      if (localPdfPath != null) {
         return {
           'localPath': localPdfPath,
-          'cloudinaryUrl': cloudinaryUrl,
-          'publicId': publicId,
+          'cloudinaryUrl': '',
+          'publicId': '',
         };
-      } else {
-        debugPrint('Cloudinary upload failed or returned empty URL.');
-        return null;
       }
-    } catch (e) {
-      print('Error generating/uploading PDF: $e');
       return null;
     }
   }
 
-  Future<String?> _uploadToCloudinary(List<int> bytes, String publicId) async {
-    try {
-      // Replace these with your actual Cloudinary credentials
-      const cloudName = 'dcke8ojqe';
-      const apiKey = '758276369624158';
-      const apiSecret = 'r80xIYRxqgPyrNhBnle_uH99osU';
-
-      final url = 'https://api.cloudinary.com/v1_1/$cloudName/raw/upload';
-      final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-
-      // Generate signature (HMAC-SHA1, only public_id and timestamp)
-      final signature =
-          _generateCloudinarySignature(publicId, timestamp, apiSecret);
-
-      final request = http.MultipartRequest('POST', Uri.parse(url));
-      request.fields['api_key'] = apiKey;
-      request.fields['timestamp'] = timestamp;
-      request.fields['public_id'] = publicId;
-      request.fields['signature'] = signature;
-      request.fields['resource_type'] = 'raw';
-
-      request.files.add(http.MultipartFile.fromBytes(
-        'file',
-        bytes,
-        filename: '$publicId.pdf',
-      ));
-
-      final response = await request.send();
-      final responseData = await response.stream.bytesToString();
-
-      if (response.statusCode == 200) {
-        final jsonResponse = json.decode(responseData);
-        debugPrint('Cloudinary upload success: $jsonResponse');
-        return jsonResponse['secure_url'];
-      } else {
-        debugPrint('Cloudinary upload failed: $responseData');
-        return null;
-      }
-    } catch (e) {
-      print('Error uploading to Cloudinary: $e');
-      return null;
-    }
-  }
-
-  String _generateCloudinarySignature(
-      String publicId, String timestamp, String apiSecret) {
-    // Cloudinary signature: sign only public_id and timestamp
-    final paramsToSign = 'public_id=$publicId&timestamp=$timestamp';
-    final hmacSha1 = Hmac(sha1, utf8.encode(apiSecret));
-    final digest = hmacSha1.convert(utf8.encode(paramsToSign));
-    return digest.toString();
-  }
+  // Cloudinary upload is handled centrally by CloudinaryService
 
   Future<String?> _generatePrescriptionPdf() async {
     try {

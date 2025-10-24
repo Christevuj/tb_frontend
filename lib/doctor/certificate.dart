@@ -4,11 +4,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:printing/printing.dart';
 import 'dart:io';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'package:crypto/crypto.dart';
+import 'dart:convert' as convert;
+import 'package:tb_frontend/services/cloudinary_service.dart'
+    as cloudinary_service;
 
 class Certificate extends StatefulWidget {
   final Map<String, dynamic> appointment;
@@ -503,8 +504,9 @@ class _CertificateState extends State<Certificate> {
                                         : _doctorSignature!
                                                 .startsWith('data:image')
                                             ? Image.memory(
-                                                base64Decode(_doctorSignature!
-                                                    .split(',')[1]),
+                                                convert.base64Decode(
+                                                    _doctorSignature!
+                                                        .split(',')[1]),
                                                 fit: BoxFit.contain,
                                               )
                                             : Image.network(
@@ -664,16 +666,14 @@ class _CertificateState extends State<Certificate> {
     });
 
     try {
-      // Generate PDF and upload to Cloudinary
+      // Generate PDF and upload (resilient)
       final certificateData = await _generateAndUploadCertificatePdf();
 
-      if (certificateData == null ||
-          certificateData['cloudinaryUrl'] == null ||
-          certificateData['cloudinaryUrl']!.isEmpty) {
+      if (certificateData == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Cloudinary upload failed. Certificate not saved.'),
+              content: Text('Error generating certificate PDF.'),
               backgroundColor: Colors.red,
             ),
           );
@@ -682,6 +682,18 @@ class _CertificateState extends State<Certificate> {
           _isLoading = false;
         });
         return;
+      }
+
+      final uploadedUrl = certificateData['cloudinaryUrl'];
+      if (uploadedUrl == null || uploadedUrl.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('PDF upload to cloud failed; saving locally.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
       }
 
       final certificateInfo = {
@@ -793,26 +805,55 @@ class _CertificateState extends State<Certificate> {
 
       // Read the PDF file for Cloudinary upload
       final file = File(localPdfPath);
-      final bytes = await file.readAsBytes();
+      await file.readAsBytes();
 
-      // Generate timestamp ONCE and use everywhere
-      final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+      // Generate timestamp ONCE and use everywhere (seconds)
+      final timestamp =
+          (DateTime.now().millisecondsSinceEpoch ~/ 1000).toString();
       final publicId =
           'certificates/certificate_${widget.appointment['appointmentId']}_$timestamp';
 
-      // Pass the same timestamp to both signature and request
-      final cloudinaryUrl =
-          await _uploadToCloudinary(bytes, publicId, timestamp);
-
-      if (cloudinaryUrl != null) {
+      // Primary: upload to Firebase Storage so Save works even if Cloudinary fails
+      try {
+        final fileName = file.path.split(Platform.pathSeparator).last;
+        final storagePath = 'certificates/$fileName';
+        final ref = FirebaseStorage.instance.ref().child(storagePath);
+        await ref.putFile(file);
+        final storageUrl = await ref.getDownloadURL();
+        debugPrint(
+            '[Storage-primary] Uploaded to Firebase Storage: $storagePath');
         return {
           'localPath': localPdfPath,
-          'cloudinaryUrl': cloudinaryUrl,
-          'publicId': publicId,
+          'cloudinaryUrl': storageUrl,
+          'publicId': storagePath,
         };
+      } catch (e) {
+        debugPrint(
+            'Firebase Storage primary upload failed, trying Cloudinary: $e');
       }
 
-      // Fallback to local path only if upload fails
+      // Secondary: attempt Cloudinary if storage fails
+      try {
+        final dynamic cloudinarySvc =
+            cloudinary_service.CloudinaryService.instance;
+        final cloudinaryUrl = await cloudinarySvc.uploadRawFile(
+          file: file,
+          folder: 'certificates',
+          preset: cloudinary_service.CloudinaryService.uploadPreset,
+        );
+
+        if (cloudinaryUrl != null && cloudinaryUrl.isNotEmpty) {
+          return {
+            'localPath': localPdfPath,
+            'cloudinaryUrl': cloudinaryUrl,
+            'publicId': publicId,
+          };
+        }
+      } catch (e) {
+        debugPrint('Cloudinary upload also failed: $e');
+      }
+
+      // If everything failed, return local path only
       return {
         'localPath': localPdfPath,
         'cloudinaryUrl': '',
@@ -824,61 +865,7 @@ class _CertificateState extends State<Certificate> {
     }
   }
 
-  Future<String?> _uploadToCloudinary(
-      List<int> bytes, String publicId, String timestamp) async {
-    try {
-      // Replace these with your actual Cloudinary credentials
-      const cloudName = 'dcke8ojqe';
-      const apiKey = '758276369624158';
-      const apiSecret = 'r80xIYRxqgPyrNhBnle_uH99osU';
-
-      final url = 'https://api.cloudinary.com/v1_1/$cloudName/raw/upload';
-
-      // timestamp is now passed in
-      // Generate signature
-      final signature =
-          _generateCloudinarySignature(publicId, timestamp, apiSecret);
-
-      final request = http.MultipartRequest('POST', Uri.parse(url));
-      request.fields['api_key'] = apiKey;
-      request.fields['timestamp'] = timestamp;
-      request.fields['public_id'] = publicId;
-      request.fields['signature'] = signature;
-      request.fields['resource_type'] = 'raw';
-
-      request.files.add(http.MultipartFile.fromBytes(
-        'file',
-        bytes,
-        filename: '$publicId.pdf',
-      ));
-
-      final response = await request.send();
-      final responseData = await response.stream.bytesToString();
-
-      if (response.statusCode == 200) {
-        final jsonResponse = json.decode(responseData);
-        return jsonResponse['secure_url'];
-      } else {
-        print('Cloudinary upload failed: $responseData');
-        return null;
-      }
-    } catch (e) {
-      print('Error uploading to Cloudinary: $e');
-      return null;
-    }
-  }
-
-  String _generateCloudinarySignature(
-      String publicId, String timestamp, String apiSecret) {
-    // For raw upload, Cloudinary expects only public_id and timestamp in the string to sign
-    final paramsToSign = 'public_id=$publicId&timestamp=$timestamp';
-    var key = utf8.encode(apiSecret);
-    var message = utf8.encode(paramsToSign);
-    var hmacSha1 = Hmac(sha1, key);
-    var digest = hmacSha1.convert(message);
-    print('Cloudinary signature string to sign: $paramsToSign');
-    return digest.toString();
-  }
+  // Cloudinary upload is handled centrally by CloudinaryService
 
   Future<String?> _generateCertificatePdf() async {
     try {

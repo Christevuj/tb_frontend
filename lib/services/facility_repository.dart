@@ -5,7 +5,7 @@ import '../models/facility.dart';
 class FacilityRepository {
   static final List<Facility> _facilities = [
     Facility(
-      name: "AGDAO",
+      name: "AGDAO HEALTH CENTER",
       address:
           "Agdao Public Market Corner Lapu-Lapu & C. Bangoy St., Agdao, Davao City",
     ),
@@ -14,15 +14,15 @@ class FacilityRepository {
       address: "Purok 2A Malagos, Baguio District, Davao City",
     ),
     Facility(
-      name: "BUHANGIN (NHA BUHANGIN HC)",
+      name: "BUHANGIN DISTRICT HEALTH CENTER",
       address: "NHA Chapet St., Buhangin, Davao City",
     ),
     Facility(
-      name: "BUNAWAN",
+      name: "BUNAWAN HEALTH CENTER",
       address: "Bunawan District Health Center, Davao City",
     ),
     Facility(
-      name: "CALINAN",
+      name: "CALINAN HEALTH CENTER",
       address: "P34, Aurora St., Calinan, Davao City",
     ),
     Facility(
@@ -54,7 +54,7 @@ class FacilityRepository {
       address: "Brgy Malabog, Davao City",
     ),
     Facility(
-      name: "SASA",
+      name: "SASA DISTRICT HEALTH CENTER",
       address: "Bangoy Km 9,  Sasa, Davao City",
     ),
     Facility(
@@ -70,11 +70,11 @@ class FacilityRepository {
       address: "Puan, Talomo, Davao City",
     ),
     Facility(
-      name: "TORIL A",
+      name: "TORIL A HEALTH CENTER",
       address: "Agton St., Toril, Davao City",
     ),
     Facility(
-      name: "TORIL B",
+      name: "TORIL B HEALTH CENTER",
       address: "Juan Dela Cruz St., Daliao, Toril, Davao City",
     ),
     Facility(

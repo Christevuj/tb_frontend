@@ -64,6 +64,9 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
   String _contactsSearchQuery = '';
   StreamSubscription<Position>? _positionStreamSubscription; // 👈 Added
 
+  // Marker highlighting flag
+  bool _shouldHighlightMarker = false; // Only highlight when user interacts
+
   static const double _zoomLevel = 15.0;
 
   @override
@@ -336,6 +339,7 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
         }).toList();
       }
       _selectedIndex = 0; // Reset selection when filtering
+      _shouldHighlightMarker = false; // Reset highlighting when filtering
     });
     _buildMarkers(); // Rebuild markers for filtered facilities
   }
@@ -522,18 +526,25 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
         markerId: const MarkerId('current_location'),
         position: _currentLocation!,
         infoWindow: const InfoWindow(title: 'You are here'),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
       ));
     }
 
     for (int i = 0; i < _filteredFacilities.length; i++) {
       final facility = _filteredFacilities[i];
       if (facility.coordinates == null) continue;
+      
+      // Only highlight selected marker if user has interacted (clicked marker or nearest facility)
+      final bool isSelected = _shouldHighlightMarker && i == _selectedIndex;
+      
       markers.add(Marker(
         markerId: MarkerId('${facility.name}_$i'),
         position: facility.coordinates!,
         infoWindow: InfoWindow(title: facility.name, snippet: facility.address),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+        // Gray for unselected, Red for selected (only when user interacts)
+        icon: BitmapDescriptor.defaultMarkerWithHue(
+          isSelected ? BitmapDescriptor.hueRed : BitmapDescriptor.hueAzure,
+        ),
         onTap: () => _onMarkerTapped(i),
       ));
     }
@@ -544,7 +555,10 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
   }
 
   void _onMarkerTapped(int index) {
-    setState(() => _selectedIndex = index);
+    setState(() {
+      _selectedIndex = index;
+      _shouldHighlightMarker = true; // Enable highlighting when marker is clicked
+    });
     _pageController.animateToPage(index,
         duration: const Duration(milliseconds: 350), curve: Curves.easeInOut);
     final coords = _filteredFacilities[index].coordinates;
@@ -721,7 +735,10 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
     }
 
     // Update selected index and navigate to nearest facility
-    setState(() => _selectedIndex = nearestIndex);
+    setState(() {
+      _selectedIndex = nearestIndex;
+      _shouldHighlightMarker = true; // Enable highlighting when nearest facility is found
+    });
     _pageController.animateToPage(
       nearestIndex,
       duration: const Duration(milliseconds: 500),
@@ -1463,6 +1480,8 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
                                   125.6128)), // Davao City center as default
                       zoom: _zoomLevel),
                   myLocationEnabled: true,
+                  // Hide default zoom controls (+ / -) shown on some Android devices
+                  zoomControlsEnabled: false,
                   myLocationButtonEnabled: false,
                   markers: _markers,
                   polylines: _polylines,
@@ -1686,13 +1705,14 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
                   ),
                 ),
                 // Nearest facility button - compressed positioning
+                // Adjusted bottom positions after increasing facility container height
                 AnimatedPositioned(
                   duration: const Duration(milliseconds: 300),
                   curve: Curves.easeInOut,
                   right: 16,
                   bottom: (_isSearching || _isContainerHidden)
-                      ? 120 // Compressed: closer to List View button
-                      : 343, // Reduced gap - closer to facility container
+                      ? 160 // Compressed: closer to List View button (adjusted)
+                      : 383, // Shifted down to match larger facility container
                   child: FloatingActionButton(
                     heroTag: 'btn-nearest',
                     onPressed: _findNearestFacility,
@@ -1707,8 +1727,8 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
                   curve: Curves.easeInOut,
                   right: 16,
                   bottom: (_isSearching || _isContainerHidden)
-                      ? 60 // Compressed: proper spacing from Nearest button
-                      : 280, // Reduced gap - closer to facility container
+                      ? 100 // Compressed: proper spacing from Nearest button (adjusted)
+                      : 320, // Shifted down to match larger facility container
                   child: FloatingActionButton.extended(
                     heroTag: 'btn-list-view',
                     onPressed: () {
@@ -1773,151 +1793,165 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
                     },
                     child: SafeArea(
                       child: SizedBox(
-                        height:
-                            280, // Increased height to accommodate buttons properly
-                        child: PageView.builder(
-                          controller: _pageController,
-                          itemCount: _filteredFacilities.length,
-                          onPageChanged: _onPageChanged,
-                          itemBuilder: (context, index) {
-                            final facility = _filteredFacilities[index];
-                            final bool isSelected = index == _selectedIndex;
+                        height: 320, // increased to fit the indicator dots
+                        child: Column(
+                          children: [
+                            // Carousel
+                            Expanded(
+                              child: PageView.builder(
+                                controller: _pageController,
+                                itemCount: _filteredFacilities.length,
+                                onPageChanged: _onPageChanged,
+                                itemBuilder: (context, index) {
+                                  final facility = _filteredFacilities[index];
+                                  final bool isSelected = index == _selectedIndex;
 
-                            return FutureBuilder<int>(
-                              future:
-                                  _getTotalWorkersByAddress(facility.address),
-                              builder: (context, snapshot) {
-                                final count = snapshot.data ?? 0;
-                                final isActive = count > 0;
+                                  return FutureBuilder<int>(
+                                    future:
+                                        _getTotalWorkersByAddress(facility.address),
+                                    builder: (context, snapshot) {
+                                      final count = snapshot.data ?? 0;
+                                      final isActive = count > 0;
 
-                                return Container(
-                                  margin: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color:
-                                        Colors.white, // Solid white background
-                                    borderRadius: BorderRadius.circular(20),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: isSelected
-                                            ? const Color(0xE0F44336)
-                                                .withOpacity(0.15)
-                                            : Colors.black.withOpacity(0.08),
-                                        blurRadius: isSelected ? 20 : 12,
-                                        offset: isSelected
-                                            ? const Offset(0, 8)
-                                            : const Offset(0, 4),
-                                        spreadRadius: 0,
-                                      ),
-                                    ],
-                                  ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(
-                                        16), // Increased padding for better spacing
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            // Modern Facility Icon
-                                            Container(
-                                              padding: const EdgeInsets.all(12),
-                                              decoration: BoxDecoration(
-                                                gradient: LinearGradient(
-                                                  colors: [
-                                                    const Color(0xE0F44336),
-                                                    const Color(0xE0F44336)
-                                                        .withOpacity(0.8),
-                                                  ],
-                                                  begin: Alignment.topLeft,
-                                                  end: Alignment.bottomRight,
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(16),
-                                                boxShadow: [
-                                                  BoxShadow(
-                                                    color:
-                                                        const Color(0xE0F44336)
-                                                            .withOpacity(0.3),
-                                                    blurRadius: 8,
-                                                    offset: const Offset(0, 4),
-                                                  ),
-                                                ],
-                                              ),
-                                              child: const Icon(
-                                                Icons.local_hospital_rounded,
-                                                color: Colors.white,
-                                                size: 22,
-                                              ),
+                                      return Container(
+                                        margin: const EdgeInsets.symmetric(
+                                            horizontal: 12, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color:
+                                              Colors.white, // Solid white background
+                                          borderRadius:
+                                              BorderRadius.circular(20),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: isSelected
+                                                  ? const Color(0xE0F44336)
+                                                      .withOpacity(0.15)
+                                                  : Colors.black
+                                                      .withOpacity(0.08),
+                                              blurRadius: isSelected ? 20 : 12,
+                                              offset: isSelected
+                                                  ? const Offset(0, 8)
+                                                  : const Offset(0, 4),
+                                              spreadRadius: 0,
                                             ),
-                                            const SizedBox(width: 12),
-                                            // Facility Name and Status
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
+                                          ],
+                                        ),
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(
+                                              16), // Increased padding for better spacing
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
                                                 children: [
-                                                  Text(
-                                                    facility.name,
-                                                    style: const TextStyle(
-                                                      fontSize: 16,
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                      color: Color(0xFF1A1A1A),
-                                                      letterSpacing: -0.2,
+                                                  // Modern Facility Icon
+                                                  Container(
+                                                    padding:
+                                                        const EdgeInsets.all(12),
+                                                    decoration: BoxDecoration(
+                                                      gradient: LinearGradient(
+                                                        colors: [
+                                                          const Color.fromARGB(223, 58, 58, 58),
+                                                          const Color.fromARGB(223, 39, 39, 39)
+                                                              .withOpacity(0.8),
+                                                        ],
+                                                        begin: Alignment.topLeft,
+                                                        end:
+                                                            Alignment.bottomRight,
+                                                      ),
+                                                      borderRadius:
+                                                          BorderRadius.circular(16),
+                                                      boxShadow: [
+                                                        BoxShadow(
+                                                          color: const Color.fromARGB(223, 52, 51, 51)
+                                                              .withOpacity(0.3),
+                                                          blurRadius: 8,
+                                                          offset: const Offset(0, 4),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    child: const Icon(
+                                                      Icons.local_hospital_rounded,
+                                                      color: Color.fromARGB(255, 255, 255, 255),
+                                                      size: 22,
                                                     ),
                                                   ),
-                                                  const SizedBox(height: 4),
-                                                  Container(
-                                                    padding: const EdgeInsets
-                                                        .symmetric(
-                                                        horizontal: 8,
-                                                        vertical: 4),
-                                                    decoration: BoxDecoration(
-                                                      color: isActive
-                                                          ? const Color(
-                                                                  0xFF10B981)
-                                                              .withOpacity(0.1)
-                                                          : Colors
-                                                              .grey.shade100,
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              12),
-                                                    ),
-                                                    child: Row(
-                                                      mainAxisSize:
-                                                          MainAxisSize.min,
+                                                  const SizedBox(width: 12),
+                                                  // Facility Name and Status
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment.start,
                                                       children: [
+                                                        Text(
+                                                          facility.name,
+                                                          style: const TextStyle(
+                                                            fontSize: 16,
+                                                            fontWeight:
+                                                                FontWeight.w700,
+                                                            color:
+                                                                Color(0xFF1A1A1A),
+                                                            letterSpacing: -0.2,
+                                                          ),
+                                                        ),
+                                                        const SizedBox(height: 4),
                                                         Container(
-                                                          width: 4,
-                                                          height: 4,
+                                                          padding: const EdgeInsets
+                                                              .symmetric(
+                                                                  horizontal: 8,
+                                                                  vertical: 4),
                                                           decoration:
                                                               BoxDecoration(
                                                             color: isActive
                                                                 ? const Color(
-                                                                    0xFF10B981)
-                                                                : Colors.grey
-                                                                    .shade400,
-                                                            shape:
-                                                                BoxShape.circle,
+                                                                        0xFF10B981)
+                                                                    .withOpacity(
+                                                                        0.1)
+                                                                : Colors
+                                                                    .grey.shade100,
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(12),
                                                           ),
-                                                        ),
-                                                        const SizedBox(
-                                                            width: 6),
-                                                        Text(
-                                                          isActive
-                                                              ? 'Active'
-                                                              : 'No Workers',
-                                                          style: TextStyle(
-                                                            fontSize: 10,
-                                                            fontWeight:
-                                                                FontWeight.w600,
-                                                            color: isActive
-                                                                ? const Color(
-                                                                    0xFF10B981)
-                                                                : Colors.grey
-                                                                    .shade600,
+                                                          child: Row(
+                                                            mainAxisSize:
+                                                                MainAxisSize.min,
+                                                            children: [
+                                                              Container(
+                                                                width: 4,
+                                                                height: 4,
+                                                                decoration:
+                                                                    BoxDecoration(
+                                                                  color: isActive
+                                                                      ? const Color(
+                                                                          0xFF10B981)
+                                                                      : Colors
+                                                                          .grey
+                                                                          .shade400,
+                                                                  shape:
+                                                                      BoxShape.circle,
+                                                                ),
+                                                              ),
+                                                              const SizedBox(
+                                                                  width: 6),
+                                                              Text(
+                                                                isActive
+                                                                    ? 'Active'
+                                                                    : 'No Workers',
+                                                                style: TextStyle(
+                                                                  fontSize: 10,
+                                                                  fontWeight:
+                                                                      FontWeight.w600,
+                                                                  color: isActive
+                                                                      ? const Color(
+                                                                          0xFF10B981)
+                                                                      : Colors
+                                                                          .grey
+                                                                          .shade600,
+                                                                ),
+                                                              ),
+                                                            ],
                                                           ),
                                                         ),
                                                       ],
@@ -1925,213 +1959,312 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
                                                   ),
                                                 ],
                                               ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 6),
-                                        // Address with modern styling
-                                        Container(
-                                          padding: const EdgeInsets.all(12),
-                                          decoration: BoxDecoration(
-                                            color:
-                                                Colors.white.withOpacity(0.7),
-                                            borderRadius:
-                                                BorderRadius.circular(14),
-                                            border: Border.all(
-                                              color: Colors.grey.shade200,
-                                              width: 1,
-                                            ),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: Colors.black
-                                                    .withOpacity(0.04),
-                                                blurRadius: 6,
-                                                offset: const Offset(0, 2),
-                                              ),
-                                            ],
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              const Icon(
-                                                Icons.location_on_rounded,
-                                                color: Color(0xFF6B7280),
-                                                size: 14,
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Expanded(
-                                                child: Text(
-                                                  facility.address,
-                                                  style: const TextStyle(
-                                                    fontSize: 12,
-                                                    color: Color(0xFF374151),
-                                                    height: 1.4,
-                                                    fontWeight: FontWeight.w500,
-                                                  ),
-                                                  maxLines: 2,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        // Health Workers Count
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 12, vertical: 10),
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              colors: [
-                                                const Color(0xE0F44336)
-                                                    .withOpacity(0.1),
-                                                const Color(0xE0F44336)
-                                                    .withOpacity(0.05),
-                                              ],
-                                              begin: Alignment.centerLeft,
-                                              end: Alignment.centerRight,
-                                            ),
-                                            borderRadius:
-                                                BorderRadius.circular(14),
-                                            border: Border.all(
-                                              color: const Color(0xE0F44336)
-                                                  .withOpacity(0.2),
-                                              width: 1,
-                                            ),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: const Color(0xE0F44336)
-                                                    .withOpacity(0.1),
-                                                blurRadius: 6,
-                                                offset: const Offset(0, 2),
-                                              ),
-                                            ],
-                                          ),
-                                          child: Row(
-                                            children: [
+                                              const SizedBox(height: 6),
+                                              // Address with modern styling
                                               Container(
                                                 padding:
-                                                    const EdgeInsets.all(6),
+                                                    const EdgeInsets.all(12),
                                                 decoration: BoxDecoration(
                                                   color:
-                                                      const Color(0xE0F44336),
+                                                      Colors.white.withOpacity(0.7),
                                                   borderRadius:
-                                                      BorderRadius.circular(8),
+                                                      BorderRadius.circular(14),
+                                                  border: Border.all(
+                                                    color: Colors.grey.shade200,
+                                                    width: 1,
+                                                  ),
                                                   boxShadow: [
                                                     BoxShadow(
-                                                      color: const Color(
-                                                              0xE0F44336)
-                                                          .withOpacity(0.3),
-                                                      blurRadius: 4,
-                                                      offset:
-                                                          const Offset(0, 2),
+                                                      color: Colors.black
+                                                          .withOpacity(0.04),
+                                                      blurRadius: 6,
+                                                      offset: const Offset(0, 2),
                                                     ),
                                                   ],
                                                 ),
-                                                child: const Icon(
-                                                  Icons.people_rounded,
-                                                  color: Colors.white,
-                                                  size: 14,
+                                                child: Row(
+                                                  children: [
+                                                    const Icon(
+                                                      Icons.location_on_rounded,
+                                                      color: Color(0xFF6B7280),
+                                                      size: 14,
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    Expanded(
+                                                      child: Text(
+                                                        facility.address,
+                                                        style: const TextStyle(
+                                                          fontSize: 12,
+                                                          color:
+                                                              Color(0xFF374151),
+                                                          height: 1.4,
+                                                          fontWeight:
+                                                              FontWeight.w500,
+                                                        ),
+                                                        maxLines: 2,
+                                                        overflow:
+                                                            TextOverflow.ellipsis,
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
                                               ),
-                                              const SizedBox(width: 8),
-                                              Text(
-                                                '$count Health Worker${count != 1 ? 's' : ''} Available',
-                                                style: const TextStyle(
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: Color(0xE0F44336),
+                                              const SizedBox(height: 4),
+                                              // Health Workers Count (blue when active, gray when none)
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(
+                                                    horizontal: 12, vertical: 10),
+                                                decoration: BoxDecoration(
+                                                  gradient: LinearGradient(
+                                                    colors: isActive
+                                                        ? [
+                                                            const Color(0xFF3B82F6)
+                                                                .withOpacity(0.12),
+                                                            const Color(0xFF3B82F6)
+                                                                .withOpacity(0.06),
+                                                          ]
+                                                        : [
+                                                            Colors.grey.shade100,
+                                                            Colors.grey.shade50,
+                                                          ],
+                                                    begin: Alignment.centerLeft,
+                                                    end: Alignment.centerRight,
+                                                  ),
+                                                  borderRadius:
+                                                      BorderRadius.circular(14),
+                                                  border: Border.all(
+                                                    color: isActive
+                                                        ? const Color(0xFF3B82F6)
+                                                            .withOpacity(0.22)
+                                                        : Colors.grey.shade300,
+                                                    width: 1,
+                                                  ),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: isActive
+                                                          ? const Color(0xFF3B82F6)
+                                                              .withOpacity(0.06)
+                                                          : Colors.black
+                                                              .withOpacity(0.03),
+                                                      blurRadius: 6,
+                                                      offset: const Offset(0, 2),
+                                                    ),
+                                                  ],
                                                 ),
+                                                child: Row(
+                                                  children: [
+                                                    Container(
+                                                      padding: const EdgeInsets.all(6),
+                                                      decoration: BoxDecoration(
+                                                        color: isActive
+                                                            ? const Color(0xFF3B82F6)
+                                                            : Colors.grey.shade400,
+                                                        borderRadius:
+                                                            BorderRadius.circular(8),
+                                                        boxShadow: [
+                                                          BoxShadow(
+                                                            color: isActive
+                                                                ? const Color(0xFF3B82F6)
+                                                                    .withOpacity(0.18)
+                                                                : Colors.black
+                                                                    .withOpacity(0.06),
+                                                            blurRadius: 4,
+                                                            offset: const Offset(0, 2),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      child: const Icon(
+                                                        Icons.people_rounded,
+                                                        color: Colors.white,
+                                                        size: 14,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    Text(
+                                                      '$count Health Worker${count != 1 ? 's' : ''} Available',
+                                                      style: TextStyle(
+                                                        fontSize: 11,
+                                                        fontWeight: FontWeight.w600,
+                                                        color: isActive
+                                                            ? const Color(0xFF1E40AF)
+                                                            : Colors.grey.shade600,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              // Buttons section - sleek design
+                                              Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: ElevatedButton(
+                                                      onPressed: () =>
+                                                          _onViewContactsPressed(),
+                                                      style: ElevatedButton.styleFrom(
+                                                        backgroundColor:
+                                                            const Color(0xE0F44336),
+                                                        foregroundColor:
+                                                            Colors.white,
+                                                        elevation: 4,
+                                                        shadowColor: const Color(
+                                                                0xE0F44336)
+                                                            .withOpacity(0.3),
+                                                        shape:
+                                                            RoundedRectangleBorder(
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                  14),
+                                                        ),
+                                                        padding: const EdgeInsets
+                                                            .symmetric(vertical: 12),
+                                                      ),
+                                                      child: const Text(
+                                                        'Contacts',
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Expanded(
+                                                    child: OutlinedButton(
+                                                      onPressed: () =>
+                                                          _onSeeDirectionsPressed(),
+                                                      style: OutlinedButton.styleFrom(
+                                                        side: BorderSide(
+                                                          color: _polylines
+                                                                  .isNotEmpty
+                                                              ? Colors.orange
+                                                              : const Color(
+                                                                  0xE0F44336),
+                                                          width: 2,
+                                                        ),
+                                                        foregroundColor: _polylines
+                                                                .isNotEmpty
+                                                            ? Colors.orange
+                                                            : const Color(
+                                                                0xE0F44336),
+                                                        backgroundColor:
+                                                            Colors.white,
+                                                        shape:
+                                                            RoundedRectangleBorder(
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                  14),
+                                                        ),
+                                                        padding: const EdgeInsets
+                                                            .symmetric(vertical: 12),
+                                                      ),
+                                                      child: Text(
+                                                        _polylines.isNotEmpty
+                                                            ? 'Clear Route'
+                                                            : 'See Directions',
+                                                        style: const TextStyle(
+                                                          fontSize: 12,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
                                             ],
                                           ),
                                         ),
-                                        const SizedBox(height: 4),
-                                        // Buttons section - sleek design
-                                        Row(
-                                          children: [
-                                            Expanded(
-                                              child: ElevatedButton(
-                                                onPressed: () =>
-                                                    _onViewContactsPressed(),
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor:
-                                                      const Color(0xE0F44336),
-                                                  foregroundColor: Colors.white,
-                                                  elevation: 4,
-                                                  shadowColor:
-                                                      const Color(0xE0F44336)
-                                                          .withOpacity(0.3),
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            14),
-                                                  ),
-                                                  padding: const EdgeInsets
-                                                      .symmetric(vertical: 12),
-                                                ),
-                                                child: const Text(
-                                                  'Contacts',
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: OutlinedButton(
-                                                onPressed: () =>
-                                                    _onSeeDirectionsPressed(),
-                                                style: OutlinedButton.styleFrom(
-                                                  side: BorderSide(
-                                                    color: _polylines.isNotEmpty
-                                                        ? Colors.orange
-                                                        : const Color(
-                                                            0xE0F44336),
-                                                    width: 2,
-                                                  ),
-                                                  foregroundColor: _polylines
-                                                          .isNotEmpty
-                                                      ? Colors.orange
-                                                      : const Color(0xE0F44336),
-                                                  backgroundColor: Colors.white,
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            14),
-                                                  ),
-                                                  padding: const EdgeInsets
-                                                      .symmetric(vertical: 12),
-                                                ),
-                                                child: Text(
-                                                  _polylines.isNotEmpty
-                                                      ? 'Clear Route'
-                                                      : 'See Directions',
-                                                  style: const TextStyle(
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
+                                      );
+                                    },
+                                  );
+                                },
+                              ),
+                            ),
+
+                            // Dots indicator below carousel
+                            const SizedBox(height: 8),
+                            if (_filteredFacilities.isNotEmpty)
+                              Container(
+                                height: 24,
+                                alignment: Alignment.center,
+                                child: Builder(builder: (context) {
+                                  // Always show exactly 3 dots. Map the active dot as:
+                                  // first page -> left, last page -> right, others -> center.
+                                  final int activeDot = _filteredFacilities.length <= 1
+                                      ? 1
+                                      : (_selectedIndex == 0
+                                          ? 0
+                                          : (_selectedIndex == _filteredFacilities.length - 1 ? 2 : 1));
+                                  final int midIndex = (_filteredFacilities.length / 2).floor();
+
+                                  return Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: List.generate(3, (i) {
+                                      return GestureDetector(
+                                        onTap: () {
+                                          if (!_pageController.hasClients) return;
+                                          int target;
+                                          if (i == 0) {
+                                            target = 0;
+                                          } else if (i == 2) {
+                                            target = _filteredFacilities.length - 1;
+                                          } else {
+                                            target = midIndex;
+                                          }
+                                          target = target.clamp(0, _filteredFacilities.length - 1);
+                                          _pageController.animateToPage(
+                                            target,
+                                            duration: const Duration(milliseconds: 300),
+                                            curve: Curves.easeInOut,
+                                          );
+                                        },
+                                        child: AnimatedContainer(
+                                          duration: const Duration(milliseconds: 250),
+                                          margin: const EdgeInsets.symmetric(horizontal: 6),
+                                          width: activeDot == i ? 16 : 10,
+                                          height: 8,
+                                          decoration: BoxDecoration(
+                                            color: activeDot == i ? const Color(0xE0F44336) : Colors.grey.shade300,
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
                                         ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              },
-                            );
-                          },
+                                      );
+                                    }),
+                                  );
+                                }),
+                              ),
+                          ],
                         ),
                       ),
                     ),
                   ),
                 ),
               ],
-            ),
+            ),	
     );
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

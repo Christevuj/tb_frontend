@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -8,6 +9,7 @@ import '../accounts/medical_staff_create.dart';
 import './admin_login.dart' show AdminLogin;
 import './email_config.dart'; // Import email configuration
 import './email_credentials_page.dart'; // Import email credentials management
+import './install_qr_dialog.dart';
 
 /*
  * EMAIL CONFIGURATION REQUIRED:
@@ -67,13 +69,55 @@ class _AdminDashboardState extends State<AdminDashboard> {
   bool _isHovered = false;
   DashboardTab _selectedTab = DashboardTab.dashboard;
 
+  // Admin's facility information
+  String? adminFacilityName;
+  bool isLoadingAdminInfo = true;
+
   @override
   void initState() {
     super.initState();
+    _loadAdminFacility();
     // Check SMTP credentials when dashboard loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkSmtpCredentials();
     });
+  }
+
+  // Load current admin's facility information
+  Future<void> _loadAdminFacility() async {
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        setState(() => isLoadingAdminInfo = false);
+        return;
+      }
+
+      // Get admin's details from admins collection
+      final adminQuery = await FirebaseFirestore.instance
+          .collection('admins')
+          .where('email', isEqualTo: currentUser.email)
+          .limit(1)
+          .get();
+
+      if (adminQuery.docs.isNotEmpty) {
+        final adminData = adminQuery.docs.first.data();
+        setState(() {
+          adminFacilityName = adminData['facility']?['name'];
+          isLoadingAdminInfo = false;
+        });
+
+        if (kDebugMode) {
+          print('Admin facility loaded: $adminFacilityName');
+        }
+      } else {
+        setState(() => isLoadingAdminInfo = false);
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error loading admin facility: $e');
+      }
+      setState(() => isLoadingAdminInfo = false);
+    }
   }
 
   // Check if SMTP credentials are configured
@@ -884,6 +928,20 @@ class _AdminDashboardState extends State<AdminDashboard> {
           onPressed: () => Scaffold.of(context).openDrawer(),
         ),
       ),
+      actions: [
+        IconButton(
+          tooltip: 'Show install QR',
+          icon: const Icon(Icons.qr_code_2, color: Color(0xFF1F2937)),
+          onPressed: () {
+            Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => const InstallQrDialog(
+                initialUrl:
+                    'https://play.google.com/store/apps/details?id=com.example.tb_frontend',
+              ),
+            ));
+          },
+        ),
+      ],
     );
   }
 
@@ -1417,19 +1475,29 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Widget _getSelectedTabContent() {
     switch (_selectedTab) {
       case DashboardTab.doctors:
-        return DoctorsView(onSendEmail: _sendCredentialsEmailHelper);
+        return DoctorsView(
+          onSendEmail: _sendCredentialsEmailHelper,
+          filterFacility: adminFacilityName,
+        );
       case DashboardTab.patients:
-        return PatientsView(onSendEmail: _sendCredentialsEmailHelper);
+        return PatientsView(
+          onSendEmail: _sendCredentialsEmailHelper,
+          filterFacility: adminFacilityName,
+        );
       case DashboardTab.healthWorkers:
         return HealthWorkersView(
           onSendEmail: _sendCredentialsEmailHelper,
+          filterFacility: adminFacilityName,
         );
       case DashboardTab.dashboard:
-        return DashboardView(onNavigateToTab: (tab) {
-          setState(() {
-            _selectedTab = tab;
-          });
-        });
+        return DashboardView(
+          filterFacility: adminFacilityName,
+          onNavigateToTab: (tab) {
+            setState(() {
+              _selectedTab = tab;
+            });
+          },
+        );
     }
   }
 }
@@ -1437,8 +1505,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
 // Dashboard Overview
 class DashboardView extends StatelessWidget {
   final Function(DashboardTab)? onNavigateToTab;
+  final String? filterFacility;
 
-  const DashboardView({super.key, this.onNavigateToTab});
+  const DashboardView({
+    super.key,
+    this.onNavigateToTab,
+    this.filterFacility,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1486,6 +1559,7 @@ class DashboardView extends StatelessWidget {
                 collection: "doctors",
                 isMobile: isMobile,
                 onNavigateToTab: onNavigateToTab,
+                filterFacility: filterFacility,
               ),
               const SizedBox(height: 20),
 
@@ -1496,6 +1570,7 @@ class DashboardView extends StatelessWidget {
                 collection: "users",
                 isMobile: isMobile,
                 onNavigateToTab: onNavigateToTab,
+                filterFacility: filterFacility,
               ),
               const SizedBox(height: 20),
 
@@ -1506,6 +1581,7 @@ class DashboardView extends StatelessWidget {
                 collection: "healthcare",
                 isMobile: isMobile,
                 onNavigateToTab: onNavigateToTab,
+                filterFacility: filterFacility,
               ),
             ],
           ),
@@ -1520,6 +1596,7 @@ class DashboardView extends StatelessWidget {
     required String collection,
     required bool isMobile,
     Function(DashboardTab)? onNavigateToTab,
+    String? filterFacility,
   }) {
     // Build query based on collection type
     Query<Map<String, dynamic>> query =
@@ -1532,7 +1609,7 @@ class DashboardView extends StatelessWidget {
 
     return StreamBuilder<QuerySnapshot>(
       stream: query
-          .limit(50) // Limit for dashboard overview
+          .limit(200) // Increased limit to get more docs before filtering
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -1543,7 +1620,48 @@ class DashboardView extends StatelessWidget {
           return _buildErrorCard(title, icon);
         }
 
-        final docs = snapshot.data?.docs ?? [];
+        var docs = snapshot.data?.docs ?? [];
+
+        // Filter by admin's facility if facility is set
+        if (filterFacility != null && filterFacility.isNotEmpty) {
+          docs = docs.where((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+
+            // For doctors: check affiliations array
+            if (collection == 'doctors') {
+              final affiliations = data['affiliations'] as List<dynamic>?;
+              if (affiliations == null || affiliations.isEmpty)
+                return true; // Show doctors without affiliations
+
+              return affiliations.any((affiliation) {
+                final facilityName = affiliation['name'] ?? // Primary field
+                    affiliation['facilityName'] ??
+                    affiliation['facility']?['name'];
+                return facilityName == filterFacility;
+              });
+            }
+
+            // For healthcare workers: exclude doctors in wrong collection
+            if (collection == 'healthcare') {
+              final role = data['role']?.toString().toLowerCase();
+              if (role == 'doctor') {
+                return false; // Skip doctors in healthcare collection
+              }
+            }
+
+            // For patients: check facility.name (for overview only)
+            // Note: Full Patients tab filters by approved appointments with facility doctors
+            // For healthcare workers: check facility.name
+            final facility = data['facility'];
+            if (facility is Map) {
+              return facility['name'] == filterFacility;
+            } else if (facility is String) {
+              return facility == filterFacility;
+            }
+
+            return false;
+          }).toList();
+        }
 
         // Limit to 5 items for compact view
         final limitedDocs = docs.take(5).toList();
@@ -2101,8 +2219,13 @@ class DashboardView extends StatelessWidget {
 // Doctors View
 class DoctorsView extends StatefulWidget {
   final Function(BuildContext, Map<String, dynamic>, String) onSendEmail;
+  final String? filterFacility;
 
-  const DoctorsView({super.key, required this.onSendEmail});
+  const DoctorsView({
+    super.key,
+    required this.onSendEmail,
+    this.filterFacility,
+  });
 
   @override
   State<DoctorsView> createState() => _DoctorsViewState();
@@ -2132,11 +2255,67 @@ class _DoctorsViewState extends State<DoctorsView> {
       return _cachedDocs!;
     }
 
-    List<DocumentSnapshot> filtered;
-    if (_searchQuery.isEmpty) {
-      filtered = docs;
-    } else {
-      filtered = docs.where((doc) {
+    List<DocumentSnapshot> filtered = docs;
+
+    if (kDebugMode) {
+      print(
+          '🔍 Filtering ${docs.length} doctors. FilterFacility: ${widget.filterFacility}');
+    }
+
+    // First filter by facility if specified
+    if (widget.filterFacility != null && widget.filterFacility!.isNotEmpty) {
+      filtered = filtered.where((doc) {
+        final data = doc.data() as Map<String, dynamic>?;
+        if (data == null) return false;
+
+        final affiliations = data['affiliations'] as List<dynamic>?;
+
+        // If no affiliations, don't filter out - show all doctors without affiliations
+        if (affiliations == null || affiliations.isEmpty) {
+          if (kDebugMode) {
+            print('⚠️ Doctor ${data['email']} has no affiliations - SHOWING');
+          }
+          return true; // Changed: Show doctors without affiliations
+        }
+
+        final hasMatchingFacility = affiliations.any((affiliation) {
+          // Check multiple possible field names for facility
+          final facilityName = affiliation[
+                  'name'] ?? // Primary field used in medical_staff_create.dart
+              affiliation['facilityName'] ??
+              affiliation['facility']?['name'];
+
+          if (kDebugMode) {
+            print(
+                '🔎 Checking affiliation: $facilityName vs ${widget.filterFacility}');
+          }
+
+          return facilityName == widget.filterFacility;
+        });
+
+        if (kDebugMode) {
+          if (hasMatchingFacility) {
+            print(
+                '✅ Doctor ${data['email']} matches facility ${widget.filterFacility}');
+          } else {
+            print(
+                '❌ Doctor ${data['email']} does NOT match facility ${widget.filterFacility}');
+            print(
+                '   Affiliations: ${affiliations.map((a) => a['name'] ?? a['facilityName']).toList()}');
+          }
+        }
+
+        return hasMatchingFacility;
+      }).toList();
+
+      if (kDebugMode) {
+        print('📊 After facility filter: ${filtered.length} doctors');
+      }
+    }
+
+    // Then filter by search query
+    if (_searchQuery.isNotEmpty) {
+      filtered = filtered.where((doc) {
         final data = doc.data() as Map<String, dynamic>?;
         if (data == null) return false;
 
@@ -2844,8 +3023,13 @@ class _DoctorsViewState extends State<DoctorsView> {
 // Patients View
 class PatientsView extends StatefulWidget {
   final Function(BuildContext, Map<String, dynamic>, String) onSendEmail;
+  final String? filterFacility;
 
-  const PatientsView({super.key, required this.onSendEmail});
+  const PatientsView({
+    super.key,
+    required this.onSendEmail,
+    this.filterFacility,
+  });
 
   @override
   State<PatientsView> createState() => _PatientsViewState();
@@ -2866,22 +3050,160 @@ class _PatientsViewState extends State<PatientsView> {
   // Future for data loading
   Future<QuerySnapshot>? _patientsFuture;
 
+  // Cache for approved patient IDs in this facility
+  Set<String> _approvedPatientIds = {};
+
+  // Cache for facility-based doctor IDs
+  Set<String>? _facilityDoctorIds;
+
   @override
   void initState() {
     super.initState();
+    _initializeData();
+  }
+
+  // Initialize data in the correct order
+  Future<void> _initializeData() async {
+    // First load facility doctors
+    await _loadFacilityDoctors();
+    // Then load approved patients (depends on facility doctors)
+    await _loadApprovedPatients();
+    // Finally load all patients
     _loadPatients();
   }
 
   void _loadPatients() {
-    print('Loading patients...'); // Debug
+    if (kDebugMode) {
+      print('🔍 Loading patients...');
+    }
+
     setState(() {
       _patientsFuture = FirebaseFirestore.instance
           .collection('users')
-          .where('role', isEqualTo: 'patient') // Filter for patients only
-          .limit(100)
+          .where('role', isEqualTo: 'patient')
+          .limit(200)
           .get()
-          .timeout(const Duration(seconds: 10)); // Add timeout
+          .timeout(const Duration(seconds: 10));
     });
+  }
+
+  // Load all approved patient IDs for this facility
+  Future<void> _loadApprovedPatients() async {
+    if (widget.filterFacility == null || widget.filterFacility!.isEmpty) {
+      if (kDebugMode) {
+        print('⚠️ No facility filter, skipping approved patients load');
+      }
+      return;
+    }
+
+    if (_facilityDoctorIds == null || _facilityDoctorIds!.isEmpty) {
+      if (kDebugMode) {
+        print('⚠️ No doctors in facility');
+      }
+      return;
+    }
+
+    if (kDebugMode) {
+      print(
+          '🔍 Loading approved patients for facility: ${widget.filterFacility}');
+      print(
+          '📋 Checking appointments for ${_facilityDoctorIds!.length} doctors');
+    }
+
+    final approvedPatientIds = <String>{};
+
+    // Get all patients who have approved appointments with facility doctors
+    for (String doctorId in _facilityDoctorIds!) {
+      try {
+        final appointmentsQuery = await FirebaseFirestore.instance
+            .collection('approved_appointments')
+            .where('doctorId', isEqualTo: doctorId)
+            .get();
+
+        if (kDebugMode) {
+          print(
+              '📊 Doctor $doctorId has ${appointmentsQuery.docs.length} approved appointments');
+        }
+
+        for (var doc in appointmentsQuery.docs) {
+          final patientUid = doc.data()['patientUid'];
+          if (patientUid != null) {
+            approvedPatientIds.add(patientUid as String);
+            if (kDebugMode) {
+              print('✅ Added patient $patientUid to approved list');
+            }
+          }
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('⚠️ Error loading appointments for doctor $doctorId: $e');
+        }
+      }
+    }
+
+    if (kDebugMode) {
+      print(
+          '✅ Found ${approvedPatientIds.length} approved patients in facility');
+    }
+
+    setState(() {
+      _approvedPatientIds = approvedPatientIds;
+    });
+  }
+
+  // Load all doctor IDs from the same facility
+  Future<void> _loadFacilityDoctors() async {
+    if (widget.filterFacility == null || widget.filterFacility!.isEmpty) {
+      return;
+    }
+
+    if (kDebugMode) {
+      print('🔍 Loading doctors from facility: ${widget.filterFacility}');
+    }
+
+    try {
+      final doctorsQuery = await FirebaseFirestore.instance
+          .collection('doctors')
+          .limit(200)
+          .get();
+
+      final facilityDoctorIds = <String>{};
+
+      for (var doc in doctorsQuery.docs) {
+        final data = doc.data();
+        final affiliations = data['affiliations'] as List<dynamic>?;
+
+        if (affiliations != null) {
+          for (var affiliation in affiliations) {
+            final facilityName = affiliation['name'] ??
+                affiliation['facilityName'] ??
+                affiliation['facility']?['name'];
+
+            if (facilityName == widget.filterFacility) {
+              facilityDoctorIds.add(doc.id);
+              if (kDebugMode) {
+                print(
+                    '✅ Doctor ${doc.id} (${data['fullName']}) is in facility');
+              }
+              break; // Found match, move to next doctor
+            }
+          }
+        }
+      }
+
+      if (kDebugMode) {
+        print(
+            '📊 Found ${facilityDoctorIds.length} doctors in ${widget.filterFacility}');
+      }
+
+      setState(() {
+        _facilityDoctorIds = facilityDoctorIds;
+      });
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error loading facility doctors: $e');
+      }
+    }
   }
 
   @override
@@ -2901,11 +3223,41 @@ class _PatientsViewState extends State<PatientsView> {
         return _cachedDocs!;
       }
 
-      List<DocumentSnapshot> filtered;
-      if (_searchQuery.isEmpty) {
-        filtered = docs;
-      } else {
-        filtered = docs.where((doc) {
+      List<DocumentSnapshot> filtered = docs;
+
+      // First filter by facility if specified
+      // Check if patient has approved appointment with doctor from same facility
+      if (widget.filterFacility != null && widget.filterFacility!.isNotEmpty) {
+        if (kDebugMode) {
+          print('🔍 Filtering patients by facility: ${widget.filterFacility}');
+          print(
+              '📋 Approved patients in facility: ${_approvedPatientIds.length}');
+        }
+
+        filtered = filtered.where((doc) {
+          final patientId = doc.id;
+
+          // Check if patient has approved appointment with doctor from facility
+          final hasApprovedAppointment =
+              _approvedPatientIds.contains(patientId);
+
+          if (kDebugMode) {
+            if (hasApprovedAppointment) {
+              print(
+                  '✅ Patient $patientId has approved appointment in facility');
+            } else {
+              print(
+                  '❌ Patient $patientId has no approved appointment in facility');
+            }
+          }
+
+          return hasApprovedAppointment;
+        }).toList();
+      }
+
+      // Then filter by search query
+      if (_searchQuery.isNotEmpty) {
+        filtered = filtered.where((doc) {
           try {
             final data = doc.data() as Map<String, dynamic>?;
             if (data == null) return false;
@@ -3582,8 +3934,13 @@ class _PatientsViewState extends State<PatientsView> {
 // Health Workers View
 class HealthWorkersView extends StatefulWidget {
   final Function(BuildContext, Map<String, dynamic>, String) onSendEmail;
+  final String? filterFacility;
 
-  const HealthWorkersView({super.key, required this.onSendEmail});
+  const HealthWorkersView({
+    super.key,
+    required this.onSendEmail,
+    this.filterFacility,
+  });
 
   @override
   State<HealthWorkersView> createState() => _HealthWorkersViewState();
@@ -3633,11 +3990,70 @@ class _HealthWorkersViewState extends State<HealthWorkersView> {
       return _cachedDocs!;
     }
 
-    List<DocumentSnapshot> filtered;
-    if (_searchQuery.isEmpty) {
-      filtered = docs;
-    } else {
-      filtered = docs.where((doc) {
+    List<DocumentSnapshot> filtered = docs;
+
+    if (kDebugMode) {
+      print(
+          '🔍 Filtering ${docs.length} health workers. FilterFacility: ${widget.filterFacility}');
+      // Check what role each document has
+      for (var doc in docs) {
+        final data = doc.data() as Map<String, dynamic>?;
+        print(
+            '📋 Healthcare doc: email=${data?['email']}, role=${data?['role']}, facility=${data?['facility']}');
+      }
+    }
+
+    // First filter by facility if specified
+    if (widget.filterFacility != null && widget.filterFacility!.isNotEmpty) {
+      filtered = filtered.where((doc) {
+        final data = doc.data() as Map<String, dynamic>?;
+        if (data == null) return false;
+
+        // Check if this is actually a health worker (not a doctor in wrong collection)
+        final role = data['role']?.toString().toLowerCase();
+        if (role == 'doctor') {
+          if (kDebugMode) {
+            print(
+                '⚠️ Skipping ${data['email']} - has role: Doctor (should be in doctors collection)');
+          }
+          return false; // Skip doctors in healthcare collection
+        }
+
+        final facility = data['facility'];
+        bool matches = false;
+
+        if (facility is Map) {
+          final facilityName = facility['name'];
+          matches = facilityName == widget.filterFacility;
+
+          if (kDebugMode) {
+            print(
+                '🔎 Health Worker ${data['email']}: facility.name="$facilityName" vs filter="${widget.filterFacility}" → ${matches ? "✅ MATCH" : "❌ NO MATCH"}');
+          }
+        } else if (facility is String) {
+          matches = facility == widget.filterFacility;
+
+          if (kDebugMode) {
+            print(
+                '🔎 Health Worker ${data['email']}: facility="$facility" vs filter="${widget.filterFacility}" → ${matches ? "✅ MATCH" : "❌ NO MATCH"}');
+          }
+        } else {
+          if (kDebugMode) {
+            print('⚠️ Health Worker ${data['email']}: No facility found');
+          }
+        }
+
+        return matches;
+      }).toList();
+
+      if (kDebugMode) {
+        print('📊 After facility filter: ${filtered.length} health workers');
+      }
+    }
+
+    // Then filter by search query
+    if (_searchQuery.isNotEmpty) {
+      filtered = filtered.where((doc) {
         final data = doc.data() as Map<String, dynamic>?;
         if (data == null) return false;
 

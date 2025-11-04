@@ -112,12 +112,13 @@ class AuthService {
       }, SetOptions(merge: true));
       return null; // ✅ Success
     } on FirebaseAuthException catch (e) {
+      // Return both the error code and the message to aid debugging
       if (e.code == 'user-not-found') {
-        return 'No account found with this email.';
+        return 'user-not-found: No account found with this email.';
       } else if (e.code == 'wrong-password') {
-        return 'Incorrect password.';
+        return 'wrong-password: Incorrect password.';
       }
-      return 'Login error: ${e.message}';
+      return '${e.code}: ${e.message}';
     } catch (e) {
       return 'Unexpected error: $e';
     }

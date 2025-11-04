@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'dart:math' as math;
 
 class PConsultant extends StatelessWidget {
   const PConsultant({super.key});
@@ -20,13 +21,14 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
-  final List<Map<String, String>> _messages = [
-    {
-      "role": "system",
-      "content":
-          "You are a helpful and knowledgeable TB (Tuberculosis) consultant. Greet the user as a TB consultant and only answer questions related to TB. If a question is not related to TB, politely redirect the user to ask about TB or medical topics."
-    },
-  ];
+  // Conversation messages. We'll insert a system prompt at startup that
+  // instructs the model to reply in the user's language and not to re-introduce
+  // itself on every reply. The visible greeting (role: 'greeting') is shown
+  // locally once for the session and is excluded from messages sent to the AI.
+  final List<Map<String, String>> _messages = [];
+  String _userLanguageCode = 'en';
+  String _visibleGreeting =
+      "👋 Hello! I am your TB consultant. How can I assist you with your medical or TB-related questions today?";
   bool _serviceAvailable = true;
   String? _serviceError;
   final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
@@ -69,6 +71,42 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     _checkGeminiService();
     if (!_serviceAvailable) return;
 
+    // Detect the user's locale and prepare a localized system prompt and visible greeting.
+    try {
+      final locale = WidgetsBinding.instance.window.locale;
+      _userLanguageCode = locale.languageCode.toLowerCase();
+    } catch (_) {
+      _userLanguageCode = 'en';
+    }
+
+    // Basic greeting translations for a few common languages. Falls back to English.
+    final greetings = {
+      'en':
+          '👋 Hello! I am your TB consultant. How can I assist you with your medical or TB-related questions today?',
+      'tl':
+          '👋 Kamusta! Ako ang iyong TB consultant. Paano kita matutulungan tungkol sa TB o medikal na katanungan?',
+      'fil':
+          '👋 Kamusta! Ako ang iyong TB consultant. Paano kita matutulungan tungkol sa TB o medikal na katanungan?',
+      'es':
+          '👋 ¡Hola! Soy su consultor de TB. ¿En qué puedo ayudarle sobre tuberculosis o preguntas médicas?',
+      'fr':
+          '👋 Bonjour! Je suis votre consultant TB. Comment puis-je vous aider concernant la tuberculose ou des questions médicales?',
+      'pt':
+          '👋 Olá! Sou seu consultor de TB. Como posso ajudá-lo sobre TB ou perguntas médicas?',
+    };
+
+    _visibleGreeting = greetings[_userLanguageCode] ?? greetings['en']!;
+
+    // Construct system prompt instructing the model to reply in the user's language
+    // and to avoid re-introducing itself in every response. Keep it concise.
+    // We rely on per-request language instructions provided at runtime.
+
+    final systemPrompt =
+        'You are a helpful and knowledgeable TB (Tuberculosis) consultant. Prioritize TB-related information and clearly indicate when a question falls outside TB expertise. You may answer other medical questions when asked, but where appropriate tie answers back to TB relevance. Prefer to respond in the user\'s language; the client will provide a per-request instruction indicating the desired language — follow that instruction. Do not repeat the initial greeting on every reply.';
+
+    // Add the system prompt as the first message (it will be hidden from the chat UI).
+    _messages.add({"role": "system", "content": systemPrompt});
+
     _quickFadeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
@@ -94,9 +132,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _showTypingGreeting() async {
-    // Always greet as a TB consultant
-    const greeting =
-        "👋 Hello! I am your TB consultant. How can I assist you with your medical or TB-related questions today?";
+    // Only show the visible greeting once per session.
+    if (_greetingDone) return;
+
+    final greeting = _visibleGreeting;
     _addMessage(
         {"role": "greeting", "content": ""}); // Mark as greeting, not assistant
     final int botIndex = _messages.length - 1;
@@ -118,6 +157,89 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   void _addMessage(Map<String, String> message) {
     _messages.add(message);
     _listKey.currentState?.insertItem(_messages.length - 1);
+  }
+
+  // Very small heuristic language detector to prefer Cebuano or Tagalog when keywords are present.
+  // Trigram-based language detector (character 3-grams). This avoids brittle
+  // keyword matching by comparing the input's trigram profile against small
+  // embedded language profiles for Tagalog and Cebuano. Falls back to the
+  // device locale when scores are ambiguous.
+  String _detectLanguageFromText(String text) {
+    final s = text.toLowerCase().replaceAll(RegExp(r'[^a-z0-9\s]'), ' ');
+    final folded = s.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (folded.isEmpty) return _userLanguageCode;
+
+    // Build trigram counts from the input
+    final padded = '  ' + folded + '  ';
+    final Map<String, int> triCounts = {};
+    for (int i = 0; i + 3 <= padded.length; i++) {
+      final tri = padded.substring(i, i + 3);
+      triCounts[tri] = (triCounts[tri] ?? 0) + 1;
+    }
+
+    // Small embedded trigram profiles (character trigrams) for Tagalog and Cebuano.
+    // These profiles are intentionally tiny but capture characteristic patterns.
+    const Map<String, double> tagalogProfile = {
+      ' ng': 0.09,
+      'ang': 0.08,
+      'na ': 0.06,
+      ' pa': 0.05,
+      'pa ': 0.04,
+      'po ': 0.03,
+      'opo': 0.02,
+      ' sa': 0.05,
+      'sa ': 0.04,
+      'ano': 0.03,
+    };
+
+    const Map<String, double> cebuanoProfile = {
+      'ang': 0.07,
+      'nga': 0.09,
+      ' sa': 0.05,
+      'sa ': 0.04,
+      'uns': 0.04,
+      'ng ': 0.03,
+      'tao': 0.02,
+    };
+
+    double dot(Map<String, double> profile) {
+      double sum = 0.0;
+      for (final e in triCounts.entries) {
+        final w = profile[e.key] ?? 0.0;
+        if (w != 0.0) sum += w * e.value;
+      }
+      return sum;
+    }
+
+    double normInput = 0.0;
+    for (final v in triCounts.values) {
+      normInput += v * v;
+    }
+    normInput = normInput > 0 ? math.sqrt(normInput) : 1.0;
+
+    double normProfile(Map<String, double> profile) {
+      double s = 0.0;
+      for (final v in profile.values) s += v * v;
+      return s > 0 ? math.sqrt(s) : 1.0;
+    }
+
+    // Compute similarity scores (cosine-like)
+    final dotTag = dot(tagalogProfile);
+    final dotCeb = dot(cebuanoProfile);
+    final scoreTag = dotTag / (normInput * normProfile(tagalogProfile));
+    final scoreCeb = dotCeb / (normInput * normProfile(cebuanoProfile));
+
+    // If scores are clearly different, pick the winner.
+    if (scoreTag - scoreCeb > 0.03) return 'tl';
+    if (scoreCeb - scoreTag > 0.03) return 'ceb';
+
+    // Tie-breaker heuristics: prefer Tagalog when 'po'/'opo' present.
+    if (folded.contains(' po') ||
+        folded.contains('opo') ||
+        folded.contains(' po')) return 'tl';
+
+    // Otherwise fallback to device locale.
+    return _userLanguageCode;
   }
 
   void _sendMessage([String? customText]) async {
@@ -145,7 +267,36 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     try {
       // Compose the conversation for Gemini, including system prompt and all previous messages
       // Exclude greeting messages to prevent repetition
-      final content = _messages
+      // Insert a short instruction so the model replies in the same language as the user's most recent message.
+      // Use a client-side detection first, based on the user's last message if present.
+      String detectedLang = _userLanguageCode;
+      try {
+        final lastUser = _messages.reversed.firstWhere(
+            (m) => m['role'] == 'user',
+            orElse: () => {})['content'];
+        if (lastUser != null && lastUser.isNotEmpty) {
+          detectedLang = _detectLanguageFromText(lastUser);
+        }
+      } catch (_) {
+        detectedLang = _userLanguageCode;
+      }
+
+      final languageNames = {
+        'tl': 'Tagalog',
+        'ceb': 'Cebuano',
+        'en': 'English'
+      };
+      final detectedName = languageNames[detectedLang] ?? detectedLang;
+
+      String langInstruction =
+          'Reply in the same language as the user (language code: $detectedLang, language: $detectedName). If you cannot detect the language, reply in ${_userLanguageCode}. Do not include thanks, greetings, or sign-offs unless the user explicitly requests them.';
+
+      final List<Content> contents = [];
+      // add language instruction first
+      contents.add(Content.text(langInstruction));
+
+      // then append existing conversation content
+      final conversationContent = _messages
           .where((m) =>
               m['role'] != null &&
               m['content'] != null &&
@@ -159,6 +310,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           })
           .whereType<Content>()
           .toList();
+
+      contents.addAll(conversationContent);
+
+      final content = contents;
 
       bool success = false;
       String lastError = '';

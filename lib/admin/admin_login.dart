@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tb_frontend/services/auth_service.dart'; // Import your AuthService
 import 'package:tb_frontend/login_screen.dart'; // Import login screen
 import 'admin_dashboard.dart'; // Import your admin dashboard page
+import './super_admin_page.dart'; // Super admin page
 
 class AdminLogin extends StatefulWidget {
   const AdminLogin({super.key});
@@ -135,12 +137,58 @@ class _AdminLoginState extends State<AdminLogin>
         return;
       }
 
-      // Check if the user exists in the admins collection
+      // First check if user is a super admin (prefer super-admins)
+      final superQuery = await FirebaseFirestore.instance
+          .collection('super_admin')
+          .where('email', isEqualTo: email)
+          .get();
+
+      if (kDebugMode) {
+        // Helpful debug logs during development to confirm Firestore query results
+        print(
+            'super_admin query for email="$email" returned ${superQuery.docs.length} docs');
+      }
+
+      if (superQuery.docs.isNotEmpty) {
+        final doc = superQuery.docs.first.data();
+        final storedPassword = (doc['password'] ?? '') as String;
+
+        if (storedPassword.isNotEmpty && storedPassword == password) {
+          // Save credentials if remember me is checked
+          await _saveCredentials();
+
+          // Navigate to super admin page
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const SuperAdminPage()),
+          );
+          setState(() => _isLoading = false);
+          return;
+        } else {
+          // Password mismatch for super admin
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Access denied: Invalid super-admin password'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          await _authService.signOut();
+          return;
+        }
+      }
+
+      // If not a super-admin, check regular admins collection
       final adminQuery = await FirebaseFirestore.instance
           .collection('admins')
           .where('email', isEqualTo: email)
           .where('role', isEqualTo: 'admin')
           .get();
+
+      if (kDebugMode) {
+        print(
+            'admins query for email="$email" returned ${adminQuery.docs.length} docs');
+      }
 
       setState(() => _isLoading = false);
 
@@ -153,8 +201,10 @@ class _AdminLoginState extends State<AdminLogin>
           context,
           MaterialPageRoute(builder: (_) => const AdminDashboard()),
         );
+        return;
       } else {
         // User is not in admins collection, deny access
+        setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Access denied: You are not authorized as an admin'),

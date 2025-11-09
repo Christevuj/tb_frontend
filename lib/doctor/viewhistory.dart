@@ -145,6 +145,7 @@ class _ViewhistoryState extends State<Viewhistory> {
                       },
                       bullets: [
                         'Full Name: ${widget.appointment["patientName"] ?? "Unknown Patient"}',
+                        'Address: ${widget.appointment["patientAddress"] ?? "No address provided"}',
                         'Email: ${widget.appointment["patientEmail"] ?? "No email provided"}',
                         'Phone: ${widget.appointment["patientPhone"] ?? "No phone provided"}',
                         'Gender: ${widget.appointment["patientGender"] ?? "Not specified"} | Age: ${widget.appointment["patientAge"]?.toString() ?? "Not specified"}',
@@ -417,6 +418,141 @@ class _ViewhistoryState extends State<Viewhistory> {
                       ),
                     ],
 
+                    // Cancellation Information Section (only show for canceled appointments)
+                    if (widget.appointment["status"]
+                            ?.toString()
+                            .toLowerCase() ==
+                        "canceled" || widget.appointment["canceledAt"] != null) ...[
+                      Card(
+                        margin: const EdgeInsets.symmetric(vertical: 8),
+                        elevation: 3,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side:
+                              BorderSide(color: Colors.grey.shade200, width: 1),
+                        ),
+                        color: Colors.white,
+                        child: Column(
+                          children: [
+                            // Card Header with Orange Accent Strip
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Colors.orange.shade700,
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(12),
+                                  topRight: Radius.circular(12),
+                                ),
+                              ),
+                              child: Container(
+                                width: double.infinity,
+                                decoration: const BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.only(
+                                    topLeft: Radius.circular(12),
+                                    topRight: Radius.circular(12),
+                                  ),
+                                ),
+                                margin: const EdgeInsets.only(left: 4),
+                                padding: const EdgeInsets.all(16),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.orange.shade100,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Icon(
+                                        Icons.event_busy,
+                                        color: Colors.orange.shade700,
+                                        size: 20,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    const Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Appointment Canceled by Patient',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.black87,
+                                          ),
+                                        ),
+                                        SizedBox(height: 2),
+                                        Text(
+                                          'Reason for cancellation',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+
+                            // Cancellation Content
+                            Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: Colors.orange.shade50,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                          color: Colors.orange.shade200),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Icon(Icons.info_outline,
+                                                color: Colors.orange.shade700,
+                                                size: 20),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              "Cancellation Reason:",
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.orange.shade800,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 12),
+                                        Text(
+                                          widget.appointment[
+                                                  "cancellationReason"] ??
+                                              "No specific reason provided",
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.orange.shade900,
+                                            height: 1.4,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
                     const SizedBox(height: 16),
                   ],
                 ),
@@ -505,15 +641,19 @@ class _ViewhistoryState extends State<Viewhistory> {
 
   // Helper method to build timeline card
   Widget _buildTimelineCard() {
-    // Determine if this appointment was marked incomplete
+    // Determine if this appointment was marked incomplete, rejected, or canceled
     final appt = widget.appointment;
     final status = appt['status']?.toString().toLowerCase();
     final bool isIncomplete = status == 'incomplete_consultation' || appt['incompleteMarkedAt'] != null;
+    final bool isRejected = status == 'rejected' || appt['rejectedAt'] != null;
+    final bool isCanceled = status == 'canceled' || appt['canceledAt'] != null;
 
     // Determine previous status where available; fallback heuristics when missing
     String priorStatus = 'unknown';
     if (appt['statusBeforeIncomplete'] != null) {
       priorStatus = appt['statusBeforeIncomplete'].toString().toLowerCase();
+    } else if (appt['statusBeforeCancellation'] != null) {
+      priorStatus = appt['statusBeforeCancellation'].toString().toLowerCase();
     } else if (appt['approvedAt'] != null || appt['approved'] == true) {
       priorStatus = 'approved';
     } else if (appt['treatmentCompletedAt'] != null || appt['treatmentCompleted'] == true) {
@@ -522,18 +662,38 @@ class _ViewhistoryState extends State<Viewhistory> {
       priorStatus = 'completed';
     } else if (appt['rejectedAt'] != null || (appt['status'] ?? '').toString().toLowerCase() == 'rejected') {
       priorStatus = 'rejected';
+    } else if (appt['canceledAt'] != null || (appt['status'] ?? '').toString().toLowerCase() == 'canceled') {
+      priorStatus = 'canceled';
     }
 
-    // Completed step color depends on whether the appointment was marked incomplete
-    final Color completedColor = isIncomplete ? Colors.amber.shade600 : Colors.green.shade600;
-    final Color completedBg = isIncomplete ? Colors.amber.shade50 : Colors.green.shade50;
-    final Color completedBorder = isIncomplete ? Colors.amber.shade200 : Colors.green.shade200;
+    // Completed step color depends on status
+    Color completedColor;
+    Color completedBg;
+    Color completedBorder;
 
-    // Decide which steps were completed before marking incomplete
+    if (isRejected) {
+      completedColor = Colors.red.shade600;
+      completedBg = Colors.red.shade50;
+      completedBorder = Colors.red.shade200;
+    } else if (isCanceled) {
+      completedColor = Colors.orange.shade700;
+      completedBg = Colors.orange.shade50;
+      completedBorder = Colors.orange.shade200;
+    } else if (isIncomplete) {
+      completedColor = Colors.amber.shade600;
+      completedBg = Colors.amber.shade50;
+      completedBorder = Colors.amber.shade200;
+    } else {
+      completedColor = Colors.green.shade600;
+      completedBg = Colors.green.shade50;
+      completedBorder = Colors.green.shade200;
+    }
+
+    // Decide which steps were completed
     final step1Completed = true; // Requested is always true for history entries
-    final step2Completed = priorStatus == 'approved' || priorStatus == 'completed' || priorStatus == 'treatment_completed';
-    final step3Completed = priorStatus == 'completed' || priorStatus == 'treatment_completed';
-    final step4Completed = priorStatus == 'treatment_completed';
+    final step2Completed = !isRejected && (priorStatus == 'approved' || priorStatus == 'completed' || priorStatus == 'treatment_completed' || priorStatus == 'canceled');
+    final step3Completed = !isRejected && !isCanceled && (priorStatus == 'completed' || priorStatus == 'treatment_completed');
+    final step4Completed = !isRejected && !isCanceled && (priorStatus == 'treatment_completed');
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),

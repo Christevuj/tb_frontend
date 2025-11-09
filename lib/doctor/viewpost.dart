@@ -160,6 +160,7 @@ class _ViewpostappointmentState extends State<Viewpostappointment> {
                       },
                       bullets: [
                         'Full Name: ${widget.appointment["patientName"] ?? "Unknown Patient"}',
+                        'Address: ${widget.appointment["patientAddress"] ?? "No address provided"}',
                         'Email: ${widget.appointment["patientEmail"] ?? "No email provided"}',
                         'Phone: ${widget.appointment["patientPhone"] ?? "No phone provided"}',
                         'Gender: ${widget.appointment["patientGender"] ?? "Not specified"} | Age: ${widget.appointment["patientAge"]?.toString() ?? "Not specified"}',

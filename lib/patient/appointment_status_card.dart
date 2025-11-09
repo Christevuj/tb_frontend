@@ -45,6 +45,12 @@ class AppointmentStatusCard extends StatelessWidget {
         statusDescription = 'Please book another appointment';
         statusIcon = Icons.info;
         break;
+      case 'canceled':
+        statusColor = Colors.grey.shade700;
+        statusTitle = 'Appointment Was Cancelled';
+        statusDescription = 'This appointment has been canceled';
+        statusIcon = Icons.cancel_outlined;
+        break;
       case 'incomplete_consultation':
         // Keep incomplete consultation neutral in the appointment status card (timeline consistency)
         statusColor = Colors.grey.shade700;

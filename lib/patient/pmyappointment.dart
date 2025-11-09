@@ -15,6 +15,7 @@ import '../services/chat_service.dart';
 import '../services/webrtc_service.dart';
 import '../chat_screens/chat_screen.dart';
 import '../screens/video_call_screen.dart';
+import 'planding_page.dart';
 
 class PMyAppointmentScreen extends StatefulWidget {
   const PMyAppointmentScreen({super.key});
@@ -114,6 +115,8 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
         return Colors.green;
       case 'rejected':
         return Colors.redAccent;
+      case 'canceled':
+        return Colors.orange.shade700;
       case 'completed':
         return Colors.green;
       case 'consultation_finished':
@@ -138,6 +141,8 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
         return 'Ready';
       case 'rejected':
         return 'Not Approved';
+      case 'canceled':
+        return 'Cancelled';
       case 'completed':
         return 'Done';
       case 'consultation_finished':
@@ -827,8 +832,12 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
         var data = doc.data();
         data['appointmentId'] = doc.id;
         data['appointmentSource'] = 'appointment_history';
-        data['status'] =
-            'treatment_completed'; // History appointments are fully completed
+        
+        // Preserve the original status from history (could be canceled, treatment_completed, etc.)
+        // Only set to treatment_completed if no status exists
+        if (data['status'] == null || data['status'] == '') {
+          data['status'] = 'treatment_completed';
+        }
 
         // Add data enrichment for history appointments
         data = await _enrichAppointmentData(data);
@@ -1014,6 +1023,243 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
     }
   }
 
+  // Cancel approved appointment (ready for consultation)
+  Future<void> _cancelApprovedAppointment(Map<String, dynamic> appointment) async {
+    final TextEditingController reasonController = TextEditingController();
+
+    // Show dialog to get cancellation reason
+    final String? reason = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(Icons.cancel_outlined, color: Colors.red.shade600, size: 28),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Cancel Appointment',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Please provide a reason for canceling this appointment',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: reasonController,
+              maxLines: 3,
+              decoration: InputDecoration(
+                hintText: 'Enter cancellation reason...',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.red.shade400, width: 2),
+                ),
+                filled: true,
+                fillColor: Colors.grey.shade50,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      side: BorderSide(color: Colors.grey.shade400),
+                    ),
+                    child: Text(
+                      'Cancel',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      if (reasonController.text.trim().isNotEmpty) {
+                        Navigator.of(context).pop(reasonController.text.trim());
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red.shade600,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Confirm',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (reason == null || reason.isEmpty) return;
+
+    // Process cancellation
+    try {
+      final appointmentId = appointment['appointmentId'] ?? appointment['id'];
+      if (appointmentId == null || appointmentId == '') {
+        throw Exception('Appointment ID not found');
+      }
+
+      // Show loading
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                const Text('Canceling appointment...'),
+              ],
+            ),
+            backgroundColor: Colors.orange.shade700,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+
+      // Prepare history entry
+      final historyEntry = {
+        ...appointment,
+        'status': 'canceled',
+        'canceledAt': FieldValue.serverTimestamp(),
+        'cancellationReason': reason,
+        'canceledBy': 'patient',
+        'statusBeforeCancellation': 'approved',
+        'movedToHistoryAt': FieldValue.serverTimestamp(),
+      };
+
+      // Move to appointment_history
+      await FirebaseFirestore.instance
+          .collection('appointment_history')
+          .doc(appointmentId)
+          .set(historyEntry, SetOptions(merge: true));
+
+      // Delete from approved_appointments
+      await FirebaseFirestore.instance
+          .collection('approved_appointments')
+          .doc(appointmentId)
+          .delete();
+
+      // Remove related notifications for patient
+      try {
+        final patientNotifications = await FirebaseFirestore.instance
+            .collection('patient_notifications')
+            .where('appointmentId', isEqualTo: appointmentId)
+            .get();
+
+        for (var doc in patientNotifications.docs) {
+          await doc.reference.delete();
+        }
+      } catch (e) {
+        debugPrint('Error deleting patient notifications: $e');
+      }
+
+      // Remove related notifications for doctor
+      try {
+        final doctorNotifications = await FirebaseFirestore.instance
+            .collection('doctor_notifications')
+            .where('appointmentId', isEqualTo: appointmentId)
+            .get();
+
+        for (var doc in doctorNotifications.docs) {
+          await doc.reference.delete();
+        }
+      } catch (e) {
+        debugPrint('Error deleting doctor notifications: $e');
+      }
+
+      if (mounted) {
+        Navigator.of(context).pop(); // Close details modal
+        
+        // Force UI refresh to immediately remove the canceled appointment
+        setState(() {});
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Appointment canceled successfully',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.green.shade600,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error canceling appointment: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error canceling appointment: $e'),
+            backgroundColor: Colors.red.shade600,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
+    }
+  }
+
   void _showAppointmentDetails(Map<String, dynamic> appointment) async {
     // Use enriched data from appointment if available, otherwise fetch manually
     Map<String, dynamic>? prescriptionData = appointment['prescriptionData'];
@@ -1111,31 +1357,20 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
         maxChildSize: 0.95,
         minChildSize: 0.5,
         builder: (_, controller) => Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          decoration: BoxDecoration(
+            color: Colors.red.shade600,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Drag handle
-              Container(
-                height: 5,
-                width: 50,
-                margin: const EdgeInsets.only(top: 12, bottom: 16),
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-
               // Expandable Content with Header
               Flexible(
                 child: Container(
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade600,
                     borderRadius:
-                        BorderRadius.vertical(top: Radius.circular(24)),
+                        const BorderRadius.vertical(top: Radius.circular(24)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1166,7 +1401,7 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                             const SizedBox(width: 12),
                             const Expanded(
                               child: Text(
-                                "Appointment Details",
+                                "APPOINTMENT DETAILS",
                                 style: TextStyle(
                                   fontSize: 17,
                                   fontWeight: FontWeight.bold,
@@ -1188,10 +1423,6 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                         child: Container(
                           decoration: const BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.only(
-                              bottomLeft: Radius.circular(24),
-                              bottomRight: Radius.circular(24),
-                            ),
                           ),
                           child: SingleChildScrollView(
                             controller: controller,
@@ -1251,6 +1482,133 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
           _buildScheduleCard(appointment),
           const SizedBox(height: 12),
           _buildPendingStatusCard(),
+          const SizedBox(height: 12),
+          // Cancel button for pending appointments
+          Center(
+            child: SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () async {
+                  final apptId = appointment['appointmentId'] ?? appointment['id'] ?? '';
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (dCtx) => AlertDialog(
+                      backgroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      title: Row(
+                        children: [
+                          Icon(Icons.cancel_outlined, color: Colors.red.shade600, size: 28),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              'Cancel Appointment',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Are you sure you want to cancel this pending appointment?',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade600,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 24),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () => Navigator.of(dCtx).pop(false),
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    side: BorderSide(color: Colors.grey.shade400),
+                                  ),
+                                  child: Text(
+                                    'No',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.grey.shade700,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: () => Navigator.of(dCtx).pop(true),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red.shade600,
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    'Yes',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                  if (confirm != true) return;
+
+                  if (apptId == null || apptId == '') {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Appointment ID not found')));
+                    return;
+                  }
+
+                  try {
+                    await FirebaseFirestore.instance.collection('pending_patient_data').doc(apptId).delete();
+                    if (context.mounted) {
+                      Navigator.of(context).pop(); // Close details modal
+                      
+                      // Force UI refresh to immediately remove the canceled appointment
+                      setState(() {});
+                      
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Appointment canceled successfully'), backgroundColor: Colors.green),
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error canceling appointment: $e'), backgroundColor: Colors.red),
+                      );
+                    }
+                  }
+                },
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: Colors.redAccent.shade200),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                child: Text('Cancel Appointment', style: TextStyle(color: Colors.redAccent.shade700)),
+              ),
+            ),
+          ),
         ] else if (status == 'approved') ...[
           // For approved: Show basic info and meeting link
           _buildPatientInfoCard(appointment), // Now shows doctor info
@@ -1258,6 +1616,22 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
           _buildScheduleCard(appointment),
           const SizedBox(height: 12),
           _buildVideoCallCard(appointment),
+          const SizedBox(height: 12),
+          // Cancel button for approved appointments
+          Center(
+            child: SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () => _cancelApprovedAppointment(appointment),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: Colors.redAccent.shade200),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                child: Text('Cancel Appointment', style: TextStyle(color: Colors.redAccent.shade700)),
+              ),
+            ),
+          ),
         ] else if (status == 'with_prescription' ||
             status == 'consultation_finished') ...[
           // For with prescription: Show prescription info
@@ -1284,6 +1658,13 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
           _buildScheduleCard(appointment),
           const SizedBox(height: 12),
           _buildRejectionCard(appointment),
+        ] else if (status == 'canceled') ...[
+          // For canceled: Show cancellation information
+          _buildPatientInfoCard(appointment), // Now shows doctor info
+          const SizedBox(height: 12),
+          _buildScheduleCard(appointment),
+          const SizedBox(height: 12),
+          _buildCancellationCard(appointment),
         ] else ...[
           // Default: Show basic info
           _buildPatientInfoCard(appointment), // Now shows doctor info
@@ -1291,74 +1672,10 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
           _buildScheduleCard(appointment),
         ],
 
-        // Timeline card appears for all statuses except rejected
-        if (status != 'rejected') ...[
+        // Timeline card appears for all statuses except rejected and canceled
+        if (status != 'rejected' && status != 'canceled') ...[
           const SizedBox(height: 16),
           _buildTimelineCard(appointment),
-        ],
-        // If still pending, show a cancel appointment button below the timeline
-        if (status == 'pending') ...[
-          const SizedBox(height: 12),
-          Center(
-            child: SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: () async {
-                  final apptId = appointment['appointmentId'] ?? appointment['id'] ?? '';
-                  final confirm = await showDialog<bool>(
-                    context: context,
-                    builder: (dCtx) => AlertDialog(
-                      title: const Text('Cancel appointment'),
-                      content: const Text('Are you sure you want to cancel this pending appointment?'),
-                      actions: [
-                        TextButton(onPressed: () => Navigator.of(dCtx).pop(false), child: const Text('No')),
-                        TextButton(onPressed: () => Navigator.of(dCtx).pop(true), child: const Text('Yes')),
-                      ],
-                    ),
-                  );
-                  if (confirm != true) return;
-
-                  if (apptId == null || apptId == '') {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Appointment ID not found')));
-                    return;
-                  }
-
-                  try {
-                    // Try deleting from pending_patient_data
-                    await FirebaseFirestore.instance.collection('pending_patient_data').doc(apptId).delete();
-                  } catch (e) {
-                    // best-effort: try removing from approved_appointments as fallback
-                    try {
-                      await FirebaseFirestore.instance.collection('approved_appointments').doc(apptId).delete();
-                    } catch (e) {
-                      debugPrint('Could not delete appointment: $e');
-                    }
-                  }
-
-                  // Remove related notifications
-                  try {
-                    final q = await FirebaseFirestore.instance.collection('patient_notifications').where('appointmentId', isEqualTo: apptId).get();
-                    for (var doc in q.docs) {
-                      await doc.reference.delete();
-                    }
-                  } catch (e) {
-                    debugPrint('Error deleting related notifications: $e');
-                  }
-
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Appointment cancelled')));
-                    Navigator.of(context).pop();
-                  }
-                },
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: Colors.redAccent.shade200),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                child: Text('Cancel Appointment', style: TextStyle(color: Colors.redAccent.shade700)),
-              ),
-            ),
-          ),
         ],
       ],
     );
@@ -2126,6 +2443,128 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.red.shade700,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Cancellation Card
+  Widget _buildCancellationCard(Map<String, dynamic> appointment) {
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade200, width: 1),
+      ),
+      color: Colors.white,
+      child: Column(
+        children: [
+          // Card Header with Orange Accent Strip
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.orange.shade700,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
+            ),
+            child: Container(
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(12),
+                ),
+              ),
+              margin: const EdgeInsets.only(left: 4),
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.event_busy,
+                      color: Colors.orange.shade700,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Cancelled Appointment',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Reason for cancellation',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Cancellation Content
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.orange.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.info_outline,
+                          color: Colors.orange.shade700, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Cancellation Reason:",
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.orange.shade800,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    appointment["cancellationReason"] ??
+                        "No specific reason provided",
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.orange.shade900,
                       height: 1.4,
                     ),
                   ),
@@ -3264,7 +3703,40 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                     debugPrint('StreamBuilder error: ${snapshot.error}');
 
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
+                      return Center(
+                        child: Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.1),
+                                spreadRadius: 2,
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CircularProgressIndicator(
+                                color: Colors.red.shade600,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Loading appointments...',
+                                style: TextStyle(
+                                  color: Colors.grey.shade700,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
                     }
 
                     if (snapshot.hasError) {
@@ -3291,18 +3763,17 @@ class _PMyAppointmentScreenState extends State<PMyAppointmentScreen> {
                             .toList();
                         break;
                       case 'History':
-                        // History: All appointments including completed treatments
+                        // History: Completed, rejected, and canceled appointments only (no pending or approved)
                         filteredAppointments = allAppointments
                             .where((appointment) =>
-                                appointment['status'] == 'pending' ||
-                                appointment['status'] == 'approved' ||
                                 appointment['status'] ==
                                     'consultation_finished' ||
                                 appointment['status'] == 'rejected' ||
                                 appointment['status'] ==
                                     'treatment_completed' ||
                                 appointment['status'] == 'with_prescription' ||
-                                appointment['status'] == 'with_certificate')
+                                appointment['status'] == 'with_certificate' ||
+                                appointment['status'] == 'canceled')
                             .toList();
                         break;
                       default:

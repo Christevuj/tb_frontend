@@ -43,6 +43,7 @@ class _Pbooking1State extends State<Pbooking1> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _ageController = TextEditingController();
+  final TextEditingController _addressController = TextEditingController();
 
   // Dropdown selections
   String? _selectedGender;
@@ -97,7 +98,7 @@ class _Pbooking1State extends State<Pbooking1> {
     // Load facility information
     _loadFacilityInfo();
 
-    // Pre-fill name and email from Firestore user data
+    // Pre-fill name, email, address, phone, gender, and age from Firestore user data
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       _emailController.text = user.email ?? '';
@@ -105,8 +106,25 @@ class _Pbooking1State extends State<Pbooking1> {
         if (details != null) {
           final firstName = details['firstName'] ?? '';
           final lastName = details['lastName'] ?? '';
+          final address = details['address'] ?? '';
+          final phone = details['phone'] ?? '';
+          final gender = details['gender'] ?? '';
+          final age = details['age'];
+          
           setState(() {
             _nameController.text = (firstName + ' ' + lastName).trim();
+            _addressController.text = address;
+            _phoneController.text = phone;
+            
+            // Set gender if it exists and is valid
+            if (gender.isNotEmpty && _genders.contains(gender)) {
+              _selectedGender = gender;
+            }
+            
+            // Set age if it exists
+            if (age != null) {
+              _ageController.text = age.toString();
+            }
           });
         }
       });
@@ -216,6 +234,7 @@ class _Pbooking1State extends State<Pbooking1> {
     _emailController.dispose();
     _phoneController.dispose();
     _ageController.dispose();
+    _addressController.dispose();
     super.dispose();
   }
 
@@ -630,6 +649,35 @@ class _Pbooking1State extends State<Pbooking1> {
     return '$displayHour:$minuteStr $period';
   }
 
+  // Helper widget for confirmation dialog details
+  Widget _buildConfirmationDetail(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12, left: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFF6B7280),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 15,
+              color: Color(0xFF1F2937),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<List<String>> _getBookedSlots(
       DateTime date, String doctorId, int sessionDuration) async {
     try {
@@ -720,6 +768,7 @@ class _Pbooking1State extends State<Pbooking1> {
         _emailController.text.isEmpty ||
         _phoneController.text.isEmpty ||
         _ageController.text.isEmpty ||
+        _addressController.text.isEmpty ||
         _selectedGender == null ||
         _selectedGender == _genders.first ||
         _selectedID == null ||
@@ -728,8 +777,115 @@ class _Pbooking1State extends State<Pbooking1> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text(
-                'Please fill all fields, select gender and valid ID, and upload ID')),
+                'Please fill all fields including address, select gender and valid ID, and upload ID')),
       );
+      return;
+    }
+
+    // Show confirmation dialog first
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEEBEE),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.check_circle_outline,
+                  color: Color(0xE0F44336),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'CONFIRM BOOKING',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1F2937),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Please review your appointment details:',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF6B7280),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildConfirmationDetail('Doctor', widget.doctor.name),
+              _buildConfirmationDetail('Facility', _facilityName),
+              _buildConfirmationDetail('Date', _formatDate(_selectedDate!)),
+              _buildConfirmationDetail('Time', _selectedTime!),
+              const SizedBox(height: 16),
+              const Text(
+                'Do you want to proceed with this booking?',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF1F2937),
+                ),
+              ),
+            ],
+          ),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              ),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(
+                  color: Color(0xFF6B7280),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xE0F44336),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 2,
+              ),
+              child: const Text(
+                'Confirm',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    // If user cancelled, return
+    if (confirmed != true) {
       return;
     }
 
@@ -786,6 +942,7 @@ class _Pbooking1State extends State<Pbooking1> {
         'patientEmail': _emailController.text.trim(),
         'patientPhone': _phoneController.text.trim(),
         'patientAge': int.parse(_ageController.text),
+        'patientAddress': _addressController.text.trim(),
         'patientGender': _selectedGender,
         'idType': _selectedID,
         'idImageUrl': idImageUrl,
@@ -810,6 +967,23 @@ class _Pbooking1State extends State<Pbooking1> {
         // First, try to create the collection by adding the first document
         await pendingCollection.add(appointmentData);
         debugPrint('Successfully created appointment in pending_patient_data');
+        
+        // Update user profile with address, phone, gender, and age for future use
+        try {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(currentUser.uid)
+              .update({
+            'address': _addressController.text.trim(),
+            'phone': _phoneController.text.trim(),
+            'gender': _selectedGender,
+            'age': int.parse(_ageController.text),
+          });
+          debugPrint('User profile updated successfully (address, phone, gender, age)');
+        } catch (e) {
+          debugPrint('Error updating user profile: $e');
+          // Non-critical error, continue with booking
+        }
       } catch (e) {
         debugPrint('Error creating appointment: $e');
         throw Exception('Failed to create appointment. Please try again.');
@@ -824,11 +998,14 @@ class _Pbooking1State extends State<Pbooking1> {
           content: Text(
               'Booking submitted successfully! Please wait for doctor\'s confirmation.'),
           backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
         ),
       );
 
-      // Navigate back
-      Navigator.of(context).pop();
+      // Go back to the previous page
+      if (context.mounted) {
+        Navigator.of(context).pop();
+      }
     } catch (e) {
       // Close loading dialog if it's showing
       if (context.mounted) {
@@ -1669,6 +1846,9 @@ class _Pbooking1State extends State<Pbooking1> {
               ),
               const SizedBox(height: 8),
               _customTextField(_nameController, 'Full Name'),
+              const SizedBox(height: 12),
+              _customTextField(_addressController, 'Complete Address',
+                  keyboardType: TextInputType.streetAddress),
               const SizedBox(height: 12),
               _customTextField(_emailController, 'Email',
                   keyboardType: TextInputType.emailAddress),

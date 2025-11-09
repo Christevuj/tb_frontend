@@ -400,6 +400,7 @@ class _ViewpendingState extends State<Viewpending> {
                       },
                       bullets: [
                         'Full Name: ${appointment["patientName"] ?? "Unknown Patient"}',
+                        'Address: ${appointment["patientAddress"] ?? "No address provided"}',
                         'Email: ${appointment["patientEmail"] ?? "No email provided"}',
                         'Phone: ${appointment["patientPhone"] ?? "No phone provided"}',
                         'Gender: ${appointment["patientGender"] ?? "Not specified"} | Age: ${appointment["patientAge"]?.toString() ?? "Not specified"}',

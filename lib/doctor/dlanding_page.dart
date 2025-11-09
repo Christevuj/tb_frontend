@@ -158,103 +158,84 @@ class _DlandingpageState extends State<Dlandingpage> {
       builder: (_) => StatefulBuilder(
         builder: (context, setModalState) {
           return DraggableScrollableSheet(
-            initialChildSize: 0.8,
+            initialChildSize: 0.7,
             maxChildSize: 0.95,
-            minChildSize: 0.6,
+            minChildSize: 0.5,
             builder: (_, controller) => Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              decoration: BoxDecoration(
+                color: Colors.red.shade600,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
               ),
-              child: SingleChildScrollView(
-                controller: controller,
-                child: Container(
-                  margin: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
-                        spreadRadius: 3,
-                        blurRadius: 15,
-                        offset: const Offset(0, 5),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Expandable Content with Header
+                  Flexible(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade600,
+                        borderRadius:
+                            const BorderRadius.vertical(top: Radius.circular(24)),
                       ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Modern Header
-                      Container(
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          color: Colors.red.shade600,
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(24),
-                            topRight: Radius.circular(24),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(
-                                Icons.pending_actions,
-                                color: Colors.white,
-                                size: 24,
-                              ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Appointment Details Section Header
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade600,
+                              borderRadius: const BorderRadius.vertical(
+                                  top: Radius.circular(24)),
                             ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    "Appointment Details",
-                                    style: const TextStyle(
-                                      fontSize: 16,
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.medical_information,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                const Expanded(
+                                  child: Text(
+                                    "APPOINTMENT DETAILS",
+                                    style: TextStyle(
+                                      fontSize: 17,
                                       fontWeight: FontWeight.bold,
                                       color: Colors.white,
                                     ),
-                                    overflow: TextOverflow.visible,
-                                    maxLines: 2,
-                                    softWrap: true,
                                   ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    "Review and manage appointment request",
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.white70,
-                                    ),
-                                    overflow: TextOverflow.visible,
-                                    maxLines: 2,
-                                    softWrap: true,
-                                  ),
-                                ],
-                              ),
+                                ),
+                                IconButton(
+                                  icon:
+                                      const Icon(Icons.close, color: Colors.white),
+                                  onPressed: () => Navigator.pop(context),
+                                ),
+                              ],
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.close,
-                                  color: Colors.white, size: 28),
-                              onPressed: () => Navigator.pop(context),
-                            ),
-                          ],
-                        ),
-                      ),
+                          ),
 
-                      // Content Container
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
+                          // Scrollable Content
+                          Expanded(
+                            child: Container(
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                              ),
+                              child: SingleChildScrollView(
+                                controller: controller,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
                             // Patient Details Section - Collapsible Card
                             _buildCollapsibleCard(
                               title: "Patient Information",
@@ -268,6 +249,7 @@ class _DlandingpageState extends State<Dlandingpage> {
                               },
                               bullets: [
                                 'Full Name: ${appointment["patientName"] ?? "Unknown Patient"}',
+                                'Address: ${appointment["patientAddress"] ?? "No address provided"}',
                                 'Email: ${appointment["patientEmail"] ?? "No email provided"}',
                                 'Phone: ${appointment["patientPhone"] ?? "No phone provided"}',
                                 'Gender: ${appointment["patientGender"] ?? "Not specified"} | Age: ${appointment["patientAge"]?.toString() ?? "Not specified"}',
@@ -320,12 +302,17 @@ class _DlandingpageState extends State<Dlandingpage> {
 
                             // Action Buttons (Accept/Reject with E-Prescription requirement)
                             _buildActionButtons(appointment),
-                          ],
-                        ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
           );
@@ -1631,11 +1618,44 @@ class _DlandingpageState extends State<Dlandingpage> {
                       ),
                     );
                   }
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(
+                      child: Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.withOpacity(0.1),
+                              spreadRadius: 2,
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(
+                              color: Colors.red.shade600,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Loading appointments...',
+                              style: TextStyle(
+                                color: Colors.grey.shade700,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
                   if (snapshot.hasError) {
                     return const Center(child: Text('Something went wrong'));
-                  }
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
                   }
 
                   final appointments = snapshot.data?.docs ?? [];

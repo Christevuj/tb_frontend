@@ -10,33 +10,45 @@ class SignupScreen extends StatefulWidget {
   State<SignupScreen> createState() => _SignupScreenState();
 }
 
-class _Bullet extends StatelessWidget {
-  final String text;
-  const _Bullet(this.text);
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            margin: const EdgeInsets.only(top: 6),
-            width: 6,
-            height: 6,
-            decoration:
-                BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle),
+Widget _buildModernBullet(String text) {
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 10, left: 4),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          margin: const EdgeInsets.only(top: 6),
+          width: 20,
+          height: 20,
+          decoration: BoxDecoration(
+            color: Colors.redAccent.withOpacity(0.1),
+            shape: BoxShape.circle,
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child:
-                Text(text, style: const TextStyle(fontSize: 14, height: 1.45)),
+          child: Center(
+            child: Container(
+              width: 6,
+              height: 6,
+              decoration: const BoxDecoration(
+                color: Colors.redAccent,
+                shape: BoxShape.circle,
+              ),
+            ),
           ),
-        ],
-      ),
-    );
-  }
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 14,
+              height: 1.6,
+              color: Colors.grey.shade700,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _SignupScreenState extends State<SignupScreen> {
@@ -51,6 +63,30 @@ class _SignupScreenState extends State<SignupScreen> {
   bool _isLoading = false;
 
   final AuthService _authService = AuthService();
+
+  // Password strength validation flags
+  bool _hasMinLength = false;
+  bool _hasUppercase = false;
+  bool _hasLowercase = false;
+  bool _hasNumber = false;
+  bool _hasSpecialChar = false;
+
+  void _validatePassword(String password) {
+    setState(() {
+      _hasMinLength = password.length >= 8;
+      _hasUppercase = password.contains(RegExp(r'[A-Z]'));
+      _hasLowercase = password.contains(RegExp(r'[a-z]'));
+      _hasNumber = password.contains(RegExp(r'[0-9]'));
+      _hasSpecialChar = password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
+    });
+  }
+
+  bool get _isPasswordValid =>
+      _hasMinLength &&
+      _hasUppercase &&
+      _hasLowercase &&
+      _hasNumber &&
+      _hasSpecialChar;
 
   @override
   void initState() {
@@ -128,108 +164,223 @@ class _SignupScreenState extends State<SignupScreen> {
                     // Body (white background) with a Scrollbar to ensure content is visible
                     Expanded(
                       child: Container(
-                        color: Colors.white,
+                        color: Colors.grey.shade50,
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 12),
+                            horizontal: 20, vertical: 20),
                         child: Scrollbar(
                           thumbVisibility: true,
                           child: SingleChildScrollView(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                // Introduction Section
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.shade50,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.blue.shade100),
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Icon(Icons.info_outline, color: Colors.blue.shade700, size: 22),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Text(
+                                          'By accessing or using the TBisita platform, you hereby acknowledge and agree to be bound by the following Terms of Use and Privacy Policy. If you do not agree to these terms, you must discontinue use of the Service.',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            height: 1.6,
+                                            color: Colors.grey.shade800,
+                                            fontWeight: FontWeight.w400,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+                                
+                                // Data Collection Section
+                                Text(
+                                  'Data Collection',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.grey.shade900,
+                                    letterSpacing: 0.3,
+                                  ),
+                                ),
                                 const SizedBox(height: 4),
-                                const Text(
-                                  'By accessing or using the TBisita platform, you hereby acknowledge and agree to be bound by the following Terms of Use and Privacy Policy. If you do not agree to these terms, you must discontinue use of the Service.',
-                                  style:
-                                      TextStyle(fontSize: 13.5, height: 1.45),
+                                Container(
+                                  width: 40,
+                                  height: 3,
+                                  decoration: BoxDecoration(
+                                    color: Colors.redAccent,
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
                                 ),
                                 const SizedBox(height: 12),
-                                const Text('Data collected may include:',
-                                    style: TextStyle(
-                                        fontSize: 13.5,
-                                        fontWeight: FontWeight.w700)),
-                                const SizedBox(height: 8),
-                                const _Bullet(
-                                    'Full name, age, sex, and contact information'),
-                                const _Bullet(
-                                    'Health-related information (e.g., TB symptoms, medication schedules, treatment adherence)'),
-                                const _Bullet(
-                                    'Usage data such as check-ins, consultation logs, and communication with health workers'),
+                                Text(
+                                  'We collect the following information:',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey.shade700,
+                                    height: 1.5,
+                                  ),
+                                ),
                                 const SizedBox(height: 10),
-                                // Modern info card (white with left red accent) with bold Data Privacy Act
+                                _buildModernBullet('Full name, age, sex, and contact information'),
+                                _buildModernBullet('Health-related information (e.g., TB symptoms, medication schedules, treatment adherence)'),
+                                _buildModernBullet('Usage data such as check-ins, consultation logs, and communication with health workers'),
+                                const SizedBox(height: 20),
+                                
+                                // Legal Compliance Section
                                 Container(
                                   width: double.infinity,
-                                  padding: const EdgeInsets.all(12),
+                                  padding: const EdgeInsets.all(18),
                                   decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(10),
-                                    boxShadow: const [
-                                      BoxShadow(
-                                          color: Colors.black12,
-                                          blurRadius: 6,
-                                          offset: Offset(0, 2))
-                                    ],
-                                    border: Border(
-                                        left: BorderSide(
-                                            color: Colors.redAccent, width: 4)),
-                                  ),
-                                  child: const Text.rich(
-                                    TextSpan(
-                                      text:
-                                          'This data will be used solely for the purpose of tracking, monitoring, and improving tuberculosis care. Authorized TB-DOTS health workers and licensed medical professionals may access your data to support treatment, provide follow-ups, and ensure medical compliance. Your data will be handled with strict confidentiality in accordance with the ',
-                                      children: [
-                                        TextSpan(
-                                            text:
-                                                'Data Privacy Act of 2012 (Republic Act No. 10173)',
-                                            style: TextStyle(
-                                                fontWeight: FontWeight.w600)),
-                                        TextSpan(text: ' of the Philippines.'),
-                                      ],
+                                    gradient: LinearGradient(
+                                      colors: [Colors.red.shade50, Colors.orange.shade50],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
                                     ),
-                                    style:
-                                        TextStyle(fontSize: 14, height: 1.45),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.red.shade200, width: 1.5),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Icon(Icons.verified_user, color: Colors.red.shade700, size: 22),
+                                          const SizedBox(width: 10),
+                                          Text(
+                                            'Legal Compliance',
+                                            style: TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w700,
+                                              color: Colors.red.shade900,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Text.rich(
+                                        TextSpan(
+                                          text:
+                                              'This data will be used solely for the purpose of tracking, monitoring, and improving tuberculosis care. Authorized TB-DOTS health workers and licensed medical professionals may access your data to support treatment, provide follow-ups, and ensure medical compliance.\n\nYour data will be handled with strict confidentiality in accordance with:\n\n',
+                                          style: TextStyle(fontSize: 14, height: 1.6, color: Colors.grey.shade800),
+                                          children: [
+                                            TextSpan(
+                                                text: '• Data Privacy Act of 2012 (RA 10173)\n',
+                                                style: TextStyle(fontWeight: FontWeight.w600, color: Colors.red.shade900)),
+                                            TextSpan(
+                                                text: '• Mandatory Reporting of Notifiable Diseases and Health Events of Public Health Concern Act (RA 11332)\n',
+                                                style: TextStyle(fontWeight: FontWeight.w600, color: Colors.red.shade900)),
+                                            TextSpan(
+                                                text: '• Cybercrime Prevention Act of 2012 (RA 10175)',
+                                                style: TextStyle(fontWeight: FontWeight.w600, color: Colors.red.shade900)),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+                                
+                                // User Agreement Section
+                                Text(
+                                  'User Agreement',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.grey.shade900,
+                                    letterSpacing: 0.3,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Container(
+                                  width: 40,
+                                  height: 3,
+                                  decoration: BoxDecoration(
+                                    color: Colors.redAccent,
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'By using this service, you agree to:',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey.shade700,
+                                    height: 1.5,
                                   ),
                                 ),
                                 const SizedBox(height: 10),
-                                const Text('You agree to:',
-                                    style: TextStyle(
-                                        fontSize: 13.5,
-                                        fontWeight: FontWeight.w700)),
-                                const SizedBox(height: 8),
-                                const _Bullet(
-                                    'Provide true, accurate, and up-to-date information'),
-                                const _Bullet(
-                                    'Use the Service in compliance with applicable laws and regulations'),
-                                const _Bullet(
-                                    'Keep your login credentials secure and confidential'),
+                                _buildModernBullet('Provide true, accurate, and up-to-date information'),
+                                _buildModernBullet('Use the Service in compliance with applicable laws and regulations'),
+                                _buildModernBullet('Keep your login credentials secure and confidential'),
+                                const SizedBox(height: 24),
+                                
+                                // Intellectual Property Section
+                                Text(
+                                  'Intellectual Property',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.grey.shade900,
+                                    letterSpacing: 0.3,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Container(
+                                  width: 40,
+                                  height: 3,
+                                  decoration: BoxDecoration(
+                                    color: Colors.redAccent,
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                ),
                                 const SizedBox(height: 12),
-                                const Text('Intellectual Property',
-                                    style: TextStyle(
-                                        fontSize: 13.5,
-                                        fontWeight: FontWeight.w700)),
-                                const SizedBox(height: 8),
-                                const Text(
-                                    'All content, features, source code, and design elements of TBisita are the exclusive property of the developers and may not be copied, modified, distributed, or used without prior written consent.',
-                                    style: TextStyle(
-                                        fontSize: 13.5, height: 1.45)),
-                                const SizedBox(height: 12),
+                                Text(
+                                  'All content, features, source code, and design elements of TBisita are the exclusive property of the developers and may not be copied, modified, distributed, or used without prior written consent.',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    height: 1.6,
+                                    color: Colors.grey.shade700,
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+                                
                                 // Agreement checkbox
-                                CheckboxListTile(
-                                  contentPadding: EdgeInsets.zero,
-                                  controlAffinity:
-                                      ListTileControlAffinity.leading,
-                                  title: const Text(
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.grey.shade300),
+                                  ),
+                                  child: CheckboxListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    controlAffinity: ListTileControlAffinity.leading,
+                                    title: Text(
                                       'I agree to the Terms of Service and Privacy Policy',
                                       style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600)),
-                                  value: isChecked,
-                                  activeColor: Colors.redAccent,
-                                  onChanged: (value) {
-                                    setStateDialog(() {
-                                      isChecked = value ?? false;
-                                    });
-                                  },
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.grey.shade900,
+                                      ),
+                                    ),
+                                    value: isChecked,
+                                    activeColor: Colors.redAccent,
+                                    onChanged: (value) {
+                                      setStateDialog(() {
+                                        isChecked = value ?? false;
+                                      });
+                                    },
+                                  ),
                                 ),
                               ],
                             ),
@@ -314,6 +465,17 @@ class _SignupScreenState extends State<SignupScreen> {
         _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill all fields')),
+      );
+      return;
+    }
+
+    // Validate password strength
+    if (!_isPasswordValid) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please meet all password requirements'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
@@ -415,14 +577,48 @@ class _SignupScreenState extends State<SignupScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Patient Sign Up',
-                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+              // Back Button and Title Row
+              Row(
+                children: [
+                  Container(
+                    height: 48,
+                    width: 48,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 20,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.arrow_back_ios_new,
+                          color: Color(0xFF1F2937), size: 20),
+                      onPressed: () {
+                        Navigator.of(context).pushAndRemoveUntil(
+                          MaterialPageRoute(
+                              builder: (context) => const TBisitaLoginScreen()),
+                          (route) => false,
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  const Expanded(
+                    child: Text(
+                      'Patient Sign Up',
+                      style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 40),
               _buildTextField(_firstNameController, 'First name'),
@@ -432,10 +628,13 @@ class _SignupScreenState extends State<SignupScreen> {
               _buildTextField(_emailController, 'Email address', email: true),
               const SizedBox(height: 20),
               _buildTextField(_passwordController, 'Password', password: true),
-              const SizedBox(height: 30),
+              const SizedBox(height: 12),
+              _buildPasswordStrengthIndicator(),
+              const SizedBox(height: 20),
               _buildSignUpButton(),
-              const Spacer(),
+              const SizedBox(height: 40),
               _buildLoginLink(),
+              const SizedBox(height: 20),
             ],
           ),
         ),
@@ -449,6 +648,7 @@ class _SignupScreenState extends State<SignupScreen> {
       controller: controller,
       obscureText: password && _obscurePassword,
       keyboardType: email ? TextInputType.emailAddress : TextInputType.text,
+      onChanged: password ? _validatePassword : null,
       decoration: InputDecoration(
         labelText: label,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -460,6 +660,76 @@ class _SignupScreenState extends State<SignupScreen> {
                     setState(() => _obscurePassword = !_obscurePassword),
               )
             : null,
+      ),
+    );
+  }
+
+  Widget _buildPasswordStrengthIndicator() {
+    if (_passwordController.text.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                _isPasswordValid ? Icons.check_circle : Icons.info_outline,
+                color: _isPasswordValid ? Colors.green : Colors.orange,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Password Requirements',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildRequirement('At least 8 characters', _hasMinLength),
+          _buildRequirement('Contains uppercase letter (A-Z)', _hasUppercase),
+          _buildRequirement('Contains lowercase letter (a-z)', _hasLowercase),
+          _buildRequirement('Contains number (0-9)', _hasNumber),
+          _buildRequirement('Contains special character (!@#\$%^&*)', _hasSpecialChar),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRequirement(String text, bool isMet) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(
+            isMet ? Icons.check_circle : Icons.cancel,
+            color: isMet ? Colors.green : Colors.red,
+            size: 18,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 13,
+                color: isMet ? Colors.green.shade700 : Colors.grey.shade600,
+                fontWeight: isMet ? FontWeight.w500 : FontWeight.normal,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

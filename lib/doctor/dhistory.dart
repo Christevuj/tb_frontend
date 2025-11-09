@@ -1387,11 +1387,13 @@ class _DhistoryState extends State<Dhistory> {
         final timestampA = a['treatmentCompletedAt'] ??
             a['movedToHistoryAt'] ??
             a['completedAt'] ??
+            a['canceledAt'] ??
             a['approvedAt'] ??
             a['rejectedAt'];
         final timestampB = b['treatmentCompletedAt'] ??
             b['movedToHistoryAt'] ??
             b['completedAt'] ??
+            b['canceledAt'] ??
             b['approvedAt'] ??
             b['rejectedAt'];
 
@@ -1615,7 +1617,7 @@ class _DhistoryState extends State<Dhistory> {
 
                     final appointments = snapshot.data ?? [];
 
-                    // Only show items that are either Treatment Completed or Rejected
+                    // Only show items that are either Treatment Completed, Rejected, or Canceled
                     List<Map<String, dynamic>> filteredAppointments = appointments.where((appointment) {
                       try {
                         // From appointment_history: treat as Treatment Completed when movedToHistoryAt or treatmentCompletedAt exists
@@ -1638,6 +1640,10 @@ class _DhistoryState extends State<Dhistory> {
                         // Rejected: presence of rejectedAt or explicit status
                         if (appointment['rejectedAt'] != null) return true;
                         if ((appointment['status'] ?? '').toString().toLowerCase() == 'rejected') return true;
+
+                        // Canceled: presence of canceledAt or explicit status
+                        if (appointment['canceledAt'] != null) return true;
+                        if ((appointment['status'] ?? '').toString().toLowerCase() == 'canceled') return true;
                       } catch (e) {
                         // If any unexpected structure, exclude by default
                         debugPrint('Error while filtering appointment: $e');
@@ -1690,19 +1696,33 @@ class _DhistoryState extends State<Dhistory> {
                         String statusDisplayText = 'Unknown';
                         Color statusColor = Colors.orange;
 
-                        // Different logic based on source collection
-                        if (appointment['source'] == 'appointment_history') {
-                          // From appointment_history - treatment completed
-                          var treatmentCompletedAt =
-                              appointment['treatmentCompletedAt'];
-                          var movedToHistoryAt =
-                              appointment['movedToHistoryAt'];
+                        // FIRST: Check for canceled, rejected, and incomplete statuses
+                        var canceledAt = appointment['canceledAt'];
+                        var rejectedAt = appointment['rejectedAt'];
+                        String status = (appointment['status'] ?? 'unknown').toString().toLowerCase();
+
+                        if (canceledAt != null || status == 'canceled') {
+                          // Canceled appointments - check this FIRST before other statuses
+                          statusDisplayText = 'Appointment Was Cancelled';
+                          statusColor = Colors.orange.shade700;
+                        } else if (rejectedAt != null || status == 'rejected') {
+                          // Rejected appointments
+                          statusDisplayText = 'Rejected';
+                          statusColor = Colors.red;
+                        } else if (status == 'incomplete_consultation' || appointment['incompleteMarkedAt'] != null) {
+                          // Incomplete consultation
+                          statusDisplayText = 'Incomplete Consultation';
+                          statusColor = Colors.amber.shade600;
+                        } else if (appointment['source'] == 'appointment_history') {
+                          // From appointment_history - treatment completed (only if not canceled/rejected)
+                          var treatmentCompletedAt = appointment['treatmentCompletedAt'];
+                          var movedToHistoryAt = appointment['movedToHistoryAt'];
 
                           if (treatmentCompletedAt != null || movedToHistoryAt != null) {
                             statusDisplayText = 'Treatment Completed';
                             statusColor = Colors.purple;
                           }
-                        } else {
+                        } else if (appointment['source'] == 'completed_appointments') {
                           // From completed_appointments - consultation completed, awaiting treatment completion
                           var completedAt = appointment['completedAt'];
                           if (completedAt != null) {
@@ -1711,23 +1731,9 @@ class _DhistoryState extends State<Dhistory> {
                           }
                         }
 
-                        // Fallback logic for other statuses
+                        // Final fallback if still unknown
                         if (statusDisplayText == 'Unknown') {
-                          var approvedAt = appointment['approvedAt'];
-                          var rejectedAt = appointment['rejectedAt'];
-
-                          if (approvedAt != null) {
-                            statusDisplayText = 'Incomplete Consultation';
-                            statusColor = Colors.amber.shade600;
-                          } else if (rejectedAt != null) {
-                            statusDisplayText = 'Rejected';
-                            statusColor = Colors.red;
-                          } else {
-                            // Final fallback to appointment status
-                            String status = appointment['status'] ?? 'unknown';
-                            statusDisplayText =
-                                status.replaceAll('_', ' ').toUpperCase();
-                          }
+                          statusDisplayText = status.replaceAll('_', ' ').toUpperCase();
                         }
 
                         // Check if appointment has prescription or certificate data

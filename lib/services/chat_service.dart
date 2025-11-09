@@ -3,10 +3,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:io';
 import '../models/message.dart';
 import 'cloudinary_service.dart';
+import 'auto_reply_service.dart';
 
 class ChatService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final CloudinaryService _cloudinaryService = CloudinaryService.instance;
+  final AutoReplyService _autoReplyService = AutoReplyService();
 
   /// --------------------------
   /// 🔹 Generate a unique chatId
@@ -24,6 +26,8 @@ class ChatService {
     required String senderId,
     required String receiverId,
     required String text,
+    String? senderRole, // 'patient', 'doctor', 'healthcare', 'guest'
+    String? receiverRole, // Role of the receiver
   }) async {
     final chatId = generateChatId(senderId, receiverId);
 
@@ -45,6 +49,31 @@ class ChatService {
       'lastTimestamp': FieldValue.serverTimestamp(),
       'participants': [senderId, receiverId],
     }, SetOptions(merge: true));
+
+    // 🤖 TRIGGER AUTO-REPLY if patient/guest is messaging a health worker or doctor
+    print('🔍 AUTO-REPLY CHECK:');
+    print('   Sender Role: $senderRole');
+    print('   Receiver Role: $receiverRole');
+    print('   Should trigger: ${(senderRole == 'patient' || senderRole == 'guest') && (receiverRole == 'doctor' || receiverRole == 'healthcare')}');
+    
+    if ((senderRole == 'patient' || senderRole == 'guest') &&
+        (receiverRole == 'doctor' || receiverRole == 'healthcare')) {
+      try {
+        print('🤖 Triggering auto-reply...');
+        await _autoReplyService.handleIncomingMessage(
+          chatId: chatId,
+          patientId: senderId,
+          healthWorkerId: receiverId,
+          healthWorkerType: receiverRole ?? 'healthcare',
+        );
+        print('✅ Auto-reply completed successfully');
+      } catch (e) {
+        print('❌ Auto-reply error: $e');
+        // Don't throw error, just log it - auto-reply failure shouldn't block messaging
+      }
+    } else {
+      print('⏭️ Auto-reply skipped (role mismatch)');
+    }
   }
 
   /// --------------------------

@@ -361,6 +361,8 @@ class _GuestHealthWorkerChatScreenState
         senderId: widget.guestId,
         receiverId: widget.healthWorkerId,
         text: text,
+        senderRole: 'guest', // Guest user sending message
+        receiverRole: 'healthcare', // Health worker receiving message
       );
       _controller.clear();
 

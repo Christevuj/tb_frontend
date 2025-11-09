@@ -1194,17 +1194,33 @@ class _ChatScreenState extends State<ChatScreen> {
       // Mark current user as active when sending a message
       await _presenceService.markAsActive();
 
+      // Get current user's role
+      final currentUserRole =
+          await _chatService.getUserRole(widget.currentUserId);
+
+      print('🚀 CHAT_SCREEN: About to send message');
+      print('   Current User ID: ${widget.currentUserId}');
+      print('   Current User Role: $currentUserRole');
+      print('   Other User ID: ${widget.otherUserId}');
+      print('   Other User Role: $_otherUserRole');
+      print('   Text: $text');
+
       await _chatService.sendTextMessage(
         senderId: widget.currentUserId,
         receiverId: widget.otherUserId,
         text: text,
+        senderRole: currentUserRole, // Patient, doctor, healthcare, etc.
+        receiverRole: _otherUserRole, // Role of the person receiving
       );
+      
+      print('✅ CHAT_SCREEN: Message sent successfully');
+      
       _controller.clear();
 
       // Update the other user's status after sending message
       _updateOtherUserStatus();
     } catch (e) {
-      print('Error sending message: $e');
+      print('❌ CHAT_SCREEN: Error sending message: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error sending message: $e'),

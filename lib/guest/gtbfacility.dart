@@ -759,6 +759,110 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
     );
   }
 
+  // Get TB DOTS schedule based on facility name
+  String _getTbDotsSchedule(String facilityName) {
+    final schedules = {
+      'AGDAO': 'Mon, Tues, Thurs, Fri | 8:00 AM-12:00 NN',
+      'BAGUIO': 'Tuesday | 8:00 AM-12:00 NN',
+      'BUHANGIN': 'Thursday | 8:00 AM-12:00 NN',
+      'BUNAWAN': 'Monday - Friday | 8:00 AM-5:00 PM',
+      'CALINAN': 'Thursday | 8:00 AM-12:00 NN',
+      'DAVAO CHEST CENTER': 'Daily | 8:00 AM-5:00 PM',
+      'DISTRICT A': 'Monday-Tuesday, Thurs | 8:00 AM-5:00 PM',
+      'DISTRICT B': 'Thursday | 8:00 AM-12:00 NN',
+      'DISTRICT C': 'Tuesday | 8:00 AM-5:00 PM',
+      'DISTRICT D': 'Tuesday | 8:00 AM-12:00 NN',
+      'MARILOG': 'Mon-Wed, Fri | 8:00 AM-12:00 NN',
+      'PAQUIBATO': 'Tuesday | 8:00 AM-12:00 NN',
+      'SASA': 'Daily | 8:00 AM-5:00 PM',
+      'TALOMO CENTRAL': 'Daily | 8:00 AM-12:00 NN',
+      'TALOMO NORTH': 'Mon-Wed, Fri | 8:00 AM-12:00 NN',
+      'TALOMO SOUTH': 'Mon-Tues, Thurs-Fri | 8:00 AM-12:00 NN',
+      'TORIL A': 'Wednesday | 1:00 PM-5:00 PM',
+      'TORIL B': 'Thursday | 8:00 AM-12:00 NN',
+      'TUGBOK': 'Daily | 8:00 AM-4:00 PM',
+    };
+
+    // Try to match facility name with schedule keys
+    for (var key in schedules.keys) {
+      if (facilityName.toUpperCase().contains(key)) {
+        return schedules[key]!;
+      }
+    }
+    
+    return 'Schedule not available';
+  }
+
+  // Build styled schedule text with bold days
+  Widget _buildStyledSchedule(String schedule) {
+    // List of day patterns to make bold
+    final dayPatterns = [
+      'Monday', 'Mon', 'Tuesday', 'Tues', 'Wednesday', 'Wed',
+      'Thursday', 'Thurs', 'Friday', 'Fri', 'Saturday', 'Sat',
+      'Sunday', 'Sun', 'Daily'
+    ];
+
+    List<TextSpan> spans = [];
+    int currentIndex = 0;
+
+    // Find all matches of day patterns in the schedule
+    while (currentIndex < schedule.length) {
+      bool foundMatch = false;
+
+      // Check each day pattern
+      for (var day in dayPatterns) {
+        if (currentIndex + day.length <= schedule.length) {
+          String substring = schedule.substring(currentIndex, currentIndex + day.length);
+          
+          // Case-insensitive match
+          if (substring.toLowerCase() == day.toLowerCase()) {
+            // Add the day with bold styling
+            spans.add(TextSpan(
+              text: substring,
+              style: const TextStyle(
+                fontSize: 13,
+                color: Color(0xFF6B7280),
+                height: 1.4,
+                fontWeight: FontWeight.w600, // Light bold
+              ),
+            ));
+            currentIndex += day.length;
+            foundMatch = true;
+            break;
+          }
+        }
+      }
+
+      // If no day pattern found, add the next character as normal text
+      if (!foundMatch) {
+        int nextDayIndex = schedule.length;
+        
+        // Find the next day pattern
+        for (var day in dayPatterns) {
+          int index = schedule.indexOf(RegExp(day, caseSensitive: false), currentIndex + 1);
+          if (index != -1 && index < nextDayIndex) {
+            nextDayIndex = index;
+          }
+        }
+
+        // Add all text until the next day pattern as normal text
+        spans.add(TextSpan(
+          text: schedule.substring(currentIndex, nextDayIndex),
+          style: const TextStyle(
+            fontSize: 13,
+            color: Color(0xFF6B7280),
+            height: 1.4,
+          ),
+        ));
+        currentIndex = nextDayIndex;
+      }
+    }
+
+    return RichText(
+      text: TextSpan(children: spans),
+    );
+  }
+
   void _onViewContactsPressed() {
     final facility = _filteredFacilities[_selectedIndex];
     // Reset search state when opening popup
@@ -777,16 +881,16 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
           child: Container(
             width: MediaQuery.of(context).size.width * 0.90,
             height: MediaQuery.of(context).size.height *
-                0.7, // Increased height for search bar
+                0.8, // Increased height for better visibility
             decoration: BoxDecoration(
               color: const Color(0xFFF2F3F5),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Column(
               children: [
-                // Header
+                // Header with facility info and TB DOTS schedule
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(16),
                   decoration: const BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.only(
@@ -794,41 +898,98 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
                       topRight: Radius.circular(16),
                     ),
                   ),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      IconButton(
-                        icon: const Icon(Icons.close, color: Color(0xFF1F2937)),
-                        onPressed: () => Navigator.of(context).pop(),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Health Workers',
-                              style: TextStyle(
+                      // Close button and facility name row
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              facility.name,
+                              style: const TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
                                 color: Color(0xFF1F2937),
                               ),
                             ),
-                            Text(
-                              facility.name,
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close, color: Color(0xFF1F2937)),
+                            onPressed: () => Navigator.of(context).pop(),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      // Facility Address
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.location_on_outlined,
+                            size: 16,
+                            color: Color(0xFF6B7280),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              facility.address,
                               style: const TextStyle(
-                                fontSize: 14,
+                                fontSize: 13,
                                 color: Color(0xFF6B7280),
+                                height: 1.3,
                               ),
                             ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      // TB DOTS Schedule
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF9FAFB),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: const Color(0xFFE5E7EB),
+                            width: 1,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(
+                                  Icons.calendar_today_rounded,
+                                  size: 16,
+                                  color: Color(0xFF6B7280),
+                                ),
+                                SizedBox(width: 6),
+                                Text(
+                                  'TB Day',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF374151),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            _buildStyledSchedule(_getTbDotsSchedule(facility.name)),
                           ],
                         ),
                       ),
+                      const SizedBox(height: 12),
                     ],
                   ),
                 ),
                 // Search Bar for contacts
                 Container(
-                  margin: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
@@ -1019,13 +1180,10 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
                                           worker['type'] ??
                                           '')
                                       .toLowerCase();
-                                  final email =
-                                      (worker['email'] ?? '').toLowerCase();
                                   final query =
                                       _contactsSearchQuery.toLowerCase();
                                   return name.contains(query) ||
-                                      position.contains(query) ||
-                                      email.contains(query);
+                                      position.contains(query);
                                 }).toList();
 
                           if (filteredStaff.isEmpty &&
@@ -1086,54 +1244,89 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
   Widget _buildHealthWorkerCard(
       BuildContext context, Map<String, dynamic> worker) {
     final name = worker['name'] ?? worker['fullName'] ?? 'No info';
-    final email = worker['email'] ?? 'No info';
-    final phone = worker['phone'] ?? 'No info';
     final position = worker['position'] ?? worker['type'] ?? 'No info';
     final profilePicture = worker['profilePicture'] as String?;
     final type = worker['type'] ?? 'Health Worker';
+    final isDoctor = type == 'Doctor';
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.shade300,
-            blurRadius: 8,
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 12,
             offset: const Offset(0, 4),
+            spreadRadius: 0,
           ),
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                // Profile Picture
-                CircleAvatar(
-                  radius: 25,
-                  backgroundColor: const Color(0xE0F44336),
-                  backgroundImage:
-                      profilePicture != null && profilePicture.isNotEmpty
-                          ? NetworkImage(profilePicture)
-                          : null,
-                  child: profilePicture == null || profilePicture.isEmpty
-                      ? Text(
-                          name.isNotEmpty ? name[0].toUpperCase() : '?',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
+                // Modern Profile Icon/Image
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        const Color.fromARGB(223, 58, 58, 58),
+                        const Color.fromARGB(223, 39, 39, 39).withOpacity(0.8),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color.fromARGB(223, 52, 51, 51).withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: profilePicture != null && profilePicture.isNotEmpty
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: Image.network(
+                            profilePicture,
+                            fit: BoxFit.cover,
+                            cacheWidth: 120,
+                            cacheHeight: 120,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Center(
+                                child: Text(
+                                  name.isNotEmpty ? name[0].toUpperCase() : '?',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              );
+                            },
                           ),
                         )
-                      : null,
+                      : Center(
+                          child: Text(
+                            name.isNotEmpty ? name[0].toUpperCase() : '?',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
                 ),
-                const SizedBox(width: 16),
-
-                // Worker Details
+                const SizedBox(width: 12),
+                // Name and Status
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1142,145 +1335,77 @@ class _GtbfacilityPageState extends State<GtbfacilityPage> {
                         name,
                         style: const TextStyle(
                           fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF2C3E50),
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1A1A1A),
+                          letterSpacing: -0.2,
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: type == 'Doctor'
-                              ? const Color.fromARGB(255, 243, 33, 33)
-                                  .withOpacity(0.1)
-                              : const Color.fromRGBO(244, 67, 54, 0.878)
-                                  .withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          position,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: type == 'Doctor'
-                                ? Colors.blue
-                                : const Color(0xE0F44336),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.email_outlined,
-                            color: Color(0xFF7F8C8D),
-                            size: 16,
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              email,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: Color(0xFF7F8C8D),
-                              ),
-                            ),
-                          ),
-                        ],
                       ),
                       const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.phone_outlined,
-                            color: Color(0xFF7F8C8D),
-                            size: 16,
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              phone,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: Color(0xFF7F8C8D),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isDoctor
+                              ? Colors.blue.withOpacity(0.1)
+                              : const Color(0xFF10B981).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 4,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: isDoctor
+                                    ? Colors.blue
+                                    : const Color(0xFF10B981),
+                                shape: BoxShape.circle,
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      // Show specialization for doctors
-                      if (type == 'Doctor' &&
-                          worker['specialization'] != null) ...[
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.medical_services_outlined,
-                              color: Color(0xFF7F8C8D),
-                              size: 16,
-                            ),
                             const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                worker['specialization'],
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  color: Color(0xFF7F8C8D),
-                                ),
+                            Text(
+                              position,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: isDoctor
+                                    ? Colors.blue
+                                    : const Color(0xFF10B981),
                               ),
                             ),
                           ],
                         ),
-                      ],
+                      ),
                     ],
                   ),
                 ),
               ],
             ),
-            // Messenger-style Message Button
-            Padding(
-              padding: const EdgeInsets.only(top: 12.0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => _handleMessageTap(
-                        context: context,
-                        workerId: worker['id'] ?? '',
-                        workerName: name,
-                        workerType: worker['type'] ?? 'Health Worker',
-                        profilePicture: profilePicture,
-                      ),
-                      child: Container(
-                        height: 35,
-                        decoration: BoxDecoration(
-                          color: Colors.redAccent,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.messenger_outline,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              'Message',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 15,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+            // Message Button - Modern Style matching facility cards
+            const SizedBox(height: 12),
+            Builder(
+              builder: (context) => ElevatedButton.icon(
+                onPressed: () => _handleMessageTap(
+                  context: context,
+                  workerId: worker['id'] ?? '',
+                  workerName: name,
+                  workerType: type,
+                  profilePicture: profilePicture,
+                ),
+                icon: const Icon(Icons.message_rounded, size: 16),
+                label: Text(
+                    'Message ${type == 'Doctor' ? 'Doctor' : 'Health Worker'}'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xE0F44336),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 44),
+                  elevation: 4,
+                  shadowColor: const Color(0xE0F44336).withOpacity(0.3),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
                   ),
-                ],
+                ),
               ),
             ),
           ],

@@ -20,6 +20,39 @@ class SuperAdminPage extends StatefulWidget {
 class _SuperAdminPageState extends State<SuperAdminPage> {
   SuperAdminTab _selectedTab = SuperAdminTab.dashboard;
   final AuthService _authService = AuthService();
+  Map<String, String> _facilities = {};
+  bool _isLoadingFacilities = true;
+  String? _selectedFacility;
+  String?
+      _selectedView; // 'doctors', 'patients', 'healthworkers', or null for all
+  
+  // Cache for patient locations to avoid repeated queries
+  final Map<String, String> _patientLocationCache = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFacilities();
+  }
+
+  Future<void> _loadFacilities() async {
+    try {
+      final facilitiesSnapshot =
+          await FirebaseFirestore.instance.collection('facilities').get();
+      final Map<String, String> loaded = {};
+      for (var doc in facilitiesSnapshot.docs) {
+        final data = doc.data();
+        loaded[data['name'] ?? doc.id] =
+            data['address'] ?? 'Address not available';
+      }
+      if (mounted) setState(() => _facilities = loaded);
+    } catch (e) {
+      // ignore errors here; dropdown will show empty
+      print('Error loading facilities: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingFacilities = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -477,6 +510,8 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
             ),
           ),
           const SizedBox(height: 24),
+
+          // Overview stats - clickable containers
           StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance.collection('admins').snapshots(),
             builder: (context, snapshot) {
@@ -510,6 +545,484 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
               );
             },
           ),
+
+          const SizedBox(height: 16),
+
+          // Clickable view cards
+          Row(
+            children: [
+              Expanded(
+                child: _buildViewCard(
+                  icon: Icons.local_hospital_rounded,
+                  title: 'Doctors',
+                  viewKey: 'doctors',
+                  color: const Color(0xFF3B82F6),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildViewCard(
+                  icon: Icons.personal_injury_rounded,
+                  title: 'Patients',
+                  viewKey: 'patients',
+                  color: const Color(0xFF8B5CF6),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildViewCard(
+                  icon: Icons.medical_services_rounded,
+                  title: 'Health Workers',
+                  viewKey: 'healthworkers',
+                  color: const Color(0xFF10B981),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 24),
+
+          // Facility filter
+          Row(
+            children: [
+              const Icon(Icons.filter_list, color: Color(0xFF6B7280)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _isLoadingFacilities
+                    ? const LinearProgressIndicator()
+                    : DropdownButtonFormField<String>(
+                        value: _selectedFacility,
+                        decoration: const InputDecoration(
+                          labelText: 'Filter by Health Center',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: [
+                          const DropdownMenuItem<String>(
+                              value: null, child: Text('All locations')),
+                          ..._facilities.keys.map((f) => DropdownMenuItem(
+                                value: f,
+                                child: Text(f),
+                              ))
+                        ],
+                        onChanged: (v) {
+                          setState(() => _selectedFacility = v);
+                        },
+                      ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 24),
+
+          // Conditional table display based on selected view
+          if (_selectedView == null || _selectedView == 'doctors') ...[
+            Text('Doctors',
+                style: GoogleFonts.poppins(
+                    fontSize: 20, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            _buildDoctorsTable(filteredFacility: _selectedFacility),
+            const SizedBox(height: 20),
+          ],
+
+          if (_selectedView == null || _selectedView == 'patients') ...[
+            Text('Patients',
+                style: GoogleFonts.poppins(
+                    fontSize: 20, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            _buildPatientsTable(filteredFacility: _selectedFacility),
+            const SizedBox(height: 20),
+          ],
+
+          if (_selectedView == null || _selectedView == 'healthworkers') ...[
+            Text('Health Workers',
+                style: GoogleFonts.poppins(
+                    fontSize: 20, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            _buildHealthWorkersTable(filteredFacility: _selectedFacility),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // Build doctors table filtered by facility name
+  Widget _buildDoctorsTable({String? filteredFacility}) {
+    final query = FirebaseFirestore.instance.collection('doctors').limit(500);
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: query.snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData)
+          return const Center(child: CircularProgressIndicator());
+        final docs = snapshot.data!.docs.where((doc) {
+          if (filteredFacility == null || filteredFacility.isEmpty) return true;
+          final data = doc.data() as Map<String, dynamic>;
+          final affiliations = data['affiliations'] as List<dynamic>?;
+          if (affiliations == null || affiliations.isEmpty) return false;
+          return affiliations.any((a) {
+            final name =
+                a['name'] ?? a['facilityName'] ?? a['facility']?['name'];
+            return name == filteredFacility;
+          });
+        }).toList();
+
+        if (docs.isEmpty) return const Center(child: Text('No doctors found'));
+
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            columns: [
+              DataColumn(
+                  label: Text('Name',
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.w700))),
+              DataColumn(
+                  label: Text('Specialization',
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.w700))),
+              DataColumn(
+                  label: Text('Location',
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.w700))),
+              DataColumn(
+                  label: Text('Email',
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.w700))),
+            ],
+            rows: docs.map((doc) {
+              final data = doc.data() as Map<String, dynamic>;
+
+              // Extract location from affiliations
+              String location = 'N/A';
+              final affiliations = data['affiliations'] as List<dynamic>?;
+              if (affiliations != null && affiliations.isNotEmpty) {
+                final firstAffiliation = affiliations[0];
+                location = firstAffiliation['name'] ??
+                    firstAffiliation['facilityName'] ??
+                    firstAffiliation['facility']?['name'] ??
+                    'N/A';
+                // If multiple affiliations, show count
+                if (affiliations.length > 1) {
+                  location = '$location (+${affiliations.length - 1})';
+                }
+              }
+
+              return DataRow(cells: [
+                DataCell(Text(data['fullName'] ?? data['name'] ?? 'N/A')),
+                DataCell(Text(data['specialization'] ?? 'N/A')),
+                DataCell(Text(location)),
+                DataCell(Text(data['email'] ?? 'N/A')),
+              ]);
+            }).toList(),
+          ),
+        );
+      },
+    );
+  }
+
+  // Build patients table filtered by facility (patient.facility.name)
+  Widget _buildPatientsTable({String? filteredFacility}) {
+    final query = FirebaseFirestore.instance
+        .collection('users')
+        .where('role', isEqualTo: 'patient')
+        .limit(500);
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: query.snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData)
+          return const Center(child: CircularProgressIndicator());
+
+        // Get all patient docs first (no filtering yet)
+        final allDocs = snapshot.data!.docs;
+
+        if (allDocs.isEmpty)
+          return const Center(child: Text('No patients found'));
+
+        // If no filter, show all patients
+        if (filteredFacility == null || filteredFacility.isEmpty) {
+          return _buildPatientDataTable(allDocs);
+        }
+
+        // If filter selected, we need to filter by doctor's location
+        return FutureBuilder<List<DocumentSnapshot>>(
+          future: _filterPatientsByDoctorLocation(allDocs, filteredFacility),
+          builder: (context, filteredSnapshot) {
+            if (filteredSnapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final filteredDocs = filteredSnapshot.data ?? [];
+
+            if (filteredDocs.isEmpty) {
+              return const Center(
+                  child: Text('No patients found for this location'));
+            }
+
+            return _buildPatientDataTable(filteredDocs);
+          },
+        );
+      },
+    );
+  }
+
+  // Filter patients by their approved doctor's location
+  Future<List<DocumentSnapshot>> _filterPatientsByDoctorLocation(
+      List<DocumentSnapshot> patients, String facilityName) async {
+    
+    print('🔍 Filtering ${patients.length} patients for location: $facilityName');
+    
+    // Fetch all locations in parallel for better performance
+    final locationFutures = patients.map((patient) => 
+      _getPatientLocationFromDoctor(patient.id)
+    ).toList();
+    
+    final locations = await Future.wait(locationFutures);
+    
+    // Filter patients whose location matches
+    List<DocumentSnapshot> filtered = [];
+    for (int i = 0; i < patients.length; i++) {
+      if (locations[i] == facilityName) {
+        filtered.add(patients[i]);
+      }
+    }
+
+    print('✅ Filtered ${filtered.length} patients for location: $facilityName');
+    return filtered;
+  }
+
+  // Build the actual DataTable widget
+  Widget _buildPatientDataTable(List<DocumentSnapshot> docs) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: DataTable(
+        columns: [
+          DataColumn(
+              label: Text('Name',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w700))),
+          DataColumn(
+              label: Text('Email',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w700))),
+          DataColumn(
+              label: Text('Location',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w700))),
+          DataColumn(
+              label: Text('Status',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w700))),
+        ],
+        rows: docs.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          final name = (data['firstName'] != null && data['lastName'] != null)
+              ? '${data['firstName']} ${data['lastName']}'
+              : (data['name'] ?? 'N/A');
+
+          return DataRow(cells: [
+            DataCell(Text(name)),
+            DataCell(Text(data['email'] ?? 'N/A')),
+            DataCell(FutureBuilder<String>(
+              future: _getPatientLocationFromDoctor(doc.id),
+              builder: (context, locSnapshot) {
+                if (locSnapshot.connectionState == ConnectionState.waiting) {
+                  return const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  );
+                }
+                return Text(locSnapshot.data ?? 'N/A');
+              },
+            )),
+            DataCell(Text(data['status'] ?? 'Pending')),
+          ]);
+        }).toList(),
+      ),
+    );
+  }
+
+  // Get patient location based on approved doctor's affiliation
+  Future<String> _getPatientLocationFromDoctor(String patientId) async {
+    // Check cache first
+    if (_patientLocationCache.containsKey(patientId)) {
+      print('💾 Using cached location for patient: $patientId');
+      return _patientLocationCache[patientId]!;
+    }
+
+    try {
+      print('🔍 Fetching location for patient: $patientId');
+
+      // Find approved appointment for this patient
+      // Try both patientUid and patientId as field names
+      var appointmentsSnapshot = await FirebaseFirestore.instance
+          .collection('approved_appointments')
+          .where('patientUid', isEqualTo: patientId)
+          .limit(1)
+          .get();
+
+      // Fallback to patientId if patientUid query returns nothing
+      if (appointmentsSnapshot.docs.isEmpty) {
+        print('🔄 Trying with patientId field...');
+        appointmentsSnapshot = await FirebaseFirestore.instance
+            .collection('approved_appointments')
+            .where('patientId', isEqualTo: patientId)
+            .limit(1)
+            .get();
+      }
+
+      if (appointmentsSnapshot.docs.isEmpty) {
+        print('❌ No approved appointments found for patient: $patientId');
+        final result = 'No Approved Doctor';
+        _patientLocationCache[patientId] = result; // Cache the result
+        return result;
+      }
+
+      final appointment = appointmentsSnapshot.docs.first.data();
+      print('📋 Found appointment: ${appointment.keys.join(", ")}');
+
+      final doctorId = appointment['doctorId'] ?? appointment['doctorUid'];
+
+      if (doctorId == null) {
+        print('❌ No doctorId in appointment for patient: $patientId');
+        final result = 'No Doctor Assigned';
+        _patientLocationCache[patientId] = result; // Cache the result
+        return result;
+      }
+
+      print('👨‍⚕️ Found approved doctor: $doctorId for patient: $patientId');
+
+      // Get doctor's affiliation
+      final doctorDoc = await FirebaseFirestore.instance
+          .collection('doctors')
+          .doc(doctorId)
+          .get();
+
+      if (!doctorDoc.exists) {
+        print('❌ Doctor document not found: $doctorId');
+        final result = 'Doctor Not Found';
+        _patientLocationCache[patientId] = result; // Cache the result
+        return result;
+      }
+
+      final doctorData = doctorDoc.data() as Map<String, dynamic>;
+      final affiliations = doctorData['affiliations'] as List<dynamic>?;
+
+      if (affiliations != null && affiliations.isNotEmpty) {
+        final firstAffiliation = affiliations[0];
+        final location = firstAffiliation['name'] ??
+            firstAffiliation['facilityName'] ??
+            firstAffiliation['facility']?['name'] ??
+            'N/A';
+
+        print('✅ Patient location from doctor: $location');
+        _patientLocationCache[patientId] = location; // Cache the result
+        return location;
+      }
+
+      print('❌ No affiliations found for doctor: $doctorId');
+      final result = 'No Doctor Location';
+      _patientLocationCache[patientId] = result; // Cache the result
+      return result;
+    } catch (e) {
+      print('❌ Error fetching patient location: $e');
+      final result = 'Error';
+      _patientLocationCache[patientId] = result; // Cache the result
+      return result;
+    }
+  }
+
+  // Build health workers table and include view action
+  Widget _buildHealthWorkersTable({String? filteredFacility}) {
+    final query =
+        FirebaseFirestore.instance.collection('healthcare').limit(500);
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: query.snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData)
+          return const Center(child: CircularProgressIndicator());
+        final docs = snapshot.data!.docs.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          final role = (data['role'] as String?)?.toLowerCase();
+          if (role == 'doctor')
+            return false; // skip doctors in healthcare collection
+          if (filteredFacility == null || filteredFacility.isEmpty) return true;
+          final facility = data['facility'];
+          if (facility is Map) return facility['name'] == filteredFacility;
+          if (facility is String) return facility == filteredFacility;
+          return false;
+        }).toList();
+
+        if (docs.isEmpty)
+          return const Center(child: Text('No health workers found'));
+
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            columns: [
+              DataColumn(
+                  label: Text('Name',
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.w700))),
+              DataColumn(
+                  label: Text('Position',
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.w700))),
+              DataColumn(
+                  label: Text('Location',
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.w700))),
+              DataColumn(
+                  label: Text('Actions',
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.w700))),
+            ],
+            rows: docs.map((doc) {
+              final data = doc.data() as Map<String, dynamic>;
+              final name = data['fullName'] ?? data['name'] ?? 'N/A';
+              final position = data['position'] ?? data['role'] ?? 'N/A';
+              final location = (data['facility'] is Map)
+                  ? data['facility']['name'] ?? 'N/A'
+                  : (data['facility'] ?? 'N/A');
+              return DataRow(cells: [
+                DataCell(Text(name)),
+                DataCell(Text(position)),
+                DataCell(Text(location)),
+                DataCell(Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.visibility,
+                          color: Color(0xFFEF4444)),
+                      onPressed: () => _showHealthWorkerInfo(doc),
+                    ),
+                  ],
+                )),
+              ]);
+            }).toList(),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showHealthWorkerInfo(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Health Worker Information',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Name: ${data['fullName'] ?? data['name'] ?? 'N/A'}'),
+            const SizedBox(height: 8),
+            Text('Email: ${data['email'] ?? 'N/A'}'),
+            const SizedBox(height: 8),
+            Text('Position: ${data['position'] ?? data['role'] ?? 'N/A'}'),
+            const SizedBox(height: 8),
+            Text(
+                'Location: ${(data['facility'] is Map) ? data['facility']['name'] ?? 'N/A' : (data['facility'] ?? 'N/A')}'),
+            const SizedBox(height: 8),
+            Text(
+                'Address: ${(data['facility'] is Map) ? data['facility']['address'] ?? 'N/A' : 'N/A'}'),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
         ],
       ),
     );
@@ -575,6 +1088,68 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
       ),
     );
   }
+
+  Widget _buildViewCard({
+    required IconData icon,
+    required String title,
+    required String viewKey,
+    required Color color,
+  }) {
+    final isSelected = _selectedView == viewKey;
+
+    return InkWell(
+      onTap: () {
+        setState(() {
+          // Toggle: if already selected, deselect (show all), otherwise select this view
+          _selectedView = isSelected ? null : viewKey;
+        });
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? color : Colors.transparent,
+            width: 2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: isSelected
+                  ? color.withOpacity(0.2)
+                  : Colors.black.withOpacity(0.05),
+              blurRadius: isSelected ? 15 : 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(isSelected ? 0.2 : 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: color, size: 28),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                color: isSelected ? color : const Color(0xFF1F2937),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // TB Facilitators View
@@ -592,33 +1167,26 @@ class _FacilitatorsViewState extends State<FacilitatorsView> {
   @override
   void initState() {
     super.initState();
-    _loadFacilities();
+    _fetchLocalFacilities();
   }
 
-  Future<void> _loadFacilities() async {
+  Future<void> _fetchLocalFacilities() async {
     try {
-      final facilitiesSnapshot =
+      final snapshot =
           await FirebaseFirestore.instance.collection('facilities').get();
-
-      Map<String, String> loadedFacilities = {};
-      for (var doc in facilitiesSnapshot.docs) {
+      final Map<String, String> loaded = {};
+      for (var doc in snapshot.docs) {
         final data = doc.data();
-        loadedFacilities[data['name'] ?? doc.id] =
+        loaded[data['name'] ?? doc.id] =
             data['address'] ?? 'Address not available';
       }
-
-      if (mounted) {
+      if (mounted)
         setState(() {
-          facilities = loadedFacilities;
+          facilities = loaded;
           isLoadingFacilities = false;
         });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          isLoadingFacilities = false;
-        });
-      }
+    } catch (_) {
+      if (mounted) setState(() => isLoadingFacilities = false);
     }
   }
 

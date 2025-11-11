@@ -58,6 +58,127 @@ class _Pbooking1State extends State<Pbooking1> {
   String _facilityAddress = '';
   bool _isLoadingFacility = true;
 
+  // Facility name mapping - converts short names to full names
+  // Alphabetically ordered by complete facility name
+  String _getCompleteFacilityName(String shortName) {
+    final Map<String, String> facilityMap = {
+      // AGDAO HEALTH CENTER
+      'AGDAO': 'AGDAO HEALTH CENTER',
+      'AGDAO HC': 'AGDAO HEALTH CENTER',
+      'AGDAO HEALTH CENTER': 'AGDAO HEALTH CENTER',
+      
+      // BAGUIO (MALAGOS HC)
+      'BAGUIO': 'BAGUIO (MALAGOS HC)',
+      'MALAGOS': 'BAGUIO (MALAGOS HC)',
+      'MALAGOS HC': 'BAGUIO (MALAGOS HC)',
+      'BAGUIO (MALAGOS HC)': 'BAGUIO (MALAGOS HC)',
+      
+      // BUHANGIN DISTRICT HEALTH CENTER
+      'BUHANGIN': 'BUHANGIN DISTRICT HEALTH CENTER',
+      'BUHANGIN HC': 'BUHANGIN DISTRICT HEALTH CENTER',
+      'BUHANGIN DISTRICT HEALTH CENTER': 'BUHANGIN DISTRICT HEALTH CENTER',
+      
+      // BUNAWAN HEALTH CENTER
+      'BUNAWAN': 'BUNAWAN HEALTH CENTER',
+      'BUNAWAN HC': 'BUNAWAN HEALTH CENTER',
+      'BUNAWAN HEALTH CENTER': 'BUNAWAN HEALTH CENTER',
+      
+      // CALINAN HEALTH CENTER
+      'CALINAN': 'CALINAN HEALTH CENTER',
+      'CALINAN HC': 'CALINAN HEALTH CENTER',
+      'CALINAN HEALTH CENTER': 'CALINAN HEALTH CENTER',
+      
+      // DAVAO CHEST CENTER
+      'DAVAO CHEST': 'DAVAO CHEST CENTER',
+      'DAVAO CHEST CENTER': 'DAVAO CHEST CENTER',
+      'CHEST CENTER': 'DAVAO CHEST CENTER',
+      
+      // EL RIO HEALTH CENTER
+      'EL RIO': 'EL RIO HEALTH CENTER',
+      'EL RIO HC': 'EL RIO HEALTH CENTER',
+      'EL RIO HEALTH CENTER': 'EL RIO HEALTH CENTER',
+      
+      // JACINTO HEALTH CENTER
+      'JACINTO': 'JACINTO HEALTH CENTER',
+      'JACINTO HC': 'JACINTO HEALTH CENTER',
+      'JACINTO HEALTH CENTER': 'JACINTO HEALTH CENTER',
+      
+      // MALABOG HEALTH CENTER
+      'MALABOG': 'MALABOG HEALTH CENTER',
+      'MALABOG HC': 'MALABOG HEALTH CENTER',
+      'MALABOG HEALTH CENTER': 'MALABOG HEALTH CENTER',
+      
+      // MARAHAN HEALTH CENTER
+      'MARAHAN': 'MARAHAN HEALTH CENTER',
+      'MARAHAN HC': 'MARAHAN HEALTH CENTER',
+      'MARAHAN HEALTH CENTER': 'MARAHAN HEALTH CENTER',
+      
+      // MINIFOREST HEALTH CENTER
+      'MINIFOREST': 'MINIFOREST HEALTH CENTER',
+      'MINIFOREST HC': 'MINIFOREST HEALTH CENTER',
+      'MINIFOREST HEALTH CENTER': 'MINIFOREST HEALTH CENTER',
+      
+      // SASA DISTRICT HEALTH CENTER
+      'SASA': 'SASA DISTRICT HEALTH CENTER',
+      'SASA HC': 'SASA DISTRICT HEALTH CENTER',
+      'SASA DISTRICT HEALTH CENTER': 'SASA DISTRICT HEALTH CENTER',
+      
+      // TALOMO CENTRAL (GSIS HC)
+      'TALOMO CENTRAL': 'TALOMO CENTRAL (GSIS HC)',
+      'GSIS': 'TALOMO CENTRAL (GSIS HC)',
+      'GSIS HC': 'TALOMO CENTRAL (GSIS HC)',
+      'TALOMO CENTRAL (GSIS HC)': 'TALOMO CENTRAL (GSIS HC)',
+      
+      // TALOMO NORTH (SIR HC)
+      'TALOMO NORTH': 'TALOMO NORTH (SIR HC)',
+      'SIR': 'TALOMO NORTH (SIR HC)',
+      'SIR HC': 'TALOMO NORTH (SIR HC)',
+      'TALOMO NORTH (SIR HC)': 'TALOMO NORTH (SIR HC)',
+      
+      // TALOMO SOUTH (PUAN HC)
+      'TALOMO SOUTH': 'TALOMO SOUTH (PUAN HC)',
+      'PUAN': 'TALOMO SOUTH (PUAN HC)',
+      'PUAN HC': 'TALOMO SOUTH (PUAN HC)',
+      'TALOMO SOUTH (PUAN HC)': 'TALOMO SOUTH (PUAN HC)',
+      
+      // TOMAS CLAUDIO HEALTH CENTER
+      'TOMAS CLAUDIO': 'TOMAS CLAUDIO HEALTH CENTER',
+      'TOMAS CLAUDIO HC': 'TOMAS CLAUDIO HEALTH CENTER',
+      'TOMAS CLAUDIO HEALTH CENTER': 'TOMAS CLAUDIO HEALTH CENTER',
+      
+      // TORIL A HEALTH CENTER
+      'TORIL A': 'TORIL A HEALTH CENTER',
+      'TORIL A HC': 'TORIL A HEALTH CENTER',
+      'TORIL A HEALTH CENTER': 'TORIL A HEALTH CENTER',
+      
+      // TORIL B HEALTH CENTER
+      'TORIL B': 'TORIL B HEALTH CENTER',
+      'TORIL B HC': 'TORIL B HEALTH CENTER',
+      'TORIL B HEALTH CENTER': 'TORIL B HEALTH CENTER',
+      
+      // TUGBOK (MINTAL HC)
+      'TUGBOK': 'TUGBOK (MINTAL HC)',
+      'MINTAL': 'TUGBOK (MINTAL HC)',
+      'MINTAL HC': 'TUGBOK (MINTAL HC)',
+      'TUGBOK (MINTAL HC)': 'TUGBOK (MINTAL HC)',
+    };
+
+    // Check for exact match first
+    if (facilityMap.containsKey(shortName.toUpperCase())) {
+      return facilityMap[shortName.toUpperCase()]!;
+    }
+
+    // Check for partial match (case-insensitive)
+    for (var entry in facilityMap.entries) {
+      if (shortName.toUpperCase().contains(entry.key)) {
+        return entry.value;
+      }
+    }
+
+    // Return original name if no match found
+    return shortName;
+  }
+
   final List<String> _genders = ['Select gender', 'Male', 'Female', 'Other'];
   final List<String> _validIDs = [
     'Select Valid ID',
@@ -157,7 +278,7 @@ class _Pbooking1State extends State<Pbooking1> {
 
         if (mounted) {
           setState(() {
-            _facilityName = facilityName;
+            _facilityName = _getCompleteFacilityName(facilityName);
             _facilityAddress = facilityAddress;
             _isLoadingFacility = false;
           });
@@ -785,101 +906,109 @@ class _Pbooking1State extends State<Pbooking1> {
     // Show confirmation dialog first
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFEEBEE),
-                  borderRadius: BorderRadius.circular(8),
+      barrierColor: Colors.black.withOpacity(0.5),
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 520),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.12),
+                  blurRadius: 24,
+                  offset: const Offset(0, 12),
                 ),
-                child: const Icon(
-                  Icons.check_circle_outline,
-                  color: Color(0xE0F44336),
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Text(
-                'CONFIRM BOOKING',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1F2937),
-                ),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Please review your appointment details:',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Color(0xFF6B7280),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 16),
-              _buildConfirmationDetail('Doctor', widget.doctor.name),
-              _buildConfirmationDetail('Facility', _facilityName),
-              _buildConfirmationDetail('Date', _formatDate(_selectedDate!)),
-              _buildConfirmationDetail('Time', _selectedTime!),
-              const SizedBox(height: 16),
-              const Text(
-                'Do you want to proceed with this booking?',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF1F2937),
-                ),
-              ),
-            ],
-          ),
-          actionsAlignment: MainAxisAlignment.center,
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              ),
-              child: const Text(
-                'Cancel',
-                style: TextStyle(
-                  color: Color(0xFF6B7280),
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              ],
             ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xE0F44336),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.redAccent.shade200, Colors.redAccent.shade700],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+                  ),
+                  child: Row(
+                    children: const [
+                      Icon(Icons.check_circle_outline, color: Colors.white, size: 22),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Confirm Booking',
+                          style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                elevation: 2,
-              ),
-              child: const Text(
-                'Confirm',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
+                // Body
+                Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        'Please review your appointment details:',
+                        style: TextStyle(fontSize: 14, color: Colors.black87),
+                      ),
+                      const SizedBox(height: 16),
+                      _buildConfirmationDetail('Doctor', 'Dr. ${widget.doctor.name}'),
+                      _buildConfirmationDetail('Facility', _facilityName),
+                      _buildConfirmationDetail('Date', _formatDate(_selectedDate!)),
+                      _buildConfirmationDetail('Time', _selectedTime!),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Do you want to proceed with this booking?',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // Buttons
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.of(dialogContext).pop(false),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                side: BorderSide(color: Colors.grey.shade300),
+                              ),
+                              child: const Text('Cancel', style: TextStyle(color: Colors.black87)),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () => Navigator.of(dialogContext).pop(true),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.redAccent,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              child: const Text('Confirm', style: TextStyle(color: Colors.white)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
         );
       },
     );
@@ -1565,7 +1694,7 @@ class _Pbooking1State extends State<Pbooking1> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  widget.doctor.name,
+                                  'Dr. ${widget.doctor.name}',
                                   style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,

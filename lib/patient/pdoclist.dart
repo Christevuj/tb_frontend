@@ -158,6 +158,89 @@ class DoctorCard extends StatelessWidget {
     required this.doctor,
   });
 
+  // Facility name mapping - converts short names to full names
+  String _getCompleteFacilityName(String shortName) {
+    final Map<String, String> facilityMap = {
+      'AGDAO': 'AGDAO HEALTH CENTER',
+      'AGDAO HC': 'AGDAO HEALTH CENTER',
+      'AGDAO HEALTH CENTER': 'AGDAO HEALTH CENTER',
+      'BAGUIO': 'BAGUIO (MALAGOS HC)',
+      'MALAGOS': 'BAGUIO (MALAGOS HC)',
+      'MALAGOS HC': 'BAGUIO (MALAGOS HC)',
+      'BAGUIO (MALAGOS HC)': 'BAGUIO (MALAGOS HC)',
+      'BUHANGIN': 'BUHANGIN DISTRICT HEALTH CENTER',
+      'BUHANGIN HC': 'BUHANGIN DISTRICT HEALTH CENTER',
+      'BUHANGIN DISTRICT HEALTH CENTER': 'BUHANGIN DISTRICT HEALTH CENTER',
+      'BUNAWAN': 'BUNAWAN HEALTH CENTER',
+      'BUNAWAN HC': 'BUNAWAN HEALTH CENTER',
+      'BUNAWAN HEALTH CENTER': 'BUNAWAN HEALTH CENTER',
+      'CALINAN': 'CALINAN HEALTH CENTER',
+      'CALINAN HC': 'CALINAN HEALTH CENTER',
+      'CALINAN HEALTH CENTER': 'CALINAN HEALTH CENTER',
+      'DAVAO CHEST': 'DAVAO CHEST CENTER',
+      'DAVAO CHEST CENTER': 'DAVAO CHEST CENTER',
+      'CHEST CENTER': 'DAVAO CHEST CENTER',
+      'TOMAS CLAUDIO': 'TOMAS CLAUDIO HEALTH CENTER',
+      'TOMAS CLAUDIO HC': 'TOMAS CLAUDIO HEALTH CENTER',
+      'TOMAS CLAUDIO HEALTH CENTER': 'TOMAS CLAUDIO HEALTH CENTER',
+      'EL RIO': 'EL RIO HEALTH CENTER',
+      'EL RIO HC': 'EL RIO HEALTH CENTER',
+      'EL RIO HEALTH CENTER': 'EL RIO HEALTH CENTER',
+      'MINIFOREST': 'MINIFOREST HEALTH CENTER',
+      'MINIFOREST HC': 'MINIFOREST HEALTH CENTER',
+      'MINIFOREST HEALTH CENTER': 'MINIFOREST HEALTH CENTER',
+      'JACINTO': 'JACINTO HEALTH CENTER',
+      'JACINTO HC': 'JACINTO HEALTH CENTER',
+      'JACINTO HEALTH CENTER': 'JACINTO HEALTH CENTER',
+      'MARAHAN': 'MARAHAN HEALTH CENTER',
+      'MARAHAN HC': 'MARAHAN HEALTH CENTER',
+      'MARAHAN HEALTH CENTER': 'MARAHAN HEALTH CENTER',
+      'MALABOG': 'MALABOG HEALTH CENTER',
+      'MALABOG HC': 'MALABOG HEALTH CENTER',
+      'MALABOG HEALTH CENTER': 'MALABOG HEALTH CENTER',
+      'SASA': 'SASA DISTRICT HEALTH CENTER',
+      'SASA HC': 'SASA DISTRICT HEALTH CENTER',
+      'SASA DISTRICT HEALTH CENTER': 'SASA DISTRICT HEALTH CENTER',
+      'TALOMO CENTRAL': 'TALOMO CENTRAL (GSIS HC)',
+      'GSIS': 'TALOMO CENTRAL (GSIS HC)',
+      'GSIS HC': 'TALOMO CENTRAL (GSIS HC)',
+      'TALOMO CENTRAL (GSIS HC)': 'TALOMO CENTRAL (GSIS HC)',
+      'TALOMO NORTH': 'TALOMO NORTH (SIR HC)',
+      'SIR': 'TALOMO NORTH (SIR HC)',
+      'SIR HC': 'TALOMO NORTH (SIR HC)',
+      'TALOMO NORTH (SIR HC)': 'TALOMO NORTH (SIR HC)',
+      'TALOMO SOUTH': 'TALOMO SOUTH (PUAN HC)',
+      'PUAN': 'TALOMO SOUTH (PUAN HC)',
+      'PUAN HC': 'TALOMO SOUTH (PUAN HC)',
+      'TALOMO SOUTH (PUAN HC)': 'TALOMO SOUTH (PUAN HC)',
+      'TORIL A': 'TORIL A HEALTH CENTER',
+      'TORIL A HC': 'TORIL A HEALTH CENTER',
+      'TORIL A HEALTH CENTER': 'TORIL A HEALTH CENTER',
+      'TORIL B': 'TORIL B HEALTH CENTER',
+      'TORIL B HC': 'TORIL B HEALTH CENTER',
+      'TORIL B HEALTH CENTER': 'TORIL B HEALTH CENTER',
+      'TUGBOK': 'TUGBOK (MINTAL HC)',
+      'MINTAL': 'TUGBOK (MINTAL HC)',
+      'MINTAL HC': 'TUGBOK (MINTAL HC)',
+      'TUGBOK (MINTAL HC)': 'TUGBOK (MINTAL HC)',
+    };
+
+    // Check for exact match first
+    if (facilityMap.containsKey(shortName.toUpperCase())) {
+      return facilityMap[shortName.toUpperCase()]!;
+    }
+
+    // Check for partial match (case-insensitive)
+    for (var entry in facilityMap.entries) {
+      if (shortName.toUpperCase().contains(entry.key)) {
+        return entry.value;
+      }
+    }
+
+    // Return original name if no match found
+    return shortName;
+  }
+
   Widget _doctorPlaceholder(String name) {
     final initials = name.isNotEmpty
         ? name.trim().split(' ').map((e) => e[0]).take(2).join().toUpperCase()
@@ -169,8 +252,8 @@ class DoctorCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Colors.redAccent,
-            Colors.deepOrange.shade400,
+            const Color.fromARGB(255, 80, 79, 79),
+            const Color.fromARGB(255, 46, 45, 45),
           ],
         ),
         borderRadius: BorderRadius.circular(16),
@@ -218,7 +301,7 @@ class DoctorCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.redAccent.withOpacity(0.3),
+                      color: Colors.grey.withOpacity(0.3),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -245,7 +328,7 @@ class DoctorCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      doctor.name,
+                      'Dr. ${doctor.name}',
                       style: const TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w600,
@@ -253,29 +336,6 @@ class DoctorCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
-
-                    // Experience with icon
-                    Row(
-                      children: [
-                        Icon(Icons.work_outline_rounded,
-                            size: 17,
-                            color: const Color.fromARGB(255, 156, 156, 156)),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            doctor.experience.isNotEmpty
-                                ? '${doctor.experience} years experience'
-                                : 'Experience N/A',
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: const Color.fromARGB(255, 186, 186, 186),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
 
                     // Facility name with icon
                     if (doctor.facility.isNotEmpty) ...[
@@ -287,7 +347,7 @@ class DoctorCard extends StatelessWidget {
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
-                              doctor.facility,
+                              _getCompleteFacilityName(doctor.facility),
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 13,

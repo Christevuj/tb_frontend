@@ -5,7 +5,7 @@ import 'dart:async';
 import 'package:tb_frontend/patient/pdoclist.dart';
 import 'package:tb_frontend/patient/pmyappointment.dart';
 import 'package:tb_frontend/patient/appointment_status_card.dart';
-import 'package:tb_frontend/guest/gconsultant.dart';
+import 'package:tb_frontend/patient/pconsultant.dart';
 import 'package:tb_frontend/patient/ptbfacility.dart';
 
 // ✅ Import YouTube player
@@ -785,7 +785,7 @@ class _PlandingPageState extends State<PlandingPage> {
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   _quickAction(context, Icons.smart_toy, 'AI\nConsultant',
-                      const GConsultant()),
+                      const PConsultant()),
                   _quickAction(context, Icons.calendar_today,
                       'Book\nAppointment', const Pdoclist()),
                   _quickAction(context, Icons.local_hospital,

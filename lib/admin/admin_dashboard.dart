@@ -10,6 +10,7 @@ import './admin_login.dart' show AdminLogin;
 import './email_config.dart'; // Import email configuration
 import './email_credentials_page.dart'; // Import email credentials management
 import './install_qr_dialog.dart';
+import './facility_name_updater.dart'; // Import facility name updater
 
 /*
  * EMAIL CONFIGURATION REQUIRED:
@@ -1007,6 +1008,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       tab: DashboardTab.healthWorkers),
                   const Divider(color: Colors.white24, thickness: 1, height: 1),
                   _buildEmailSettingsMenuItem(),
+                  _buildFacilityUpdaterMenuItem(),
                 ],
               ),
             ),
@@ -1192,6 +1194,56 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   Flexible(
                     child: Text(
                       'Email Settings',
+                      style: GoogleFonts.poppins(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFacilityUpdaterMenuItem() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () async {
+            Navigator.pop(context); // Close drawer
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const FacilityNameUpdater(),
+              ),
+            );
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding:
+                const EdgeInsets.symmetric(vertical: 14.0, horizontal: 16.0),
+            child: Row(
+              children: [
+                const Icon(Icons.update_rounded, color: Colors.white, size: 24),
+                if (MediaQuery.of(context).size.width >= 800
+                    ? _isHovered
+                    : true) ...[
+                  const SizedBox(width: 16),
+                  Flexible(
+                    child: Text(
+                      'Update Facilities',
                       style: GoogleFonts.poppins(
                         color: Colors.white,
                         fontSize: 15,

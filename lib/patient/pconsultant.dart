@@ -729,7 +729,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               return ElevatedButton(
                 onPressed: () => _sendMessage(question),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xE0F44336),
+                  backgroundColor: const Color.fromARGB(255, 72, 72, 72),
                   foregroundColor: Colors.white,
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -843,7 +843,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Colors.redAccent,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
@@ -855,7 +855,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   ),
                   child: IconButton(
                     icon: const Icon(Icons.add,
-                        color: Color(0xE0F44336), size: 24),
+                        color: Colors.white, size: 24),
                     onPressed: _startNewChat,
                     tooltip: 'New Chat',
                   ),

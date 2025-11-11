@@ -415,7 +415,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               return ElevatedButton(
                 onPressed: () => _sendMessage(question),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xE0F44336),
+                  backgroundColor: const Color.fromARGB(255, 72, 72, 72),
                   foregroundColor: Colors.white,
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 6),

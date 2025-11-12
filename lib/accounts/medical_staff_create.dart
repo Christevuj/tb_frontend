@@ -1906,7 +1906,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
 
                         const SizedBox(height: 16),
 
-                        // Health Worker Facility Selection
+                        // Health Worker Facility Selection - Now informational only
                         if (_selectedRole == 'Health Worker') ...[
                           Container(
                             padding: const EdgeInsets.all(20),
@@ -1967,6 +1967,45 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                 ),
                                 const SizedBox(height: 20),
 
+                                // Informational message instead of dropdown
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 32, horizontal: 16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green.shade50,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                        color: Colors.green.shade200,
+                                        style: BorderStyle.solid,
+                                        width: 2),
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Icon(Icons.info_outline,
+                                          size: 48,
+                                          color: Colors.green.shade400),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        "Health worker will set up their own facility",
+                                        style: GoogleFonts.poppins(
+                                          color: Colors.green.shade700,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        "The health worker will configure their TB DOTS facility after receiving account credentials",
+                                        style: GoogleFonts.poppins(
+                                          color: Colors.green.shade600,
+                                          fontSize: 12,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                /* Old dropdown code - kept for reference
                                 DropdownButtonFormField<TBDotsFacility>(
                                   decoration: InputDecoration(
                                     labelText: "Select Your Facility",
@@ -2048,7 +2087,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                       ],
                                     ),
                                   ),
-                                ],
+                                ], */
                               ],
                             ),
                           ),
@@ -2111,39 +2150,40 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                         ),
                                       ),
                                     ),
-                                    // Add Button
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          colors: [
-                                            Colors.redAccent,
-                                            Colors.redAccent.shade700
+                                    // Add Button - Hidden since doctors and health workers will set up their own affiliations
+                                    // Keeping the button commented out for future reference
+                                    /* Container(
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            colors: [
+                                              Colors.redAccent,
+                                              Colors.redAccent.shade700
+                                            ],
+                                          ),
+                                          borderRadius: BorderRadius.circular(10),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.redAccent
+                                                  .withOpacity(0.3),
+                                              blurRadius: 8,
+                                              offset: const Offset(0, 4),
+                                            ),
                                           ],
                                         ),
-                                        borderRadius: BorderRadius.circular(10),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.redAccent
-                                                .withOpacity(0.3),
-                                            blurRadius: 8,
-                                            offset: const Offset(0, 4),
-                                          ),
-                                        ],
-                                      ),
-                                      child: Material(
-                                        color: Colors.transparent,
-                                        child: InkWell(
-                                          borderRadius:
-                                              BorderRadius.circular(10),
-                                          onTap: _showAddAffiliationDialog,
-                                          child: const Padding(
-                                            padding: EdgeInsets.all(8),
-                                            child: Icon(Icons.add_rounded,
-                                                color: Colors.white, size: 20),
+                                        child: Material(
+                                          color: Colors.transparent,
+                                          child: InkWell(
+                                            borderRadius:
+                                                BorderRadius.circular(10),
+                                            onTap: _showAddAffiliationDialog,
+                                            child: const Padding(
+                                              padding: EdgeInsets.all(8),
+                                              child: Icon(Icons.add_rounded,
+                                                  color: Colors.white, size: 20),
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    ),
+                                      ), */
                                   ],
                                 ),
                                 const SizedBox(height: 16),
@@ -2154,35 +2194,36 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                         padding: const EdgeInsets.symmetric(
                                             vertical: 32, horizontal: 16),
                                         decoration: BoxDecoration(
-                                          color: Colors.grey.shade50,
+                                          color: Colors.blue.shade50,
                                           borderRadius:
                                               BorderRadius.circular(12),
                                           border: Border.all(
-                                              color: Colors.grey.shade200,
+                                              color: Colors.blue.shade200,
                                               style: BorderStyle.solid,
                                               width: 2),
                                         ),
                                         child: Column(
                                           children: [
-                                            Icon(Icons.business_outlined,
+                                            Icon(Icons.info_outline,
                                                 size: 48,
-                                                color: Colors.grey.shade400),
+                                                color: Colors.blue.shade400),
                                             const SizedBox(height: 12),
                                             Text(
-                                              "No affiliations added yet",
+                                              "Medical staff will set up their own schedule",
                                               style: GoogleFonts.poppins(
-                                                color: Colors.grey.shade600,
+                                                color: Colors.blue.shade700,
                                                 fontSize: 14,
                                                 fontWeight: FontWeight.w500,
                                               ),
                                             ),
                                             const SizedBox(height: 4),
                                             Text(
-                                              "Click + to add your first clinic/hospital",
+                                              "The ${_selectedRole.toLowerCase()} will configure their affiliated clinics and schedules after receiving account credentials",
                                               style: GoogleFonts.poppins(
-                                                color: Colors.grey.shade500,
+                                                color: Colors.blue.shade600,
                                                 fontSize: 12,
                                               ),
+                                              textAlign: TextAlign.center,
                                             ),
                                           ],
                                         ),
@@ -2382,65 +2423,9 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                               borderRadius: BorderRadius.circular(16),
                               onTap: () {
                                 if (_formKey.currentState!.validate()) {
-                                  bool isValid = true;
-                                  String? errorMessage;
+                                  // No affiliation validation needed
+                                  // Both doctors and health workers will set up their own affiliations after account creation
 
-                                  if (_selectedRole == 'Doctor') {
-                                    if (affiliations.isEmpty) {
-                                      isValid = false;
-                                      errorMessage =
-                                          'Please add at least one affiliation';
-                                    } else {
-                                      // Check if all affiliations have schedules
-                                      for (var affiliation in affiliations) {
-                                        if (!affiliation
-                                            .containsKey('schedules')) {
-                                          isValid = false;
-                                          affiliations.clear();
-                                          errorMessage =
-                                              'Please add affiliations with schedules';
-                                          break;
-                                        }
-                                      }
-                                    }
-                                  } else {
-                                    // Health Worker validation
-                                    if (affiliations.isEmpty) {
-                                      isValid = false;
-                                      errorMessage =
-                                          'Please select your affiliated hospital';
-                                    }
-                                  }
-
-                                  if (!isValid) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Row(
-                                          children: [
-                                            const Icon(Icons.error_outline,
-                                                color: Colors.white),
-                                            const SizedBox(width: 12),
-                                            Expanded(
-                                              child: Text(
-                                                errorMessage!,
-                                                style: GoogleFonts.poppins(
-                                                    fontWeight:
-                                                        FontWeight.w500),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        backgroundColor:
-                                            Colors.redAccent.shade700,
-                                        behavior: SnackBarBehavior.floating,
-                                        shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(12)),
-                                        margin: const EdgeInsets.all(16),
-                                      ),
-                                    );
-                                    return;
-                                  }
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
@@ -2454,14 +2439,9 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                         specialization:
                                             _specializationController.text
                                                 .trim(),
-                                        affiliations: _selectedRole == 'Doctor'
-                                            ? affiliations
-                                            : null,
-                                        facility:
-                                            _selectedRole == 'Health Worker' &&
-                                                    affiliations.isNotEmpty
-                                                ? affiliations[0]
-                                                : null,
+                                        // Both doctors and health workers will set up affiliations themselves after account creation
+                                        affiliations: null,
+                                        facility: null,
                                       ),
                                     ),
                                   );

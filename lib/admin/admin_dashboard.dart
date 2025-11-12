@@ -305,16 +305,20 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                 flex: 2,
                                 child: ElevatedButton.icon(
                                   onPressed: () {
-                                    // Close the dialog first
+                                    // Close the dialog and then navigate
                                     Navigator.of(context).pop();
-                                    // Push the EmailCredentialsPage using the root navigator
-                                    // to avoid pushing on the dialog's nested navigator which
-                                    // can cause a black screen on pop.
-                                    Navigator.of(context, rootNavigator: true)
-                                        .push(MaterialPageRoute(
-                                      builder: (context) =>
-                                          const EmailCredentialsPage(),
-                                    ));
+                                    // Use Future.delayed to ensure dialog is fully dismissed
+                                    Future.delayed(
+                                        const Duration(milliseconds: 100), () {
+                                      if (context.mounted) {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                const EmailCredentialsPage(),
+                                          ),
+                                        );
+                                      }
+                                    });
                                   },
                                   icon: const Icon(
                                     Icons.settings_rounded,
@@ -1174,7 +1178,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 builder: (context) => const EmailCredentialsPage(),
               ),
             );
-            if (result == true) {
+            if (result == true && mounted) {
               // Refresh UI if credentials were updated
               setState(() {});
             }

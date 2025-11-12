@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../admin/email_config.dart';
+import '../admin/admin_dashboard.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 /// Email Credentials Management Page
@@ -75,7 +76,10 @@ class _EmailCredentialsPageState extends State<EmailCredentialsPage> {
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.pop(context, true); // Return success
+        // Navigate back to admin dashboard
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const AdminDashboard()),
+        );
       } else {
         throw Exception('Failed to save credentials');
       }
@@ -149,7 +153,10 @@ class _EmailCredentialsPageState extends State<EmailCredentialsPage> {
             backgroundColor: Colors.orange,
           ),
         );
-        Navigator.pop(context, true);
+        // Navigate back to admin dashboard
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const AdminDashboard()),
+        );
       } else {
         throw Exception('Failed to remove credentials');
       }
@@ -181,7 +188,10 @@ class _EmailCredentialsPageState extends State<EmailCredentialsPage> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
-            Navigator.pop(context);
+            // Navigate back to admin dashboard instead of pop
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (context) => const AdminDashboard()),
+            );
           },
         ),
         title: Text(

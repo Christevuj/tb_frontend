@@ -237,7 +237,8 @@ class _PmessagesState extends State<Pmessages> {
     }
   }
 
-  Future<void> _openChat(String doctorId, String doctorName, {String? role}) async {
+  Future<void> _openChat(String doctorId, String doctorName,
+      {String? role}) async {
     try {
       // Get current patient's ID
       final currentUser = FirebaseAuth.instance.currentUser;
@@ -298,8 +299,8 @@ class _PmessagesState extends State<Pmessages> {
   }
 
   // Open chat without restoring conversation state (used in archived messages modal)
-  Future<void> _openChatWithoutRestore(
-      String doctorId, String doctorName, {String? role}) async {
+  Future<void> _openChatWithoutRestore(String doctorId, String doctorName,
+      {String? role}) async {
     try {
       // Get current patient's ID
       final currentUser = FirebaseAuth.instance.currentUser;
@@ -519,10 +520,11 @@ class _PmessagesState extends State<Pmessages> {
         final bTime = b['lastTimestamp'] as Timestamp?;
 
         if (aTime == null && bTime == null) return 0;
-        if (aTime == null) return 1;  // null timestamps go to bottom
+        if (aTime == null) return 1; // null timestamps go to bottom
         if (bTime == null) return -1;
 
-        return bTime.compareTo(aTime); // Descending order (newest first, recent chats at top)
+        return bTime.compareTo(
+            aTime); // Descending order (newest first, recent chats at top)
       });
 
       print('Returning ${messagedDoctors.length} doctors');
@@ -820,7 +822,8 @@ class _PmessagesState extends State<Pmessages> {
                                 HapticFeedback.lightImpact();
                                 print(
                                     'Tapping doctor: $doctorName ($doctorId)');
-                                _openChat(doctorId, doctorName, role: roleValue);
+                                _openChat(doctorId, doctorName,
+                                    role: roleValue);
                               },
                               onLongPress: () {
                                 HapticFeedback.mediumImpact();
@@ -1025,7 +1028,7 @@ class _PmessagesState extends State<Pmessages> {
           // Only include archived and muted conversations (NOT deleted)
           if (state == 'archived' || state == 'muted') {
             final doctorName = await _getDoctorName(doctorId);
-            
+
             // Determine role by checking healthcare collection first, then fall back to doctor
             String contactRole = 'doctor';
             try {
@@ -1060,7 +1063,7 @@ class _PmessagesState extends State<Pmessages> {
               print('Error determining role for $doctorId: $e');
               contactRole = 'doctor';
             }
-            
+
             archivedConversations.add({
               'id': doctorId,
               'name': doctorName,
@@ -1306,8 +1309,7 @@ class _PmessagesState extends State<Pmessages> {
                               onTap: () {
                                 Navigator.pop(context);
                                 _openChatWithoutRestore(
-                                    conversation['id'], 
-                                    conversation['name'],
+                                    conversation['id'], conversation['name'],
                                     role: conversation['role']);
                               },
                             ),

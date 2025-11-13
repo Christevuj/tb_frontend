@@ -27,7 +27,7 @@ class _GmessagesState extends State<Gmessages> {
           .collection('conversation_states')
           .doc(chatId)
           .get();
-      
+
       if (stateDoc.exists) {
         return stateDoc.data();
       }
@@ -66,7 +66,8 @@ class _GmessagesState extends State<Gmessages> {
   Future<void> _restoreConversationOnUserReply(String patientId) async {
     try {
       final conversationState = await _getConversationState(patientId);
-      if (conversationState != null && conversationState['state'] == 'archived') {
+      if (conversationState != null &&
+          conversationState['state'] == 'archived') {
         // Only restore archived conversations when user replies, NOT muted ones
         await _setConversationState(patientId, 'active');
         debugPrint('Archived conversation restored for patient: $patientId');
@@ -283,15 +284,16 @@ class _GmessagesState extends State<Gmessages> {
       if (mounted) {
         // If messaging a healthcare worker, use GuestHealthWorkerChatScreen (with blocking)
         if (contactRole?.toLowerCase() == 'healthcare') {
-          debugPrint('Opening GuestHealthWorkerChatScreen for healthcare contact');
-          
+          debugPrint(
+              'Opening GuestHealthWorkerChatScreen for healthcare contact');
+
           // Register healthcare worker
           await _chatService.createUserDoc(
             userId: patientId,
             name: patientName,
             role: 'healthcare',
           );
-          
+
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -306,14 +308,14 @@ class _GmessagesState extends State<Gmessages> {
         } else {
           // If messaging a patient, use GuestPatientChatScreen (no blocking)
           debugPrint('Opening GuestPatientChatScreen for patient contact');
-          
+
           // Register patient with 'patient' role
           await _chatService.createUserDoc(
             userId: patientId,
             name: patientName,
             role: 'patient',
           );
-          
+
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -384,7 +386,8 @@ class _GmessagesState extends State<Gmessages> {
 
       // Check the role of the person being messaged
       final contactRole = await _chatService.getUserRole(patientId);
-      debugPrint('Contact role (without restore): $contactRole for user: $patientId');
+      debugPrint(
+          'Contact role (without restore): $contactRole for user: $patientId');
 
       // Register guest with 'guest' role
       await _chatService.createUserDoc(
@@ -396,15 +399,16 @@ class _GmessagesState extends State<Gmessages> {
       if (mounted) {
         // If messaging a healthcare worker, use GuestHealthWorkerChatScreen (with blocking)
         if (contactRole?.toLowerCase() == 'healthcare') {
-          debugPrint('Opening GuestHealthWorkerChatScreen for healthcare contact (archived)');
-          
+          debugPrint(
+              'Opening GuestHealthWorkerChatScreen for healthcare contact (archived)');
+
           // Register healthcare worker
           await _chatService.createUserDoc(
             userId: patientId,
             name: patientName,
             role: 'healthcare',
           );
-          
+
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -418,15 +422,16 @@ class _GmessagesState extends State<Gmessages> {
           );
         } else {
           // If messaging a patient, use GuestPatientChatScreen (no blocking)
-          debugPrint('Opening GuestPatientChatScreen for patient contact (archived)');
-          
+          debugPrint(
+              'Opening GuestPatientChatScreen for patient contact (archived)');
+
           // Register patient with 'patient' role
           await _chatService.createUserDoc(
             userId: patientId,
             name: patientName,
             role: 'patient',
           );
-          
+
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -554,7 +559,7 @@ class _GmessagesState extends State<Gmessages> {
           // Check conversation state - exclude archived, muted, or deleted
           final conversationState = await _getConversationState(patientId);
           final state = conversationState?['state'] ?? 'active';
-          
+
           // Only include active conversations in main chat list
           if (state == 'active') {
             final patientName = await _getPatientName(patientId);
@@ -584,7 +589,8 @@ class _GmessagesState extends State<Gmessages> {
               'profilePicture': profilePicture,
             });
           } else {
-            debugPrint('Skipping patient $patientId - conversation state: $state');
+            debugPrint(
+                'Skipping patient $patientId - conversation state: $state');
           }
         }
       }
@@ -594,10 +600,11 @@ class _GmessagesState extends State<Gmessages> {
         final bTime = b['lastTimestamp'] as Timestamp?;
 
         if (aTime == null && bTime == null) return 0;
-        if (aTime == null) return 1;  // null timestamps go to bottom
+        if (aTime == null) return 1; // null timestamps go to bottom
         if (bTime == null) return -1;
 
-        return bTime.compareTo(aTime);  // Sort newest first (recent activity at top)
+        return bTime
+            .compareTo(aTime); // Sort newest first (recent activity at top)
       });
 
       return messagedPatients;
@@ -841,8 +848,8 @@ class _GmessagesState extends State<Gmessages> {
                 final filteredPatients = searchQuery.isEmpty
                     ? patients
                     : patients.where((patient) {
-                        final name = (patient['name'] as String? ?? '')
-                            .toLowerCase();
+                        final name =
+                            (patient['name'] as String? ?? '').toLowerCase();
                         final lastMessage =
                             (patient['lastMessage'] as String? ?? '')
                                 .toLowerCase();
@@ -853,222 +860,225 @@ class _GmessagesState extends State<Gmessages> {
                 return SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
-                        final patient = filteredPatients[index];
-                        final patientName =
-                            patient['name'] as String? ?? 'Unknown Patient';
-                        final patientId = patient['id'] as String? ?? '';
-                        final profilePicture =
-                            patient['profilePicture'] as String?;
-                        final String? roleValue =
-                            (patient['role'] as String?)?.toLowerCase();
+                      final patient = filteredPatients[index];
+                      final patientName =
+                          patient['name'] as String? ?? 'Unknown Patient';
+                      final patientId = patient['id'] as String? ?? '';
+                      final profilePicture =
+                          patient['profilePicture'] as String?;
+                      final String? roleValue =
+                          (patient['role'] as String?)?.toLowerCase();
 
-                        // Get role information using helper method
-                        final roleInfo =
-                            _getRoleInfo(roleValue, name: patientName);
-                        final String? roleLabel = roleInfo['label'] as String?;
-                        final Color roleColor = roleInfo['color'] as Color;
+                      // Get role information using helper method
+                      final roleInfo =
+                          _getRoleInfo(roleValue, name: patientName);
+                      final String? roleLabel = roleInfo['label'] as String?;
+                      final Color roleColor = roleInfo['color'] as Color;
 
-                        return Container(
-                          margin: const EdgeInsets.symmetric(vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
+                      return Container(
+                        margin: const EdgeInsets.symmetric(vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.04),
+                              blurRadius: 15,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(16),
+                          child: InkWell(
                             borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.04),
-                                blurRadius: 15,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            borderRadius: BorderRadius.circular(16),
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(16),
-                              splashColor: Colors.redAccent.withOpacity(0.1),
-                              highlightColor:
-                                  Colors.redAccent.withOpacity(0.05),
-                              onTap: () {
-                                HapticFeedback.lightImpact();
-                                _openChat(
-                                    patientId, patientName, profilePicture);
-                              },
-                              onLongPress: () {
-                                HapticFeedback.mediumImpact();
-                                _showMessageOptions(patientId, patientName);
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.all(14),
-                                child: Row(
-                                  children: [
-                                    // Avatar
-                                    Container(
-                                      width: 44,
-                                      height: 44,
-                                      decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                          colors:
-                                              _generatePastelColors(patientId),
-                                        ),
-                                        borderRadius: BorderRadius.circular(12),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: _generatePastelColors(
-                                                    patientId)[0]
-                                                .withOpacity(0.3),
-                                            blurRadius: 8,
-                                            offset: const Offset(0, 2),
-                                          ),
-                                        ],
+                            splashColor: Colors.redAccent.withOpacity(0.1),
+                            highlightColor: Colors.redAccent.withOpacity(0.05),
+                            onTap: () {
+                              HapticFeedback.lightImpact();
+                              _openChat(patientId, patientName, profilePicture);
+                            },
+                            onLongPress: () {
+                              HapticFeedback.mediumImpact();
+                              _showMessageOptions(patientId, patientName);
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.all(14),
+                              child: Row(
+                                children: [
+                                  // Avatar
+                                  Container(
+                                    width: 44,
+                                    height: 44,
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors:
+                                            _generatePastelColors(patientId),
                                       ),
-                                      child: profilePicture != null &&
-                                              profilePicture.isNotEmpty
-                                          ? ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              child: Image.network(
-                                                profilePicture,
-                                                fit: BoxFit.cover,
-                                                errorBuilder: (context, error,
-                                                    stackTrace) {
-                                                  return Center(
-                                                    child: Text(
-                                                      patientName.isNotEmpty
-                                                          ? patientName[0]
-                                                              .toUpperCase()
-                                                          : 'P',
-                                                      style: TextStyle(
-                                                        color: _generatePastelColors(
-                                                                        patientId)[0]
-                                                                    .computeLuminance() >
-                                                                0.5
-                                                            ? Colors.black87
-                                                            : Colors.white,
-                                                        fontSize: 22,
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                      ),
+                                      borderRadius: BorderRadius.circular(12),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: _generatePastelColors(
+                                                  patientId)[0]
+                                              .withOpacity(0.3),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: profilePicture != null &&
+                                            profilePicture.isNotEmpty
+                                        ? ClipRRect(
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                            child: Image.network(
+                                              profilePicture,
+                                              fit: BoxFit.cover,
+                                              errorBuilder:
+                                                  (context, error, stackTrace) {
+                                                return Center(
+                                                  child: Text(
+                                                    patientName.isNotEmpty
+                                                        ? patientName[0]
+                                                            .toUpperCase()
+                                                        : 'P',
+                                                    style: TextStyle(
+                                                      color: _generatePastelColors(
+                                                                      patientId)[0]
+                                                                  .computeLuminance() >
+                                                              0.5
+                                                          ? Colors.black87
+                                                          : Colors.white,
+                                                      fontSize: 22,
+                                                      fontWeight:
+                                                          FontWeight.w600,
                                                     ),
-                                                  );
-                                                },
-                                              ),
-                                            )
-                                          : Center(
-                                              child: Text(
-                                                patientName.isNotEmpty
-                                                    ? patientName[0]
-                                                        .toUpperCase()
-                                                    : 'P',
-                                                style: TextStyle(
-                                                  color: _generatePastelColors(
-                                                                  patientId)[0]
-                                                              .computeLuminance() >
-                                                          0.5
-                                                      ? Colors.black87
-                                                      : Colors.white,
-                                                  fontSize: 22,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                          )
+                                        : Center(
+                                            child: Text(
+                                              patientName.isNotEmpty
+                                                  ? patientName[0].toUpperCase()
+                                                  : 'P',
+                                              style: TextStyle(
+                                                color: _generatePastelColors(
+                                                                patientId)[0]
+                                                            .computeLuminance() >
+                                                        0.5
+                                                    ? Colors.black87
+                                                    : Colors.white,
+                                                fontSize: 22,
+                                                fontWeight: FontWeight.w600,
                                               ),
                                             ),
-                                    ),
-                                    const SizedBox(width: 16),
+                                          ),
+                                  ),
+                                  const SizedBox(width: 16),
 
-                                    // Chat info
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Expanded(
-                                                child: Row(
-                                                  children: [
-                                                    Flexible(
+                                  // Chat info
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Expanded(
+                                              child: Row(
+                                                children: [
+                                                  Flexible(
+                                                    child: Text(
+                                                      patientName,
+                                                      style: const TextStyle(
+                                                        fontSize: 17,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        color:
+                                                            Color(0xFF1A1A1A),
+                                                      ),
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                  // Only show a role badge for Health Worker; hide Doctor, Patient, Guest
+                                                  if (roleLabel != null &&
+                                                      roleLabel != 'Doctor' &&
+                                                      roleLabel != 'Patient' &&
+                                                      roleLabel != 'Guest') ...[
+                                                    const SizedBox(width: 8),
+                                                    Container(
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 2,
+                                                      ),
+                                                      decoration: BoxDecoration(
+                                                        color: roleColor
+                                                            .withOpacity(0.1),
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(8),
+                                                      ),
                                                       child: Text(
-                                                        patientName,
-                                                        style: const TextStyle(
-                                                          fontSize: 17,
-                                                          fontWeight: FontWeight.w600,
-                                                          color: Color(0xFF1A1A1A),
+                                                        roleLabel,
+                                                        style: TextStyle(
+                                                          fontSize: 10,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          color: roleColor,
                                                         ),
-                                                        overflow: TextOverflow.ellipsis,
                                                       ),
                                                     ),
-                                                    // Only show a role badge for Health Worker; hide Doctor, Patient, Guest
-                                                    if (roleLabel != null && roleLabel != 'Doctor' && roleLabel != 'Patient' && roleLabel != 'Guest') ...[
-                                                      const SizedBox(width: 8),
-                                                      Container(
-                                                        padding: const EdgeInsets
-                                                            .symmetric(
-                                                          horizontal: 8,
-                                                          vertical: 2,
-                                                        ),
-                                                        decoration: BoxDecoration(
-                                                          color: roleColor
-                                                              .withOpacity(0.1),
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                  8),
-                                                        ),
-                                                        child: Text(
-                                                          roleLabel,
-                                                          style: TextStyle(
-                                                            fontSize: 10,
-                                                            fontWeight:
-                                                                FontWeight.w600,
-                                                            color: roleColor,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ],
                                                   ],
-                                                ),
+                                                ],
                                               ),
-                                              Text(
-                                                _formatTimeDetailed(
-                                                    patient['lastTimestamp']),
+                                            ),
+                                            Text(
+                                              _formatTimeDetailed(
+                                                  patient['lastTimestamp']),
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: Colors.grey.shade500,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                patient['lastMessage'] ??
+                                                    'No messages yet',
                                                 style: TextStyle(
-                                                  fontSize: 14,
-                                                  color: Colors.grey.shade500,
-                                                  fontWeight: FontWeight.w500,
+                                                  fontSize: 15,
+                                                  color: Colors.grey.shade600,
+                                                  fontWeight: FontWeight.w400,
                                                 ),
+                                                overflow: TextOverflow.ellipsis,
                                               ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 6),
-                                          Row(
-                                            children: [
-                                              Expanded(
-                                                child: Text(
-                                                  patient['lastMessage'] ??
-                                                      'No messages yet',
-                                                  style: TextStyle(
-                                                    fontSize: 15,
-                                                    color: Colors.grey.shade600,
-                                                    fontWeight: FontWeight.w400,
-                                                  ),
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                        );
-                      },
+                        ),
+                      );
+                    },
                     childCount: filteredPatients.length,
                   ),
                 );
@@ -1105,11 +1115,11 @@ class _GmessagesState extends State<Gmessages> {
         if (patientId.isNotEmpty) {
           final conversationState = await _getConversationState(patientId);
           final state = conversationState?['state'] ?? 'active';
-          
+
           // Only include archived conversations (NOT deleted)
           if (state == 'archived') {
             final patientName = await _getPatientName(patientId);
-            
+
             // Get profile picture if available
             String? profilePicture;
             try {
@@ -1272,15 +1282,25 @@ class _GmessagesState extends State<Gmessages> {
                         itemCount: archivedConversations.length,
                         itemBuilder: (context, index) {
                           final conversation = archivedConversations[index];
-                          final String? roleValue = (conversation['role'] as String?)?.toLowerCase();
-                          
+                          final String? roleValue =
+                              (conversation['role'] as String?)?.toLowerCase();
+
                           List<Color> avatarGradient;
                           if (roleValue == 'healthcare') {
-                            avatarGradient = [Colors.redAccent, Colors.deepOrange.shade400];
+                            avatarGradient = [
+                              Colors.redAccent,
+                              Colors.deepOrange.shade400
+                            ];
                           } else if (roleValue == 'doctor') {
-                            avatarGradient = [Colors.blueAccent, Colors.blue.shade400];
+                            avatarGradient = [
+                              Colors.blueAccent,
+                              Colors.blue.shade400
+                            ];
                           } else {
-                            avatarGradient = [Colors.orange, Colors.deepOrange.shade400];
+                            avatarGradient = [
+                              Colors.orange,
+                              Colors.deepOrange.shade400
+                            ];
                           }
 
                           return Container(
@@ -1333,10 +1353,12 @@ class _GmessagesState extends State<Gmessages> {
                               ),
                               trailing: ElevatedButton(
                                 onPressed: () async {
-                                  await _setConversationState(conversation['id'], 'active');
+                                  await _setConversationState(
+                                      conversation['id'], 'active');
                                   if (mounted) {
                                     Navigator.of(context).pop();
-                                    setState(() {}); // Trigger rebuild to show in main list
+                                    setState(
+                                        () {}); // Trigger rebuild to show in main list
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                         content: Text('Conversation restored'),
@@ -1357,10 +1379,9 @@ class _GmessagesState extends State<Gmessages> {
                               onTap: () {
                                 Navigator.pop(context);
                                 _openChatWithoutRestore(
-                                  conversation['id'], 
-                                  conversation['name'], 
-                                  conversation['profilePicture']
-                                );
+                                    conversation['id'],
+                                    conversation['name'],
+                                    conversation['profilePicture']);
                               },
                             ),
                           );
@@ -1508,13 +1529,14 @@ class _GmessagesState extends State<Gmessages> {
   void _deleteMessage(String patientId) async {
     try {
       final chatId = _getChatId(_currentUserId!, patientId);
-      
+
       // Show confirmation dialog
       bool? confirmDelete = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('Delete Conversation'),
-          content: const Text('This conversation will be permanently deleted. This action cannot be undone.'),
+          content: const Text(
+              'This conversation will be permanently deleted. This action cannot be undone.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -1531,9 +1553,15 @@ class _GmessagesState extends State<Gmessages> {
 
       if (confirmDelete == true) {
         // Permanently delete the chat document and conversation state
-        await FirebaseFirestore.instance.collection('chats').doc(chatId).delete();
-        await FirebaseFirestore.instance.collection('conversation_states').doc(chatId).delete();
-        
+        await FirebaseFirestore.instance
+            .collection('chats')
+            .doc(chatId)
+            .delete();
+        await FirebaseFirestore.instance
+            .collection('conversation_states')
+            .doc(chatId)
+            .delete();
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(

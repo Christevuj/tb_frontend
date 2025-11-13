@@ -112,7 +112,7 @@ class _ChatScreenState extends State<ChatScreen> {
         .listen((messages) async {
       if (messages.isNotEmpty) {
         final lastMessage = messages.first;
-        
+
         // Only reset if this is a NEW healthcare worker message we haven't processed yet
         // AND it's not an auto-reply (auto-replies don't count as real responses)
         if (lastMessage.senderId == widget.otherUserId &&
@@ -120,7 +120,7 @@ class _ChatScreenState extends State<ChatScreen> {
             !lastMessage.text.startsWith('🤖 Automated Reply:')) {
           debugPrint('🔓 Healthcare worker sent new message - resetting block');
           _lastProcessedMessageId = lastMessage.id; // Mark as processed
-          
+
           // Healthcare worker replied - reset block
           await WorkingHoursService.resetPatientMessageCount(_chatId);
           _checkBlockStatus();
@@ -1296,7 +1296,7 @@ class _ChatScreenState extends State<ChatScreen> {
           _otherUserRole == 'healthcare') {
         // Increment patient message count
         await WorkingHoursService.incrementPatientMessageCount(_chatId);
-        
+
         // Check if now blocked
         _checkBlockStatus();
 
@@ -2515,7 +2515,7 @@ class _ChatScreenState extends State<ChatScreen> {
                               },
                       ),
                     ),
-                  const SizedBox(width: 8),
+                    const SizedBox(width: 8),
 
                     // Input Field
                     Expanded(
@@ -2559,7 +2559,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         ),
                       ),
                     ),
-                  const SizedBox(width: 8),
+                    const SizedBox(width: 8),
 
                     // Send Button
                     Container(

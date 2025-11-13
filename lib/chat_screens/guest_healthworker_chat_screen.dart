@@ -80,7 +80,7 @@ class _GuestHealthWorkerChatScreenState
       // Check if there's a new message from healthcare worker
       if (messages.isNotEmpty) {
         final lastMessage = messages.first;
-        
+
         // Only reset if this is a NEW healthcare worker message we haven't processed yet
         // AND it's not an auto-reply (auto-replies don't count as real responses)
         if (lastMessage.senderId == widget.healthWorkerId &&
@@ -88,7 +88,7 @@ class _GuestHealthWorkerChatScreenState
             !lastMessage.text.startsWith('🤖 Automated Reply:')) {
           debugPrint('🔓 Healthcare worker sent new message - resetting block');
           _lastProcessedMessageId = lastMessage.id; // Mark as processed
-          
+
           // Healthcare worker replied - reset block
           await WorkingHoursService.resetPatientMessageCount(_chatId);
           _checkBlockStatus();
@@ -422,7 +422,7 @@ class _GuestHealthWorkerChatScreenState
 
       // Increment patient message count
       await WorkingHoursService.incrementPatientMessageCount(_chatId);
-      
+
       // Check if now blocked
       _checkBlockStatus();
 
@@ -477,7 +477,7 @@ class _GuestHealthWorkerChatScreenState
 
       debugPrint('   ✅ Auto-reply sent successfully');
       debugPrint('   ℹ️  Message should appear in chat immediately');
-      
+
       // Force UI refresh to show the auto-reply message
       if (mounted) {
         setState(() {});
@@ -1296,8 +1296,7 @@ class _GuestHealthWorkerChatScreenState
               ),
               child: Row(
                 children: [
-                  Icon(Icons.block,
-                      color: Colors.red.shade700, size: 22),
+                  Icon(Icons.block, color: Colors.red.shade700, size: 22),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -1314,7 +1313,8 @@ class _GuestHealthWorkerChatScreenState
             ),
 
           // Message count indicator
-          if (!_isBlocked && _remainingMessages < WorkingHoursService.maxMessagesBeforeBlock)
+          if (!_isBlocked &&
+              _remainingMessages < WorkingHoursService.maxMessagesBeforeBlock)
             Container(
               margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

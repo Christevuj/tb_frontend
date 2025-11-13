@@ -88,6 +88,13 @@ class _SignupScreenState extends State<SignupScreen> {
       _hasNumber &&
       _hasSpecialChar;
 
+  bool get _areAllFieldsFilled =>
+      _firstNameController.text.trim().isNotEmpty &&
+      _lastNameController.text.trim().isNotEmpty &&
+      _emailController.text.trim().isNotEmpty &&
+      _passwordController.text.trim().isNotEmpty &&
+      _isPasswordValid;
+
   @override
   void initState() {
     super.initState();
@@ -179,12 +186,16 @@ class _SignupScreenState extends State<SignupScreen> {
                                   decoration: BoxDecoration(
                                     color: Colors.blue.shade50,
                                     borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: Colors.blue.shade100),
+                                    border:
+                                        Border.all(color: Colors.blue.shade100),
                                   ),
                                   child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      Icon(Icons.info_outline, color: Colors.blue.shade700, size: 22),
+                                      Icon(Icons.info_outline,
+                                          color: Colors.blue.shade700,
+                                          size: 22),
                                       const SizedBox(width: 12),
                                       Expanded(
                                         child: Text(
@@ -201,7 +212,7 @@ class _SignupScreenState extends State<SignupScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 24),
-                                
+
                                 // Data Collection Section
                                 Text(
                                   'Data Collection',
@@ -231,30 +242,40 @@ class _SignupScreenState extends State<SignupScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 10),
-                                _buildModernBullet('Full name, age, sex, and contact information'),
-                                _buildModernBullet('Health-related information (e.g., TB symptoms, medication schedules, treatment adherence)'),
-                                _buildModernBullet('Usage data such as check-ins, consultation logs, and communication with health workers'),
+                                _buildModernBullet(
+                                    'Full name, age, sex, and contact information'),
+                                _buildModernBullet(
+                                    'Health-related information (e.g., TB symptoms, medication schedules, treatment adherence)'),
+                                _buildModernBullet(
+                                    'Usage data such as check-ins, consultation logs, and communication with health workers'),
                                 const SizedBox(height: 20),
-                                
+
                                 // Legal Compliance Section
                                 Container(
                                   width: double.infinity,
                                   padding: const EdgeInsets.all(18),
                                   decoration: BoxDecoration(
                                     gradient: LinearGradient(
-                                      colors: [Colors.red.shade50, Colors.orange.shade50],
+                                      colors: [
+                                        Colors.red.shade50,
+                                        Colors.orange.shade50
+                                      ],
                                       begin: Alignment.topLeft,
                                       end: Alignment.bottomRight,
                                     ),
                                     borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: Colors.red.shade200, width: 1.5),
+                                    border: Border.all(
+                                        color: Colors.red.shade200, width: 1.5),
                                   ),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Row(
                                         children: [
-                                          Icon(Icons.verified_user, color: Colors.red.shade700, size: 22),
+                                          Icon(Icons.verified_user,
+                                              color: Colors.red.shade700,
+                                              size: 22),
                                           const SizedBox(width: 10),
                                           Text(
                                             'Legal Compliance',
@@ -271,17 +292,32 @@ class _SignupScreenState extends State<SignupScreen> {
                                         TextSpan(
                                           text:
                                               'This data will be used solely for the purpose of tracking, monitoring, and improving tuberculosis care. Authorized TB-DOTS health workers and licensed medical professionals may access your data to support treatment, provide follow-ups, and ensure medical compliance.\n\nYour data will be handled with strict confidentiality in accordance with:\n\n',
-                                          style: TextStyle(fontSize: 14, height: 1.6, color: Colors.grey.shade800),
+                                          style: TextStyle(
+                                              fontSize: 14,
+                                              height: 1.6,
+                                              color: Colors.grey.shade800),
                                           children: [
                                             TextSpan(
-                                                text: '• Data Privacy Act of 2012 (RA 10173)\n',
-                                                style: TextStyle(fontWeight: FontWeight.w600, color: Colors.red.shade900)),
+                                                text:
+                                                    '• Data Privacy Act of 2012 (RA 10173)\n',
+                                                style: TextStyle(
+                                                    fontWeight: FontWeight.w600,
+                                                    color:
+                                                        Colors.red.shade900)),
                                             TextSpan(
-                                                text: '• Mandatory Reporting of Notifiable Diseases and Health Events of Public Health Concern Act (RA 11332)\n',
-                                                style: TextStyle(fontWeight: FontWeight.w600, color: Colors.red.shade900)),
+                                                text:
+                                                    '• Mandatory Reporting of Notifiable Diseases and Health Events of Public Health Concern Act (RA 11332)\n',
+                                                style: TextStyle(
+                                                    fontWeight: FontWeight.w600,
+                                                    color:
+                                                        Colors.red.shade900)),
                                             TextSpan(
-                                                text: '• Cybercrime Prevention Act of 2012 (RA 10175)',
-                                                style: TextStyle(fontWeight: FontWeight.w600, color: Colors.red.shade900)),
+                                                text:
+                                                    '• Cybercrime Prevention Act of 2012 (RA 10175)',
+                                                style: TextStyle(
+                                                    fontWeight: FontWeight.w600,
+                                                    color:
+                                                        Colors.red.shade900)),
                                           ],
                                         ),
                                       ),
@@ -289,7 +325,7 @@ class _SignupScreenState extends State<SignupScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 24),
-                                
+
                                 // User Agreement Section
                                 Text(
                                   'User Agreement',
@@ -319,11 +355,14 @@ class _SignupScreenState extends State<SignupScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 10),
-                                _buildModernBullet('Provide true, accurate, and up-to-date information'),
-                                _buildModernBullet('Use the Service in compliance with applicable laws and regulations'),
-                                _buildModernBullet('Keep your login credentials secure and confidential'),
+                                _buildModernBullet(
+                                    'Provide true, accurate, and up-to-date information'),
+                                _buildModernBullet(
+                                    'Use the Service in compliance with applicable laws and regulations'),
+                                _buildModernBullet(
+                                    'Keep your login credentials secure and confidential'),
                                 const SizedBox(height: 24),
-                                
+
                                 // Intellectual Property Section
                                 Text(
                                   'Intellectual Property',
@@ -353,18 +392,20 @@ class _SignupScreenState extends State<SignupScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 24),
-                                
+
                                 // Agreement checkbox
                                 Container(
                                   padding: const EdgeInsets.all(16),
                                   decoration: BoxDecoration(
                                     color: Colors.white,
                                     borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: Colors.grey.shade300),
+                                    border:
+                                        Border.all(color: Colors.grey.shade300),
                                   ),
                                   child: CheckboxListTile(
                                     contentPadding: EdgeInsets.zero,
-                                    controlAffinity: ListTileControlAffinity.leading,
+                                    controlAffinity:
+                                        ListTileControlAffinity.leading,
                                     title: Text(
                                       'I agree to the Terms of Service and Privacy Policy',
                                       style: TextStyle(
@@ -615,7 +656,8 @@ class _SignupScreenState extends State<SignupScreen> {
                   const Expanded(
                     child: Text(
                       'Patient Sign Up',
-                      style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ],
@@ -648,7 +690,13 @@ class _SignupScreenState extends State<SignupScreen> {
       controller: controller,
       obscureText: password && _obscurePassword,
       keyboardType: email ? TextInputType.emailAddress : TextInputType.text,
-      onChanged: password ? _validatePassword : null,
+      onChanged: (value) {
+        if (password) {
+          _validatePassword(value);
+        } else {
+          setState(() {}); // Trigger rebuild to update button state
+        }
+      },
       decoration: InputDecoration(
         labelText: label,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -702,7 +750,8 @@ class _SignupScreenState extends State<SignupScreen> {
           _buildRequirement('Contains uppercase letter (A-Z)', _hasUppercase),
           _buildRequirement('Contains lowercase letter (a-z)', _hasLowercase),
           _buildRequirement('Contains number (0-9)', _hasNumber),
-          _buildRequirement('Contains special character (!@#\$%^&*)', _hasSpecialChar),
+          _buildRequirement(
+              'Contains special character (!@#\$%^&*)', _hasSpecialChar),
         ],
       ),
     );
@@ -735,20 +784,25 @@ class _SignupScreenState extends State<SignupScreen> {
   }
 
   Widget _buildSignUpButton() {
+    final isEnabled = _areAllFieldsFilled && !_isLoading;
+
     return SizedBox(
       width: double.infinity,
       height: 50,
       child: ElevatedButton(
-        onPressed: _isLoading ? null : () => _showSignupConfirmationDialog(),
+        onPressed: isEnabled ? () => _showSignupConfirmationDialog() : null,
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.redAccent,
+          backgroundColor: isEnabled ? Colors.redAccent : Colors.grey.shade300,
+          disabledBackgroundColor: Colors.grey.shade300,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
         child: _isLoading
             ? const CircularProgressIndicator(color: Colors.white)
-            : const Text('Sign Up',
-                style: TextStyle(fontSize: 16, color: Colors.white)),
+            : Text('Sign Up',
+                style: TextStyle(
+                    fontSize: 16,
+                    color: isEnabled ? Colors.white : Colors.grey.shade500)),
       ),
     );
   }
@@ -787,23 +841,32 @@ class _SignupScreenState extends State<SignupScreen> {
                   children: [
                     // Header
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 18, vertical: 16),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [Colors.redAccent.shade200, Colors.redAccent.shade700],
+                          colors: [
+                            Colors.redAccent.shade200,
+                            Colors.redAccent.shade700
+                          ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+                        borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(18)),
                       ),
                       child: Row(
                         children: const [
-                          Icon(Icons.person_add_alt_1, color: Colors.white, size: 22),
+                          Icon(Icons.person_add_alt_1,
+                              color: Colors.white, size: 22),
                           SizedBox(width: 12),
                           Expanded(
                             child: Text(
                               'Confirm your details',
-                              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold),
                             ),
                           ),
                         ],
@@ -816,7 +879,8 @@ class _SignupScreenState extends State<SignupScreen> {
                         children: [
                           const Text(
                             'Please review the information below before submitting your account.',
-                            style: TextStyle(fontSize: 14, color: Colors.black87),
+                            style:
+                                TextStyle(fontSize: 14, color: Colors.black87),
                           ),
                           const SizedBox(height: 12),
 
@@ -829,73 +893,111 @@ class _SignupScreenState extends State<SignupScreen> {
                               border: Border.all(color: Colors.grey.shade200),
                             ),
                             child: Table(
-                              columnWidths: const {0: FlexColumnWidth(0.4), 1: FlexColumnWidth(0.6)},
+                              columnWidths: const {
+                                0: FlexColumnWidth(0.4),
+                                1: FlexColumnWidth(0.6)
+                              },
                               children: [
                                 TableRow(children: [
                                   Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 8),
-                                    child: Text('First name', style: TextStyle(color: Colors.grey.shade700)),
+                                    padding:
+                                        const EdgeInsets.symmetric(vertical: 8),
+                                    child: Text('First name',
+                                        style: TextStyle(
+                                            color: Colors.grey.shade700)),
                                   ),
                                   Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 8),
-                                    child: Text(firstName.isEmpty ? '—' : firstName, style: const TextStyle(fontWeight: FontWeight.w600)),
-                                  ),
-                                ]),
-                                TableRow(children: [
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 8),
-                                    child: Text('Last name', style: TextStyle(color: Colors.grey.shade700)),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 8),
-                                    child: Text(lastName.isEmpty ? '—' : lastName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                    padding:
+                                        const EdgeInsets.symmetric(vertical: 8),
+                                    child: Text(
+                                        firstName.isEmpty ? '—' : firstName,
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.w600)),
                                   ),
                                 ]),
                                 TableRow(children: [
                                   Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 8),
-                                    child: Text('Email', style: TextStyle(color: Colors.grey.shade700)),
+                                    padding:
+                                        const EdgeInsets.symmetric(vertical: 8),
+                                    child: Text('Last name',
+                                        style: TextStyle(
+                                            color: Colors.grey.shade700)),
                                   ),
                                   Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 8),
-                                    child: Text(email.isEmpty ? '—' : email, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                    padding:
+                                        const EdgeInsets.symmetric(vertical: 8),
+                                    child: Text(
+                                        lastName.isEmpty ? '—' : lastName,
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.w600)),
                                   ),
                                 ]),
                                 TableRow(children: [
                                   Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 8),
-                                    child: Text('Password', style: TextStyle(color: Colors.grey.shade700)),
+                                    padding:
+                                        const EdgeInsets.symmetric(vertical: 8),
+                                    child: Text('Email',
+                                        style: TextStyle(
+                                            color: Colors.grey.shade700)),
                                   ),
                                   Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 8),
+                                    padding:
+                                        const EdgeInsets.symmetric(vertical: 8),
+                                    child: Text(email.isEmpty ? '—' : email,
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.w600)),
+                                  ),
+                                ]),
+                                TableRow(children: [
+                                  Padding(
+                                    padding:
+                                        const EdgeInsets.symmetric(vertical: 8),
+                                    child: Text('Password',
+                                        style: TextStyle(
+                                            color: Colors.grey.shade700)),
+                                  ),
+                                  Padding(
+                                    padding:
+                                        const EdgeInsets.symmetric(vertical: 8),
                                     child: Row(
                                       children: [
                                         Expanded(
                                           child: ValueListenableBuilder<bool>(
                                             valueListenable: showPassword,
                                             builder: (context, show, _) {
-                                              final passwordDisplay = visiblePassword.isEmpty
-                                                  ? '—'
-                                                  : (show
-                                                      ? visiblePassword
-                                                      : List.filled(visiblePassword.length, '*').join());
+                                              final passwordDisplay =
+                                                  visiblePassword.isEmpty
+                                                      ? '—'
+                                                      : (show
+                                                          ? visiblePassword
+                                                          : List.filled(
+                                                                  visiblePassword
+                                                                      .length,
+                                                                  '*')
+                                                              .join());
                                               return Text(
                                                 passwordDisplay,
-                                                style: const TextStyle(letterSpacing: 1.2),
+                                                style: const TextStyle(
+                                                    letterSpacing: 1.2),
                                               );
                                             },
                                           ),
                                         ),
                                         const SizedBox(width: 8),
                                         InkWell(
-                                          onTap: () => showPassword.value = !showPassword.value,
-                                          borderRadius: BorderRadius.circular(8),
+                                          onTap: () => showPassword.value =
+                                              !showPassword.value,
+                                          borderRadius:
+                                              BorderRadius.circular(8),
                                           child: Padding(
                                             padding: const EdgeInsets.all(6),
                                             child: ValueListenableBuilder<bool>(
                                               valueListenable: showPassword,
-                                              builder: (context, show, _) => Icon(
-                                                show ? Icons.visibility : Icons.visibility_off,
+                                              builder: (context, show, _) =>
+                                                  Icon(
+                                                show
+                                                    ? Icons.visibility
+                                                    : Icons.visibility_off,
                                                 size: 20,
                                                 color: Colors.grey.shade700,
                                               ),
@@ -917,13 +1019,19 @@ class _SignupScreenState extends State<SignupScreen> {
                             children: [
                               Expanded(
                                 child: OutlinedButton(
-                                  onPressed: () => Navigator.of(context).pop(false),
+                                  onPressed: () =>
+                                      Navigator.of(context).pop(false),
                                   style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                    side: BorderSide(color: Colors.grey.shade300),
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 14),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(12)),
+                                    side:
+                                        BorderSide(color: Colors.grey.shade300),
                                   ),
-                                  child: const Text('Cancel', style: TextStyle(color: Colors.black87)),
+                                  child: const Text('Cancel',
+                                      style: TextStyle(color: Colors.black87)),
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -934,10 +1042,14 @@ class _SignupScreenState extends State<SignupScreen> {
                                   },
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.redAccent,
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 14),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(12)),
                                   ),
-                                  child: const Text('Submit', style: TextStyle(color: Colors.white)),
+                                  child: const Text('Submit',
+                                      style: TextStyle(color: Colors.white)),
                                 ),
                               ),
                             ],

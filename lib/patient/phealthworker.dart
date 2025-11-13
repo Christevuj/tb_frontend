@@ -601,7 +601,7 @@ class Phealthworker extends StatelessWidget {
         name: patientName,
         role: 'patient',
       );
-      
+
       final contactRole = workerType == 'Doctor' ? 'doctor' : 'healthcare';
       await chatService.createUserDoc(
         userId: workerId,

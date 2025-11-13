@@ -41,12 +41,13 @@ class _PatientHealthWorkerChatScreenState
   final PresenceService _presenceService = PresenceService();
 
   late final String _chatId;
-  String? _myAliasFromHealthcare; // The name healthcare worker uses for current user
+  String?
+      _myAliasFromHealthcare; // The name healthcare worker uses for current user
   bool _isHealthWorkerOnline = false;
   String _healthWorkerStatus = 'Offline';
   final Map<String, bool> _expandedTimestamps = {};
   bool _showAliasBanner = true; // Control visibility of alias banner
-  
+
   // Blocking system state variables
   bool _isBlocked = false;
   int _remainingMessages = WorkingHoursService.maxMessagesBeforeBlock;
@@ -74,20 +75,20 @@ class _PatientHealthWorkerChatScreenState
     debugPrint('🔍 MONITORING ALIAS - Starting stream listener');
     debugPrint('🔍 Healthcare ID: ${widget.healthWorkerId}');
     debugPrint('🔍 Patient ID: ${widget.currentUserId}');
-    
+
     _aliasService
         .streamPatientAlias(
-          healthcareId: widget.healthWorkerId,
-          patientId: widget.currentUserId,
-        )
+      healthcareId: widget.healthWorkerId,
+      patientId: widget.currentUserId,
+    )
         .listen((alias) {
       debugPrint('🔍 STREAM UPDATE - Received alias: $alias');
-      
+
       if (mounted) {
         setState(() {
           _myAliasFromHealthcare = alias;
         });
-        
+
         // Debug print to confirm updates
         if (alias != null) {
           debugPrint('🏷️ ✅ Alias updated for patient: $alias');
@@ -107,13 +108,14 @@ class _PatientHealthWorkerChatScreenState
   void _checkBlockStatus() async {
     final isBlocked = await WorkingHoursService.isPatientBlocked(_chatId);
     final msgCount = await WorkingHoursService.getPatientMessageCount(_chatId);
-    
+
     if (mounted) {
       setState(() {
         _isBlocked = isBlocked;
-        _remainingMessages = WorkingHoursService.maxMessagesBeforeBlock - msgCount;
+        _remainingMessages =
+            WorkingHoursService.maxMessagesBeforeBlock - msgCount;
       });
-      
+
       debugPrint('🔒 Block Status Check:');
       debugPrint('   Is Blocked: $_isBlocked');
       debugPrint('   Message Count: $msgCount');
@@ -128,7 +130,7 @@ class _PatientHealthWorkerChatScreenState
       // Check if there's a new message from healthcare worker
       if (messages.isNotEmpty) {
         final lastMessage = messages.first;
-        
+
         // Only reset if this is a NEW healthcare worker message we haven't processed yet
         // AND it's not an auto-reply (auto-replies don't count as real responses)
         if (lastMessage.senderId == widget.healthWorkerId &&
@@ -136,7 +138,7 @@ class _PatientHealthWorkerChatScreenState
             !lastMessage.text.startsWith('🤖 Automated Reply:')) {
           debugPrint('🔓 Healthcare worker sent new message - resetting block');
           _lastProcessedMessageId = lastMessage.id; // Mark as processed
-          
+
           // Healthcare worker replied - reset block
           await WorkingHoursService.resetPatientMessageCount(_chatId);
           _checkBlockStatus();
@@ -464,11 +466,11 @@ class _PatientHealthWorkerChatScreenState
         senderRole: 'patient', // Patient sending message
         receiverRole: 'healthcare', // Health worker receiving message
       );
-      
+
       // Increment patient message count and check block status
       await WorkingHoursService.incrementPatientMessageCount(_chatId);
       _checkBlockStatus();
-      
+
       _controller.clear();
 
       // Send auto-reply if outside working hours
@@ -503,7 +505,7 @@ class _PatientHealthWorkerChatScreenState
       debugPrint('   To: ${widget.currentUserId} (patient)');
       debugPrint('   Message: $message');
       debugPrint('   Chat ID: $_chatId');
-      
+
       await _chatService.sendTextMessage(
         senderId: widget.healthWorkerId,
         receiverId: widget.currentUserId,
@@ -511,10 +513,10 @@ class _PatientHealthWorkerChatScreenState
         senderRole: 'healthcare',
         receiverRole: 'patient',
       );
-      
+
       debugPrint('   ✅ Auto-reply sent successfully');
       debugPrint('   ℹ️  Message should appear in chat immediately');
-      
+
       // Force UI refresh to show the auto-reply message
       if (mounted) {
         setState(() {});
@@ -570,7 +572,7 @@ class _PatientHealthWorkerChatScreenState
                       ),
                     ),
                     const SizedBox(height: 24),
-                    
+
                     Text(
                       'Choose how you want to add an image',
                       style: TextStyle(
@@ -580,7 +582,7 @@ class _PatientHealthWorkerChatScreenState
                       ),
                     ),
                     const SizedBox(height: 32),
-                    
+
                     // Modern option cards
                     Row(
                       children: [
@@ -620,7 +622,7 @@ class _PatientHealthWorkerChatScreenState
                       ],
                     ),
                     const SizedBox(height: 24),
-                    
+
                     // Cancel button
                     Container(
                       width: double.infinity,
@@ -736,7 +738,8 @@ class _PatientHealthWorkerChatScreenState
       print('🔍 DEBUG: Picked file: ${pickedFile?.path}');
 
       if (pickedFile != null) {
-        print('🔍 DEBUG: Image selected successfully, file size: ${await File(pickedFile.path).length()} bytes');
+        print(
+            '🔍 DEBUG: Image selected successfully, file size: ${await File(pickedFile.path).length()} bytes');
         // Show enhanced loading indicator
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -787,7 +790,8 @@ class _PatientHealthWorkerChatScreenState
               borderRadius: BorderRadius.circular(16),
             ),
             margin: const EdgeInsets.all(16),
-            duration: const Duration(seconds: 10), // Longer duration for Cloudinary upload
+            duration: const Duration(
+                seconds: 10), // Longer duration for Cloudinary upload
           ),
         );
 
@@ -808,13 +812,13 @@ class _PatientHealthWorkerChatScreenState
         print('🔍 DEBUG: Sender ID: ${widget.currentUserId}');
         print('🔍 DEBUG: Receiver ID: ${widget.healthWorkerId}');
         print('🔍 DEBUG: Image file path: ${pickedFile.path}');
-        
+
         await _chatService.sendImageMessage(
           senderId: widget.currentUserId,
           receiverId: widget.healthWorkerId,
           imageFile: File(pickedFile.path),
         );
-        
+
         print('🔍 DEBUG: Image message sent successfully via Cloudinary!');
 
         // Hide loading indicator and show success
@@ -937,8 +941,9 @@ class _PatientHealthWorkerChatScreenState
   Widget build(BuildContext context) {
     // Debug: Print the alias state
     debugPrint('🔍 BUILD - _myAliasFromHealthcare: $_myAliasFromHealthcare');
-    debugPrint('🔍 BUILD - Should show banner: ${_myAliasFromHealthcare != null}');
-    
+    debugPrint(
+        '🔍 BUILD - Should show banner: ${_myAliasFromHealthcare != null}');
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FD),
       body: Column(
@@ -1244,8 +1249,7 @@ class _PatientHealthWorkerChatScreenState
                   ),
                   IconButton(
                     icon: const Icon(Icons.close_rounded,
-                        color: Color.fromARGB(255, 255, 255, 255),
-                        size: 18),
+                        color: Color.fromARGB(255, 255, 255, 255), size: 18),
                     tooltip: 'Hide banner',
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -1482,7 +1486,7 @@ class _PatientHealthWorkerChatScreenState
                                         });
                                       },
                                       child: Container(
-                                        padding: m.isImage 
+                                        padding: m.isImage
                                             ? const EdgeInsets.all(4)
                                             : const EdgeInsets.symmetric(
                                                 horizontal: 16,
@@ -1521,45 +1525,63 @@ class _PatientHealthWorkerChatScreenState
                                             ),
                                           ],
                                         ),
-                                        child: m.isImage 
+                                        child: m.isImage
                                             ? GestureDetector(
                                                 onTap: () {
                                                   HapticFeedback.lightImpact();
                                                   showZoomableImage(
-                                                    context, 
+                                                    context,
                                                     m.imageUrl!,
-                                                    heroTag: 'health_chat_image_${m.id}',
+                                                    heroTag:
+                                                        'health_chat_image_${m.id}',
                                                   );
                                                 },
                                                 child: Hero(
-                                                  tag: 'health_chat_image_${m.id}',
+                                                  tag:
+                                                      'health_chat_image_${m.id}',
                                                   child: ClipRRect(
-                                                    borderRadius: BorderRadius.circular(16),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            16),
                                                     child: Image.network(
                                                       m.imageUrl!,
                                                       width: 200,
                                                       height: 200,
                                                       fit: BoxFit.cover,
-                                                      loadingBuilder: (context, child, progress) {
-                                                        if (progress == null) return child;
+                                                      loadingBuilder: (context,
+                                                          child, progress) {
+                                                        if (progress == null)
+                                                          return child;
                                                         return Container(
                                                           width: 200,
                                                           height: 200,
-                                                          decoration: BoxDecoration(
-                                                            color: Colors.grey[200],
-                                                            borderRadius: BorderRadius.circular(16),
+                                                          decoration:
+                                                              BoxDecoration(
+                                                            color: Colors
+                                                                .grey[200],
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        16),
                                                           ),
                                                           child: Column(
-                                                            mainAxisAlignment: MainAxisAlignment.center,
+                                                            mainAxisAlignment:
+                                                                MainAxisAlignment
+                                                                    .center,
                                                             children: [
                                                               const CircularProgressIndicator(
-                                                                color: Colors.redAccent,
+                                                                color: Colors
+                                                                    .redAccent,
                                                               ),
-                                                              const SizedBox(height: 8),
+                                                              const SizedBox(
+                                                                  height: 8),
                                                               Text(
                                                                 'Loading from Cloudinary...',
-                                                                style: TextStyle(
-                                                                  color: Colors.grey[600],
+                                                                style:
+                                                                    TextStyle(
+                                                                  color: Colors
+                                                                          .grey[
+                                                                      600],
                                                                   fontSize: 12,
                                                                 ),
                                                               ),
@@ -1567,27 +1589,40 @@ class _PatientHealthWorkerChatScreenState
                                                           ),
                                                         );
                                                       },
-                                                      errorBuilder: (context, error, stackTrace) {
+                                                      errorBuilder: (context,
+                                                          error, stackTrace) {
                                                         return Container(
                                                           width: 200,
                                                           height: 200,
-                                                          decoration: BoxDecoration(
-                                                            color: Colors.grey[200],
-                                                            borderRadius: BorderRadius.circular(16),
+                                                          decoration:
+                                                              BoxDecoration(
+                                                            color: Colors
+                                                                .grey[200],
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        16),
                                                           ),
                                                           child: const Column(
-                                                            mainAxisAlignment: MainAxisAlignment.center,
+                                                            mainAxisAlignment:
+                                                                MainAxisAlignment
+                                                                    .center,
                                                             children: [
                                                               Icon(
-                                                                Icons.error_outline,
-                                                                color: Colors.grey,
+                                                                Icons
+                                                                    .error_outline,
+                                                                color:
+                                                                    Colors.grey,
                                                                 size: 40,
                                                               ),
-                                                              SizedBox(height: 8),
+                                                              SizedBox(
+                                                                  height: 8),
                                                               Text(
                                                                 'Failed to load image',
-                                                                style: TextStyle(
-                                                                  color: Colors.grey,
+                                                                style:
+                                                                    TextStyle(
+                                                                  color: Colors
+                                                                      .grey,
                                                                   fontSize: 12,
                                                                 ),
                                                               ),
@@ -1676,11 +1711,12 @@ class _PatientHealthWorkerChatScreenState
               ),
               child: Row(
                 children: [
-                  Icon(Icons.block_rounded, color: Colors.red.shade600, size: 20),
+                  Icon(Icons.block_rounded,
+                      color: Colors.red.shade600, size: 20),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      widget.role == 'doctor' 
+                      widget.role == 'doctor'
                           ? 'You have reached the message limit. The doctor will reply soon.'
                           : 'You have reached the message limit. The healthcare worker will reply soon.',
                       style: TextStyle(
@@ -1730,13 +1766,17 @@ class _PatientHealthWorkerChatScreenState
                       padding: EdgeInsets.zero,
                       icon: Icon(
                         Icons.camera_alt_outlined,
-                        color: _isBlocked ? Colors.grey.shade400 : const Color(0xFF6B7280),
+                        color: _isBlocked
+                            ? Colors.grey.shade400
+                            : const Color(0xFF6B7280),
                         size: 20,
                       ),
-                      onPressed: _isBlocked ? null : () {
-                        HapticFeedback.lightImpact();
-                        _showImagePickerOptions();
-                      },
+                      onPressed: _isBlocked
+                          ? null
+                          : () {
+                              HapticFeedback.lightImpact();
+                              _showImagePickerOptions();
+                            },
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -1755,9 +1795,13 @@ class _PatientHealthWorkerChatScreenState
                         textAlignVertical: TextAlignVertical.center,
                         textCapitalization: TextCapitalization.sentences,
                         decoration: InputDecoration(
-                          hintText: _isBlocked ? 'Message limit reached...' : 'Type a message...',
+                          hintText: _isBlocked
+                              ? 'Message limit reached...'
+                              : 'Type a message...',
                           hintStyle: TextStyle(
-                            color: _isBlocked ? Colors.grey.shade400 : const Color(0xFF9CA3AF),
+                            color: _isBlocked
+                                ? Colors.grey.shade400
+                                : const Color(0xFF9CA3AF),
                             fontSize: 15,
                             fontWeight: FontWeight.w400,
                           ),
@@ -1771,7 +1815,9 @@ class _PatientHealthWorkerChatScreenState
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w400,
-                          color: _isBlocked ? Colors.grey.shade400 : const Color(0xFF1F2937),
+                          color: _isBlocked
+                              ? Colors.grey.shade400
+                              : const Color(0xFF1F2937),
                           height: 1.4,
                         ),
                       ),
@@ -1787,32 +1833,38 @@ class _PatientHealthWorkerChatScreenState
                       gradient: LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
-                        colors: _isBlocked ? [
-                          Colors.grey.shade300,
-                          Colors.grey.shade400,
-                        ] : [
-                          Colors.redAccent,
-                          Colors.red.shade400,
-                        ],
+                        colors: _isBlocked
+                            ? [
+                                Colors.grey.shade300,
+                                Colors.grey.shade400,
+                              ]
+                            : [
+                                Colors.redAccent,
+                                Colors.red.shade400,
+                              ],
                       ),
                       borderRadius: BorderRadius.circular(18),
-                      boxShadow: _isBlocked ? [] : [
-                        BoxShadow(
-                          color: Colors.redAccent.withOpacity(0.25),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
+                      boxShadow: _isBlocked
+                          ? []
+                          : [
+                              BoxShadow(
+                                color: Colors.redAccent.withOpacity(0.25),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                     ),
                     child: Material(
                       color: Colors.transparent,
                       borderRadius: BorderRadius.circular(18),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(18),
-                        onTap: _isBlocked ? null : () {
-                          HapticFeedback.lightImpact();
-                          _send();
-                        },
+                        onTap: _isBlocked
+                            ? null
+                            : () {
+                                HapticFeedback.lightImpact();
+                                _send();
+                              },
                         child: const Center(
                           child: Icon(
                             Icons.send_rounded,

@@ -873,8 +873,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
   void _showAccountCreationDialog() {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const MedicalStaffCreatePage(),
+      PageRouteBuilder(
+        opaque: false,
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            const MedicalStaffCreatePage(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(
+            opacity: animation,
+            child: child,
+          );
+        },
       ),
     );
   }

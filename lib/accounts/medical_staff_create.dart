@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -178,11 +179,11 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                 labelText: 'Hour',
                 labelStyle: GoogleFonts.poppins(fontSize: 11),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.zero,
                   borderSide: BorderSide(color: Colors.grey.shade300),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.zero,
                   borderSide: const BorderSide(color: Colors.redAccent),
                 ),
                 contentPadding:
@@ -221,11 +222,11 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                 labelText: 'Min',
                 labelStyle: GoogleFonts.poppins(fontSize: 11),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.zero,
                   borderSide: BorderSide(color: Colors.grey.shade300),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.zero,
                   borderSide: const BorderSide(color: Colors.redAccent),
                 ),
                 contentPadding:
@@ -260,11 +261,11 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                 labelText: 'AM/PM',
                 labelStyle: GoogleFonts.poppins(fontSize: 11),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.zero,
                   borderSide: BorderSide(color: Colors.grey.shade300),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.zero,
                   borderSide: const BorderSide(color: Colors.redAccent),
                 ),
                 contentPadding:
@@ -348,24 +349,16 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
               child: Container(
                 constraints: const BoxConstraints(maxWidth: 600),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Colors.white.withOpacity(0.98),
-                      Colors.white.withOpacity(0.95),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(24),
+                  color: Colors.white,
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.5),
-                    width: 1.5,
+                    color: Colors.grey.shade300,
+                    width: 1,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 30,
-                      offset: const Offset(0, 15),
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
                     ),
                   ],
                 ),
@@ -375,18 +368,13 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                     // Modern Header
                     Container(
                       padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Colors.redAccent,
-                            Colors.redAccent.shade700,
-                          ],
-                        ),
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(24),
-                          topRight: Radius.circular(24),
+                      decoration: const BoxDecoration(
+                        color: Colors.redAccent,
+                        border: Border(
+                          bottom: BorderSide(
+                            color: Colors.white24,
+                            width: 1,
+                          ),
                         ),
                       ),
                       child: Row(
@@ -395,7 +383,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
                               color: Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.zero,
                             ),
                             child: const Icon(Icons.local_hospital_rounded,
                                 color: Colors.white, size: 24),
@@ -445,7 +433,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
                                 color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.zero,
                                 border: Border.all(color: Colors.grey.shade200),
                                 boxShadow: [
                                   BoxShadow(
@@ -464,7 +452,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                         horizontal: 12, vertical: 6),
                                     decoration: BoxDecoration(
                                       color: Colors.redAccent.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(20),
+                                      borderRadius: BorderRadius.zero,
                                     ),
                                     child: Text(
                                       'Facility Information',
@@ -505,8 +493,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                               decoration: BoxDecoration(
                                                 color: Colors.orange
                                                     .withOpacity(0.1),
-                                                borderRadius:
-                                                    BorderRadius.circular(10),
+                                                borderRadius: BorderRadius.zero,
                                                 border: Border.all(
                                                     color: Colors.orange
                                                         .withOpacity(0.3)),
@@ -543,7 +530,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                                     color: Colors.redAccent),
                                                 border: OutlineInputBorder(
                                                   borderRadius:
-                                                      BorderRadius.circular(10),
+                                                      BorderRadius.zero,
                                                   borderSide: BorderSide(
                                                       color:
                                                           Colors.grey.shade300),
@@ -551,7 +538,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                                 focusedBorder:
                                                     OutlineInputBorder(
                                                   borderRadius:
-                                                      BorderRadius.circular(10),
+                                                      BorderRadius.zero,
                                                   borderSide: const BorderSide(
                                                       color: Colors.redAccent),
                                                 ),
@@ -596,7 +583,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                       padding: const EdgeInsets.all(12),
                                       decoration: BoxDecoration(
                                         color: Colors.blue.withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(10),
+                                        borderRadius: BorderRadius.zero,
                                         border: Border.all(
                                             color:
                                                 Colors.blue.withOpacity(0.3)),
@@ -636,7 +623,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                   horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
                                 color: Colors.redAccent.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(20),
+                                borderRadius: BorderRadius.zero,
                               ),
                               child: Text(
                                 'Work Schedules',
@@ -654,7 +641,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
                                 color: Colors.blue.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.zero,
                                 border: Border.all(
                                     color: Colors.blue.withOpacity(0.3)),
                               ),
@@ -686,7 +673,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                 margin: const EdgeInsets.only(bottom: 12),
                                 decoration: BoxDecoration(
                                   color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.zero,
                                   border:
                                       Border.all(color: Colors.grey.shade200),
                                   boxShadow: [
@@ -712,8 +699,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                             decoration: BoxDecoration(
                                               color: Colors.redAccent
                                                   .withOpacity(0.1),
-                                              borderRadius:
-                                                  BorderRadius.circular(16),
+                                              borderRadius: BorderRadius.zero,
                                             ),
                                             child: Text(
                                               'Schedule ${index + 1}',
@@ -728,8 +714,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                           Material(
                                             color: Colors.transparent,
                                             child: InkWell(
-                                              borderRadius:
-                                                  BorderRadius.circular(6),
+                                              borderRadius: BorderRadius.zero,
                                               onTap: () {
                                                 setModalState(() {
                                                   schedules.removeAt(index);
@@ -825,8 +810,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                                           fontSize: 9),
                                                   border: OutlineInputBorder(
                                                     borderRadius:
-                                                        BorderRadius.circular(
-                                                            6),
+                                                        BorderRadius.zero,
                                                   ),
                                                   contentPadding:
                                                       const EdgeInsets
@@ -876,8 +860,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                                   hintText: 'Friday',
                                                   border: OutlineInputBorder(
                                                     borderRadius:
-                                                        BorderRadius.circular(
-                                                            6),
+                                                        BorderRadius.zero,
                                                   ),
                                                   contentPadding:
                                                       const EdgeInsets
@@ -920,8 +903,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                             labelStyle: GoogleFonts.poppins(
                                                 fontSize: 11),
                                             border: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(6),
+                                              borderRadius: BorderRadius.zero,
                                             ),
                                             contentPadding:
                                                 const EdgeInsets.symmetric(
@@ -953,8 +935,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                         padding: const EdgeInsets.all(10),
                                         decoration: BoxDecoration(
                                           color: Colors.blue.withOpacity(0.1),
-                                          borderRadius:
-                                              BorderRadius.circular(8),
+                                          borderRadius: BorderRadius.zero,
                                           border: Border.all(
                                               color:
                                                   Colors.blue.withOpacity(0.3)),
@@ -1010,8 +991,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                         padding: const EdgeInsets.all(10),
                                         decoration: BoxDecoration(
                                           color: Colors.orange.withOpacity(0.1),
-                                          borderRadius:
-                                              BorderRadius.circular(8),
+                                          borderRadius: BorderRadius.zero,
                                           border: Border.all(
                                               color: Colors.orange
                                                   .withOpacity(0.3)),
@@ -1070,8 +1050,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                         padding: const EdgeInsets.all(10),
                                         decoration: BoxDecoration(
                                           color: Colors.green.withOpacity(0.1),
-                                          borderRadius:
-                                              BorderRadius.circular(8),
+                                          borderRadius: BorderRadius.zero,
                                           border: Border.all(
                                               color: Colors.green
                                                   .withOpacity(0.3)),
@@ -1103,7 +1082,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                                     size: 14),
                                                 border: OutlineInputBorder(
                                                   borderRadius:
-                                                      BorderRadius.circular(8),
+                                                      BorderRadius.zero,
                                                 ),
                                                 contentPadding:
                                                     const EdgeInsets.symmetric(
@@ -1165,7 +1144,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                   padding:
                                       const EdgeInsets.symmetric(vertical: 12),
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
+                                    borderRadius: BorderRadius.zero,
                                   ),
                                 ),
                                 onPressed: () {
@@ -1204,10 +1183,6 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
                         color: Colors.grey.shade50,
-                        borderRadius: const BorderRadius.only(
-                          bottomLeft: Radius.circular(24),
-                          bottomRight: Radius.circular(24),
-                        ),
                         border: Border(
                           top: BorderSide(color: Colors.grey.shade200),
                         ),
@@ -1217,14 +1192,14 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                           Expanded(
                             child: Container(
                               decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.zero,
                                 border: Border.all(
                                     color: Colors.grey.shade300, width: 1.5),
                               ),
                               child: Material(
                                 color: Colors.transparent,
                                 child: InkWell(
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.zero,
                                   onTap: () => Navigator.pop(context),
                                   child: Padding(
                                     padding: const EdgeInsets.symmetric(
@@ -1249,25 +1224,23 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                             flex: 2,
                             child: Container(
                               decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Colors.redAccent,
-                                    Colors.redAccent.shade700
-                                  ],
+                                color: Colors.redAccent,
+                                border: Border.all(
+                                  color: Colors.redAccent.shade700,
+                                  width: 1,
                                 ),
-                                borderRadius: BorderRadius.circular(12),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.redAccent.withOpacity(0.3),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 4),
+                                    color: Colors.redAccent.withOpacity(0.2),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
                                   ),
                                 ],
                               ),
                               child: Material(
                                 color: Colors.transparent,
                                 child: InkWell(
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.zero,
                                   onTap: () {
                                     if (selectedFacility == null) {
                                       ScaffoldMessenger.of(context)
@@ -1293,8 +1266,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                               Colors.redAccent.shade700,
                                           behavior: SnackBarBehavior.floating,
                                           shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(12)),
+                                              borderRadius: BorderRadius.zero),
                                           margin: const EdgeInsets.all(16),
                                         ),
                                       );
@@ -1324,8 +1296,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                               Colors.redAccent.shade700,
                                           behavior: SnackBarBehavior.floating,
                                           shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(12)),
+                                              borderRadius: BorderRadius.zero),
                                           margin: const EdgeInsets.all(16),
                                         ),
                                       );
@@ -1400,612 +1371,573 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Colors.redAccent.shade100,
-              Colors.red.shade50,
-              Colors.white,
-              Colors.blue.shade50,
-            ],
+      backgroundColor: Colors.transparent,
+      body: Stack(
+        children: [
+          // Blurred background
+          BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+            child: Container(
+              color: Colors.black.withOpacity(0.2),
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Modern Header with Glassmorphism
-              Container(
-                margin: const EdgeInsets.all(16),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Colors.white.withOpacity(0.95),
-                      Colors.white.withOpacity(0.85),
-                    ],
+          // Centered modal
+          Center(
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 700, maxHeight: 800),
+              margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: Colors.grey.shade300, width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 20,
+                    offset: const Offset(0, 4),
                   ),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.5),
-                    width: 1.5,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.redAccent.withOpacity(0.2),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    // Back Button
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.redAccent.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: IconButton(
-                        icon: const Icon(Icons.arrow_back_rounded,
-                            color: Colors.redAccent),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    // Title Section
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Medical Staff Registration',
-                            style: GoogleFonts.poppins(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.redAccent.shade700,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Create new healthcare professional account',
-                            style: GoogleFonts.poppins(
-                              fontSize: 12,
-                              color: Colors.grey.shade600,
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Decorative Icon
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Colors.redAccent, Colors.redAccent.shade700],
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.redAccent.withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.medical_services_rounded,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                    ),
-                  ],
-                ),
+                ],
               ),
-
-              // Main Content Area
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              child: Column(
+                children: [
+                  // Modern Header
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.redAccent,
+                      border: Border(
+                        bottom:
+                            BorderSide(color: Colors.grey.shade300, width: 1),
+                      ),
+                    ),
+                    child: Row(
                       children: [
-                        const SizedBox(height: 8),
-
-                        // Personal Information Card
+                        // Decorative Icon
                         Container(
-                          padding: const EdgeInsets.all(20),
+                          padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Colors.white.withOpacity(0.95),
-                                Colors.white.withOpacity(0.85),
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(16),
+                            color: Colors.white.withOpacity(0.2),
                             border: Border.all(
-                              color: Colors.white.withOpacity(0.5),
-                              width: 1.5,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
-                                blurRadius: 15,
-                                offset: const Offset(0, 5),
-                              ),
-                            ],
+                                color: Colors.white.withOpacity(0.3), width: 1),
                           ),
+                          child: const Icon(
+                            Icons.medical_services_rounded,
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        // Title Section
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Section Header
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: [
-                                          Colors.blue.shade400,
-                                          Colors.blue.shade600
-                                        ],
-                                      ),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: const Icon(Icons.person_rounded,
-                                        color: Colors.white, size: 20),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Text(
-                                    'Personal Information',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.grey.shade800,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 20),
-
-                              // Full Name Field
-                              TextFormField(
-                                controller: _nameController,
-                                decoration: InputDecoration(
-                                  labelText: 'Full Name',
-                                  labelStyle: GoogleFonts.poppins(
-                                    fontSize: 13,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                  prefixIcon: Icon(Icons.badge_rounded,
-                                      color: Colors.blue.shade600, size: 20),
-                                  filled: true,
-                                  fillColor: Colors.grey.shade50,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide:
-                                        BorderSide(color: Colors.grey.shade200),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(
-                                        color: Colors.blue.shade400, width: 2),
-                                  ),
-                                  errorBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(
-                                        color: Colors.redAccent),
-                                  ),
+                              Text(
+                                'Medical Staff Registration',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                  letterSpacing: 0.5,
                                 ),
-                                style: GoogleFonts.poppins(fontSize: 14),
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) {
-                                    return 'Please enter your full name';
-                                  }
-                                  return null;
-                                },
                               ),
-                              const SizedBox(height: 16),
-
-                              // Role Selection Dropdown
-                              DropdownButtonFormField<String>(
-                                value: _selectedRole,
-                                decoration: InputDecoration(
-                                  labelText: 'Staff Role',
-                                  labelStyle: GoogleFonts.poppins(
-                                    fontSize: 13,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                  prefixIcon: Icon(Icons.work_rounded,
-                                      color: Colors.blue.shade600, size: 20),
-                                  filled: true,
-                                  fillColor: Colors.grey.shade50,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide:
-                                        BorderSide(color: Colors.grey.shade200),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(
-                                        color: Colors.blue.shade400, width: 2),
-                                  ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Create new healthcare professional account',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 13,
+                                  color: Colors.white.withOpacity(0.9),
+                                  fontWeight: FontWeight.w400,
                                 ),
-                                items: ['Doctor', 'Health Worker']
-                                    .map((String role) {
-                                  return DropdownMenuItem(
-                                    value: role,
-                                    child: Text(
-                                      role,
-                                      style: GoogleFonts.poppins(fontSize: 14),
-                                    ),
-                                  );
-                                }).toList(),
-                                onChanged: (String? newValue) {
-                                  setState(() {
-                                    _selectedRole = newValue!;
-                                    affiliations.clear();
-                                  });
-                                },
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 16),
-
-                        // Account Security Card
+                        // Close Button
                         Container(
-                          padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Colors.white.withOpacity(0.95),
-                                Colors.white.withOpacity(0.85),
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(16),
+                            color: Colors.white.withOpacity(0.2),
                             border: Border.all(
-                              color: Colors.white.withOpacity(0.5),
-                              width: 1.5,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
-                                blurRadius: 15,
-                                offset: const Offset(0, 5),
-                              ),
-                            ],
+                                color: Colors.white.withOpacity(0.3), width: 1),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Section Header
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: [
-                                          Colors.purple.shade400,
-                                          Colors.purple.shade600
-                                        ],
-                                      ),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: const Icon(Icons.security_rounded,
-                                        color: Colors.white, size: 20),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Text(
-                                    'Account Security',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.grey.shade800,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 20),
-
-                              // Email Field
-                              TextFormField(
-                                controller: _emailController,
-                                decoration: InputDecoration(
-                                  labelText: 'Email Address',
-                                  labelStyle: GoogleFonts.poppins(
-                                    fontSize: 13,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                  prefixIcon: Icon(Icons.email_rounded,
-                                      color: Colors.purple.shade600, size: 20),
-                                  filled: true,
-                                  fillColor: Colors.grey.shade50,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide:
-                                        BorderSide(color: Colors.grey.shade200),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(
-                                        color: Colors.purple.shade400,
-                                        width: 2),
-                                  ),
-                                  errorBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(
-                                        color: Colors.redAccent),
-                                  ),
-                                ),
-                                style: GoogleFonts.poppins(fontSize: 14),
-                                keyboardType: TextInputType.emailAddress,
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) {
-                                    return 'Please enter an email';
-                                  }
-                                  if (!value.contains('@')) {
-                                    return 'Please enter a valid email';
-                                  }
-                                  return null;
-                                },
-                              ),
-                              const SizedBox(height: 16),
-
-                              // Password Field
-                              TextFormField(
-                                controller: _passwordController,
-                                obscureText: !_isPasswordVisible,
-                                decoration: InputDecoration(
-                                  labelText: 'Password',
-                                  labelStyle: GoogleFonts.poppins(
-                                    fontSize: 13,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                  prefixIcon: Icon(Icons.lock_rounded,
-                                      color: Colors.purple.shade600, size: 20),
-                                  filled: true,
-                                  fillColor: Colors.grey.shade50,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide:
-                                        BorderSide(color: Colors.grey.shade200),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(
-                                        color: Colors.purple.shade400,
-                                        width: 2),
-                                  ),
-                                  errorBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(
-                                        color: Colors.redAccent),
-                                  ),
-                                  suffixIcon: IconButton(
-                                    icon: Icon(
-                                      _isPasswordVisible
-                                          ? Icons.visibility_rounded
-                                          : Icons.visibility_off_rounded,
-                                      color: Colors.grey.shade600,
-                                      size: 20,
-                                    ),
-                                    onPressed: () {
-                                      setState(() {
-                                        _isPasswordVisible =
-                                            !_isPasswordVisible;
-                                      });
-                                    },
-                                  ),
-                                ),
-                                style: GoogleFonts.poppins(fontSize: 14),
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) {
-                                    return 'Please enter a password';
-                                  }
-                                  if (value.length < 6) {
-                                    return 'Password must be at least 6 characters';
-                                  }
-                                  return null;
-                                },
-                              ),
-                              const SizedBox(height: 16),
-
-                              // Confirm Password Field
-                              TextFormField(
-                                controller: _confirmPasswordController,
-                                obscureText: !_isConfirmPasswordVisible,
-                                decoration: InputDecoration(
-                                  labelText: 'Confirm Password',
-                                  labelStyle: GoogleFonts.poppins(
-                                    fontSize: 13,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                  prefixIcon: Icon(Icons.lock_outline_rounded,
-                                      color: Colors.purple.shade600, size: 20),
-                                  filled: true,
-                                  fillColor: Colors.grey.shade50,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide:
-                                        BorderSide(color: Colors.grey.shade200),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(
-                                        color: Colors.purple.shade400,
-                                        width: 2),
-                                  ),
-                                  errorBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(
-                                        color: Colors.redAccent),
-                                  ),
-                                  suffixIcon: IconButton(
-                                    icon: Icon(
-                                      _isConfirmPasswordVisible
-                                          ? Icons.visibility_rounded
-                                          : Icons.visibility_off_rounded,
-                                      color: Colors.grey.shade600,
-                                      size: 20,
-                                    ),
-                                    onPressed: () {
-                                      setState(() {
-                                        _isConfirmPasswordVisible =
-                                            !_isConfirmPasswordVisible;
-                                      });
-                                    },
-                                  ),
-                                ),
-                                style: GoogleFonts.poppins(fontSize: 14),
-                                validator: (value) {
-                                  if (value != _passwordController.text) {
-                                    return 'Passwords do not match';
-                                  }
-                                  return null;
-                                },
-                              ),
-                            ],
+                          child: IconButton(
+                            icon: const Icon(Icons.close_rounded,
+                                color: Colors.white),
+                            onPressed: () => Navigator.pop(context),
                           ),
                         ),
-                        const SizedBox(height: 16),
+                      ],
+                    ),
+                  ),
 
-                        const SizedBox(height: 16),
+                  // Main Content Area - Scrollable
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 8),
 
-                        // Health Worker Facility Selection - Now informational only
-                        if (_selectedRole == 'Health Worker') ...[
-                          Container(
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  Colors.white.withOpacity(0.95),
-                                  Colors.white.withOpacity(0.85),
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.5),
-                                width: 1.5,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
-                                  blurRadius: 15,
-                                  offset: const Offset(0, 5),
+                            // Personal Information Card
+                            Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade50,
+                                border: Border.all(
+                                  color: Colors.grey.shade300,
+                                  width: 1,
                                 ),
-                              ],
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Section Header
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          colors: [
-                                            Colors.green.shade400,
-                                            Colors.green.shade600
-                                          ],
-                                        ),
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: const Icon(
-                                          Icons.local_hospital_rounded,
-                                          color: Colors.white,
-                                          size: 20),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Text(
-                                      'TB DOTS Facility',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.grey.shade800,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 20),
-
-                                // Informational message instead of dropdown
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      vertical: 32, horizontal: 16),
-                                  decoration: BoxDecoration(
-                                    color: Colors.green.shade50,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                        color: Colors.green.shade200,
-                                        style: BorderStyle.solid,
-                                        width: 2),
-                                  ),
-                                  child: Column(
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Section Header
+                                  Row(
                                     children: [
-                                      Icon(Icons.info_outline,
-                                          size: 48,
-                                          color: Colors.green.shade400),
-                                      const SizedBox(height: 12),
-                                      Text(
-                                        "Health worker will set up their own facility",
-                                        style: GoogleFonts.poppins(
-                                          color: Colors.green.shade700,
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w500,
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blue.shade600,
+                                          border: Border.all(
+                                              color: Colors.blue.shade700,
+                                              width: 1),
                                         ),
+                                        child: const Icon(Icons.person_rounded,
+                                            color: Colors.white, size: 20),
                                       ),
-                                      const SizedBox(height: 4),
+                                      const SizedBox(width: 12),
                                       Text(
-                                        "The health worker will configure their TB DOTS facility after receiving account credentials",
+                                        'Personal Information',
                                         style: GoogleFonts.poppins(
-                                          color: Colors.green.shade600,
-                                          fontSize: 12,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.grey.shade800,
                                         ),
-                                        textAlign: TextAlign.center,
                                       ),
                                     ],
                                   ),
+                                  const SizedBox(height: 20),
+
+                                  // Full Name Field
+                                  TextFormField(
+                                    controller: _nameController,
+                                    decoration: InputDecoration(
+                                      labelText: 'Full Name',
+                                      labelStyle: GoogleFonts.poppins(
+                                        fontSize: 13,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                      prefixIcon: Icon(Icons.badge_rounded,
+                                          color: Colors.blue.shade600,
+                                          size: 20),
+                                      filled: true,
+                                      fillColor: Colors.grey.shade50,
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.zero,
+                                        borderSide: BorderSide.none,
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.zero,
+                                        borderSide: BorderSide(
+                                            color: Colors.grey.shade200),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.zero,
+                                        borderSide: BorderSide(
+                                            color: Colors.blue.shade400,
+                                            width: 2),
+                                      ),
+                                      errorBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.zero,
+                                        borderSide: const BorderSide(
+                                            color: Colors.redAccent),
+                                      ),
+                                    ),
+                                    style: GoogleFonts.poppins(fontSize: 14),
+                                    validator: (value) {
+                                      if (value == null || value.isEmpty) {
+                                        return 'Please enter your full name';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                  const SizedBox(height: 16),
+
+                                  // Role Selection Dropdown
+                                  DropdownButtonFormField<String>(
+                                    value: _selectedRole,
+                                    decoration: InputDecoration(
+                                      labelText: 'Staff Role',
+                                      labelStyle: GoogleFonts.poppins(
+                                        fontSize: 13,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                      prefixIcon: Icon(Icons.work_rounded,
+                                          color: Colors.blue.shade600,
+                                          size: 20),
+                                      filled: true,
+                                      fillColor: Colors.grey.shade50,
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.zero,
+                                        borderSide: BorderSide.none,
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.zero,
+                                        borderSide: BorderSide(
+                                            color: Colors.grey.shade200),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.zero,
+                                        borderSide: BorderSide(
+                                            color: Colors.blue.shade400,
+                                            width: 2),
+                                      ),
+                                    ),
+                                    items: ['Doctor', 'Health Worker']
+                                        .map((String role) {
+                                      return DropdownMenuItem(
+                                        value: role,
+                                        child: Text(
+                                          role,
+                                          style:
+                                              GoogleFonts.poppins(fontSize: 14),
+                                        ),
+                                      );
+                                    }).toList(),
+                                    onChanged: (String? newValue) {
+                                      setState(() {
+                                        _selectedRole = newValue!;
+                                        affiliations.clear();
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Account Security Card
+                            Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade50,
+                                border: Border.all(
+                                  color: Colors.grey.shade300,
+                                  width: 1,
                                 ),
-                                /* Old dropdown code - kept for reference
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.05),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Section Header
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.purple.shade600,
+                                          border: Border.all(
+                                            color: Colors.purple.shade700,
+                                            width: 1,
+                                          ),
+                                        ),
+                                        child: const Icon(
+                                            Icons.security_rounded,
+                                            color: Colors.white,
+                                            size: 20),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Text(
+                                        'Account Security',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.grey.shade800,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 20),
+
+                                  // Email Field
+                                  TextFormField(
+                                    controller: _emailController,
+                                    decoration: InputDecoration(
+                                      labelText: 'Email Address',
+                                      labelStyle: GoogleFonts.poppins(
+                                        fontSize: 13,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                      prefixIcon: Icon(Icons.email_rounded,
+                                          color: Colors.purple.shade600,
+                                          size: 20),
+                                      filled: true,
+                                      fillColor: Colors.grey.shade50,
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.zero,
+                                        borderSide: BorderSide.none,
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.zero,
+                                        borderSide: BorderSide(
+                                            color: Colors.grey.shade200),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.zero,
+                                        borderSide: BorderSide(
+                                            color: Colors.purple.shade400,
+                                            width: 2),
+                                      ),
+                                      errorBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.zero,
+                                        borderSide: const BorderSide(
+                                            color: Colors.redAccent),
+                                      ),
+                                    ),
+                                    style: GoogleFonts.poppins(fontSize: 14),
+                                    keyboardType: TextInputType.emailAddress,
+                                    validator: (value) {
+                                      if (value == null || value.isEmpty) {
+                                        return 'Please enter an email';
+                                      }
+                                      if (!value.contains('@')) {
+                                        return 'Please enter a valid email';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                  const SizedBox(height: 16),
+
+                                  // Password Field
+                                  TextFormField(
+                                    controller: _passwordController,
+                                    obscureText: !_isPasswordVisible,
+                                    decoration: InputDecoration(
+                                      labelText: 'Password',
+                                      labelStyle: GoogleFonts.poppins(
+                                        fontSize: 13,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                      prefixIcon: Icon(Icons.lock_rounded,
+                                          color: Colors.purple.shade600,
+                                          size: 20),
+                                      filled: true,
+                                      fillColor: Colors.grey.shade50,
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.zero,
+                                        borderSide: BorderSide.none,
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.zero,
+                                        borderSide: BorderSide(
+                                            color: Colors.grey.shade200),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.zero,
+                                        borderSide: BorderSide(
+                                            color: Colors.purple.shade400,
+                                            width: 2),
+                                      ),
+                                      errorBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.zero,
+                                        borderSide: const BorderSide(
+                                            color: Colors.redAccent),
+                                      ),
+                                      suffixIcon: IconButton(
+                                        icon: Icon(
+                                          _isPasswordVisible
+                                              ? Icons.visibility_rounded
+                                              : Icons.visibility_off_rounded,
+                                          color: Colors.grey.shade600,
+                                          size: 20,
+                                        ),
+                                        onPressed: () {
+                                          setState(() {
+                                            _isPasswordVisible =
+                                                !_isPasswordVisible;
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                    style: GoogleFonts.poppins(fontSize: 14),
+                                    validator: (value) {
+                                      if (value == null || value.isEmpty) {
+                                        return 'Please enter a password';
+                                      }
+                                      if (value.length < 6) {
+                                        return 'Password must be at least 6 characters';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                  const SizedBox(height: 16),
+
+                                  // Confirm Password Field
+                                  TextFormField(
+                                    controller: _confirmPasswordController,
+                                    obscureText: !_isConfirmPasswordVisible,
+                                    decoration: InputDecoration(
+                                      labelText: 'Confirm Password',
+                                      labelStyle: GoogleFonts.poppins(
+                                        fontSize: 13,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                      prefixIcon: Icon(
+                                          Icons.lock_outline_rounded,
+                                          color: Colors.purple.shade600,
+                                          size: 20),
+                                      filled: true,
+                                      fillColor: Colors.grey.shade50,
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.zero,
+                                        borderSide: BorderSide.none,
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.zero,
+                                        borderSide: BorderSide(
+                                            color: Colors.grey.shade200),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.zero,
+                                        borderSide: BorderSide(
+                                            color: Colors.purple.shade400,
+                                            width: 2),
+                                      ),
+                                      errorBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.zero,
+                                        borderSide: const BorderSide(
+                                            color: Colors.redAccent),
+                                      ),
+                                      suffixIcon: IconButton(
+                                        icon: Icon(
+                                          _isConfirmPasswordVisible
+                                              ? Icons.visibility_rounded
+                                              : Icons.visibility_off_rounded,
+                                          color: Colors.grey.shade600,
+                                          size: 20,
+                                        ),
+                                        onPressed: () {
+                                          setState(() {
+                                            _isConfirmPasswordVisible =
+                                                !_isConfirmPasswordVisible;
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                    style: GoogleFonts.poppins(fontSize: 14),
+                                    validator: (value) {
+                                      if (value != _passwordController.text) {
+                                        return 'Passwords do not match';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+
+                            const SizedBox(height: 16),
+
+                            // Health Worker Facility Selection - Now informational only
+                            if (_selectedRole == 'Health Worker') ...[
+                              Container(
+                                padding: const EdgeInsets.all(20),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade50,
+                                  border: Border.all(
+                                    color: Colors.grey.shade300,
+                                    width: 1,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.05),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Section Header
+                                    Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: Colors.green.shade600,
+                                            border: Border.all(
+                                              color: Colors.green.shade700,
+                                              width: 1,
+                                            ),
+                                          ),
+                                          child: const Icon(
+                                              Icons.local_hospital_rounded,
+                                              color: Colors.white,
+                                              size: 20),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Text(
+                                          'TB DOTS Facility',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700,
+                                            color: Colors.grey.shade800,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 20),
+
+                                    // Informational message instead of dropdown
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 32, horizontal: 16),
+                                      decoration: BoxDecoration(
+                                        color: Colors.green.shade50,
+                                        borderRadius: BorderRadius.zero,
+                                        border: Border.all(
+                                            color: Colors.green.shade200,
+                                            style: BorderStyle.solid,
+                                            width: 2),
+                                      ),
+                                      child: Column(
+                                        children: [
+                                          Icon(Icons.info_outline,
+                                              size: 48,
+                                              color: Colors.green.shade400),
+                                          const SizedBox(height: 12),
+                                          Text(
+                                            "Health worker will set up their own facility",
+                                            style: GoogleFonts.poppins(
+                                              color: Colors.green.shade700,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            "The health worker will configure their TB DOTS facility after receiving account credentials",
+                                            style: GoogleFonts.poppins(
+                                              color: Colors.green.shade600,
+                                              fontSize: 12,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    /* Old dropdown code - kept for reference
                                 DropdownButtonFormField<TBDotsFacility>(
                                   decoration: InputDecoration(
                                     labelText: "Select Your Facility",
@@ -2018,16 +1950,16 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                     filled: true,
                                     fillColor: Colors.grey.shade50,
                                     border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
+                                      borderRadius: BorderRadius.zero,
                                       borderSide: BorderSide.none,
                                     ),
                                     enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
+                                      borderRadius: BorderRadius.zero,
                                       borderSide: BorderSide(
                                           color: Colors.grey.shade200),
                                     ),
                                     focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
+                                      borderRadius: BorderRadius.zero,
                                       borderSide: BorderSide(
                                           color: Colors.green.shade400,
                                           width: 2),
@@ -2065,7 +1997,7 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
                                       color: Colors.green.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(10),
+                                      borderRadius: BorderRadius.zero,
                                       border: Border.all(
                                           color: Colors.green.withOpacity(0.3)),
                                     ),
@@ -2088,93 +2020,82 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                     ),
                                   ),
                                 ], */
-                              ],
-                            ),
-                          ),
-                        ],
-
-                        // Affiliated Hospitals section for doctors only
-                        if (_selectedRole == 'Doctor') ...[
-                          Container(
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  Colors.white.withOpacity(0.95),
-                                  Colors.white.withOpacity(0.85),
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.5),
-                                width: 1.5,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
-                                  blurRadius: 15,
-                                  offset: const Offset(0, 5),
+                                  ],
                                 ),
-                              ],
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Section Header
-                                Row(
+                              ),
+                            ],
+
+                            // Affiliated Hospitals section for doctors only
+                            if (_selectedRole == 'Doctor') ...[
+                              Container(
+                                padding: const EdgeInsets.all(20),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade50,
+                                  border: Border.all(
+                                    color: Colors.grey.shade300,
+                                    width: 1,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.05),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          colors: [
-                                            Colors.orange.shade400,
-                                            Colors.orange.shade600
-                                          ],
-                                        ),
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: const Icon(Icons.apartment_rounded,
-                                          color: Colors.white, size: 20),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        'Affiliated Clinics/Hospitals',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w700,
-                                          color: Colors.grey.shade800,
-                                        ),
-                                      ),
-                                    ),
-                                    // Add Button - Hidden since doctors and health workers will set up their own affiliations
-                                    // Keeping the button commented out for future reference
-                                    /* Container(
-                                        decoration: BoxDecoration(
-                                          gradient: LinearGradient(
-                                            colors: [
-                                              Colors.redAccent,
-                                              Colors.redAccent.shade700
-                                            ],
+                                    // Section Header
+                                    Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: Colors.orange.shade600,
+                                            border: Border.all(
+                                              color: Colors.orange.shade700,
+                                              width: 1,
+                                            ),
                                           ),
-                                          borderRadius: BorderRadius.circular(10),
+                                          child: const Icon(
+                                              Icons.apartment_rounded,
+                                              color: Colors.white,
+                                              size: 20),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            'Affiliated Clinics/Hospitals',
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w700,
+                                              color: Colors.grey.shade800,
+                                            ),
+                                          ),
+                                        ),
+                                        // Add Button - Hidden since doctors and health workers will set up their own affiliations
+                                        // Keeping the button commented out for future reference
+                                        /* Container(
+                                        decoration: BoxDecoration(
+                                          color: Colors.redAccent,
+                                          border: Border.all(
+                                            color: Colors.redAccent.shade700,
+                                            width: 1,
+                                          ),
                                           boxShadow: [
                                             BoxShadow(
                                               color: Colors.redAccent
-                                                  .withOpacity(0.3),
+                                                  .withOpacity(0.2),
                                               blurRadius: 8,
-                                              offset: const Offset(0, 4),
+                                              offset: const Offset(0, 2),
                                             ),
                                           ],
                                         ),
                                         child: Material(
                                           color: Colors.transparent,
                                           child: InkWell(
-                                            borderRadius:
-                                                BorderRadius.circular(10),
+                                            borderRadius: BorderRadius.zero,
                                             onTap: _showAddAffiliationDialog,
                                             child: const Padding(
                                               padding: EdgeInsets.all(8),
@@ -2184,305 +2105,320 @@ class _MedicalStaffCreatePageState extends State<MedicalStaffCreatePage> {
                                           ),
                                         ),
                                       ), */
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 16),
 
-                                // Affiliations List
-                                affiliations.isEmpty
-                                    ? Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            vertical: 32, horizontal: 16),
-                                        decoration: BoxDecoration(
-                                          color: Colors.blue.shade50,
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                          border: Border.all(
-                                              color: Colors.blue.shade200,
-                                              style: BorderStyle.solid,
-                                              width: 2),
-                                        ),
-                                        child: Column(
-                                          children: [
-                                            Icon(Icons.info_outline,
-                                                size: 48,
-                                                color: Colors.blue.shade400),
-                                            const SizedBox(height: 12),
-                                            Text(
-                                              "Medical staff will set up their own schedule",
-                                              style: GoogleFonts.poppins(
-                                                color: Colors.blue.shade700,
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              "The ${_selectedRole.toLowerCase()} will configure their affiliated clinics and schedules after receiving account credentials",
-                                              style: GoogleFonts.poppins(
-                                                color: Colors.blue.shade600,
-                                                fontSize: 12,
-                                              ),
-                                              textAlign: TextAlign.center,
-                                            ),
-                                          ],
-                                        ),
-                                      )
-                                    : Column(
-                                        children: affiliations.map((a) {
-                                          return Container(
-                                            margin: const EdgeInsets.only(
-                                                bottom: 12),
-                                            padding: const EdgeInsets.all(16),
+                                    // Affiliations List
+                                    affiliations.isEmpty
+                                        ? Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                vertical: 32, horizontal: 16),
                                             decoration: BoxDecoration(
-                                              gradient: LinearGradient(
-                                                begin: Alignment.topLeft,
-                                                end: Alignment.bottomRight,
-                                                colors: [
-                                                  Colors.orange.shade50,
-                                                  Colors.orange.shade50
-                                                      .withOpacity(0.5),
-                                                ],
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
+                                              color: Colors.blue.shade50,
+                                              borderRadius: BorderRadius.zero,
                                               border: Border.all(
-                                                  color:
-                                                      Colors.orange.shade200),
-                                              boxShadow: [
-                                                BoxShadow(
-                                                  color: Colors.orange
-                                                      .withOpacity(0.1),
-                                                  blurRadius: 8,
-                                                  offset: const Offset(0, 2),
+                                                  color: Colors.blue.shade200,
+                                                  style: BorderStyle.solid,
+                                                  width: 2),
+                                            ),
+                                            child: Column(
+                                              children: [
+                                                Icon(Icons.info_outline,
+                                                    size: 48,
+                                                    color:
+                                                        Colors.blue.shade400),
+                                                const SizedBox(height: 12),
+                                                Text(
+                                                  "Medical staff will set up their own schedule",
+                                                  style: GoogleFonts.poppins(
+                                                    color: Colors.blue.shade700,
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  "The ${_selectedRole.toLowerCase()} will configure their affiliated clinics and schedules after receiving account credentials",
+                                                  style: GoogleFonts.poppins(
+                                                    color: Colors.blue.shade600,
+                                                    fontSize: 12,
+                                                  ),
+                                                  textAlign: TextAlign.center,
                                                 ),
                                               ],
                                             ),
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Row(
-                                                  children: [
-                                                    Container(
-                                                      padding:
-                                                          const EdgeInsets.all(
-                                                              6),
-                                                      decoration: BoxDecoration(
-                                                        color: Colors
-                                                            .orange.shade100,
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(8),
-                                                      ),
-                                                      child: Icon(
-                                                          Icons
-                                                              .local_hospital_rounded,
-                                                          size: 16,
-                                                          color: Colors
-                                                              .orange.shade700),
-                                                    ),
-                                                    const SizedBox(width: 10),
-                                                    Expanded(
-                                                      child: Text(
-                                                        a["name"],
-                                                        style:
-                                                            GoogleFonts.poppins(
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                          fontSize: 15,
-                                                          color: Colors
-                                                              .grey.shade800,
-                                                        ),
-                                                      ),
+                                          )
+                                        : Column(
+                                            children: affiliations.map((a) {
+                                              return Container(
+                                                margin: const EdgeInsets.only(
+                                                    bottom: 12),
+                                                padding:
+                                                    const EdgeInsets.all(16),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.orange.shade50,
+                                                  border: Border.all(
+                                                      color: Colors
+                                                          .orange.shade200),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: Colors.orange
+                                                          .withOpacity(0.1),
+                                                      blurRadius: 8,
+                                                      offset:
+                                                          const Offset(0, 2),
                                                     ),
                                                   ],
                                                 ),
-                                                const SizedBox(height: 10),
-                                                Row(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
                                                   children: [
-                                                    Icon(
-                                                        Icons
-                                                            .location_on_rounded,
-                                                        size: 16,
-                                                        color: Colors
-                                                            .grey.shade600),
-                                                    const SizedBox(width: 6),
-                                                    Expanded(
-                                                      child: Text(
-                                                        a["address"],
-                                                        style:
-                                                            GoogleFonts.poppins(
-                                                          fontSize: 12,
-                                                          color: Colors
-                                                              .grey.shade600,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                                const SizedBox(height: 10),
-                                                Container(
-                                                  padding:
-                                                      const EdgeInsets.all(10),
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.white,
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            8),
-                                                  ),
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      Row(
-                                                        children: [
-                                                          Icon(
+                                                    Row(
+                                                      children: [
+                                                        Container(
+                                                          padding:
+                                                              const EdgeInsets
+                                                                  .all(6),
+                                                          decoration:
+                                                              BoxDecoration(
+                                                            color: Colors.orange
+                                                                .shade100,
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        8),
+                                                          ),
+                                                          child: Icon(
                                                               Icons
-                                                                  .access_time_rounded,
-                                                              size: 14,
-                                                              color: Colors.blue
-                                                                  .shade600),
-                                                          const SizedBox(
-                                                              width: 6),
-                                                          Text(
-                                                            'Schedules',
+                                                                  .local_hospital_rounded,
+                                                              size: 16,
+                                                              color: Colors
+                                                                  .orange
+                                                                  .shade700),
+                                                        ),
+                                                        const SizedBox(
+                                                            width: 10),
+                                                        Expanded(
+                                                          child: Text(
+                                                            a["name"],
                                                             style: GoogleFonts
                                                                 .poppins(
-                                                              fontSize: 11,
                                                               fontWeight:
                                                                   FontWeight
                                                                       .w600,
-                                                              color: Colors.blue
-                                                                  .shade700,
+                                                              fontSize: 15,
+                                                              color: Colors.grey
+                                                                  .shade800,
                                                             ),
                                                           ),
-                                                        ],
-                                                      ),
-                                                      const SizedBox(height: 6),
-                                                      ...(a["schedules"]
-                                                              as List)
-                                                          .map<Widget>(
-                                                        (s) => Padding(
-                                                          padding:
-                                                              const EdgeInsets
-                                                                  .only(
-                                                                  left: 20,
-                                                                  top: 4),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 10),
+                                                    Row(
+                                                      children: [
+                                                        Icon(
+                                                            Icons
+                                                                .location_on_rounded,
+                                                            size: 16,
+                                                            color: Colors
+                                                                .grey.shade600),
+                                                        const SizedBox(
+                                                            width: 6),
+                                                        Expanded(
                                                           child: Text(
-                                                            "${s["day"]}: ${s["start"]} - ${s["end"]}",
+                                                            a["address"],
                                                             style: GoogleFonts
                                                                 .poppins(
                                                               fontSize: 12,
                                                               color: Colors.grey
-                                                                  .shade700,
+                                                                  .shade600,
                                                             ),
                                                           ),
                                                         ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 10),
+                                                    Container(
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                              10),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.white,
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(8),
                                                       ),
-                                                    ],
-                                                  ),
+                                                      child: Column(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        children: [
+                                                          Row(
+                                                            children: [
+                                                              Icon(
+                                                                  Icons
+                                                                      .access_time_rounded,
+                                                                  size: 14,
+                                                                  color: Colors
+                                                                      .blue
+                                                                      .shade600),
+                                                              const SizedBox(
+                                                                  width: 6),
+                                                              Text(
+                                                                'Schedules',
+                                                                style:
+                                                                    GoogleFonts
+                                                                        .poppins(
+                                                                  fontSize: 11,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600,
+                                                                  color: Colors
+                                                                      .blue
+                                                                      .shade700,
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                          const SizedBox(
+                                                              height: 6),
+                                                          ...(a["schedules"]
+                                                                  as List)
+                                                              .map<Widget>(
+                                                            (s) => Padding(
+                                                              padding:
+                                                                  const EdgeInsets
+                                                                      .only(
+                                                                      left: 20,
+                                                                      top: 4),
+                                                              child: Text(
+                                                                "${s["day"]}: ${s["start"]} - ${s["end"]}",
+                                                                style:
+                                                                    GoogleFonts
+                                                                        .poppins(
+                                                                  fontSize: 12,
+                                                                  color: Colors
+                                                                      .grey
+                                                                      .shade700,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
-                                              ],
-                                            ),
-                                          );
-                                        }).toList(),
-                                      ),
-                              ],
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 24),
-
-                        const SizedBox(height: 24),
-
-                        // Continue Button - Modern Gradient Design
-                        Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Colors.redAccent,
-                                Colors.redAccent.shade700,
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.redAccent.withOpacity(0.4),
-                                blurRadius: 15,
-                                offset: const Offset(0, 8),
-                              ),
-                            ],
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(16),
-                              onTap: () {
-                                if (_formKey.currentState!.validate()) {
-                                  // No affiliation validation needed
-                                  // Both doctors and health workers will set up their own affiliations after account creation
-
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          MedicalStaffConfirmationPage(
-                                        email: _emailController.text.trim(),
-                                        password:
-                                            _passwordController.text.trim(),
-                                        fullName: _nameController.text.trim(),
-                                        role: _selectedRole,
-                                        specialization:
-                                            _specializationController.text
-                                                .trim(),
-                                        // Both doctors and health workers will set up affiliations themselves after account creation
-                                        affiliations: null,
-                                        facility: null,
-                                      ),
-                                    ),
-                                  );
-                                }
-                              },
-                              child: Container(
-                                width: double.infinity,
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 18),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(Icons.arrow_forward_rounded,
-                                        color: Colors.white, size: 22),
-                                    const SizedBox(width: 12),
-                                    Text(
-                                      'Continue to Confirmation',
-                                      style: GoogleFonts.poppins(
-                                        color: Colors.white,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: 0.5,
-                                      ),
-                                    ),
+                                              );
+                                            }).toList(),
+                                          ),
                                   ],
                                 ),
                               ),
+                            ],
+                            const SizedBox(height: 24),
+
+                            const SizedBox(height: 24),
+
+                            // Continue Button - Minimalistic Design
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Colors.redAccent,
+                                border: Border.all(
+                                  color: Colors.redAccent.shade700,
+                                  width: 1,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.redAccent.withOpacity(0.2),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () {
+                                    if (_formKey.currentState!.validate()) {
+                                      // No affiliation validation needed
+                                      // Both doctors and health workers will set up their own affiliations after account creation
+
+                                      Navigator.push(
+                                        context,
+                                        PageRouteBuilder(
+                                          opaque: false,
+                                          pageBuilder: (context, animation,
+                                                  secondaryAnimation) =>
+                                              MedicalStaffConfirmationPage(
+                                            email: _emailController.text.trim(),
+                                            password:
+                                                _passwordController.text.trim(),
+                                            fullName:
+                                                _nameController.text.trim(),
+                                            role: _selectedRole,
+                                            specialization:
+                                                _specializationController.text
+                                                    .trim(),
+                                            // Both doctors and health workers will set up affiliations themselves after account creation
+                                            affiliations: null,
+                                            facility: null,
+                                          ),
+                                          transitionsBuilder: (context,
+                                              animation,
+                                              secondaryAnimation,
+                                              child) {
+                                            return FadeTransition(
+                                              opacity: animation,
+                                              child: child,
+                                            );
+                                          },
+                                        ),
+                                      );
+                                    }
+                                  },
+                                  child: Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 18),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(Icons.arrow_forward_rounded,
+                                            color: Colors.white, size: 22),
+                                        const SizedBox(width: 12),
+                                        Text(
+                                          'Continue to Confirmation',
+                                          style: GoogleFonts.poppins(
+                                            color: Colors.white,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
+                            const SizedBox(height: 24),
+                          ],
                         ),
-                        const SizedBox(height: 24),
-                      ],
+                      ),
                     ),
                   ),
-                ),
+                ],
               ),
-            ],
-          ),
-        ),
-      ),
-    );
+            ),
+          ) // End of Center child Container
+        ], // End of Stack children
+      ), // End of Stack (Scaffold body)
+    ); // End of Scaffold
   }
 }
 

@@ -34,112 +34,132 @@ class _MedicalStaffConfirmationPageState
   static const accent = Color.fromRGBO(255, 82, 82, 1);
 
   Widget _infoCard(IconData icon, String label, String value) {
-    return Card(
+    return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
-      child: Padding(
-        padding: const EdgeInsets.all(14.0),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: accent, size: 26),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    value,
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.black87,
-                    ),
-                  ),
-                ],
-              ),
+      padding: const EdgeInsets.all(14.0),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        border: Border.all(color: Colors.grey.shade300, width: 1),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: accent.withOpacity(0.1),
+              border: Border.all(color: accent.withOpacity(0.3), width: 1),
             ),
-          ],
-        ),
+            child: Icon(icon, color: accent, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: GoogleFonts.poppins(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _affiliationCard(Map<String, dynamic> affiliation) {
     final schedules = affiliation["schedules"] as List<dynamic>? ?? [];
-    return Card(
+    return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
-      child: Padding(
-        padding: const EdgeInsets.all(14.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.local_hospital, color: accent, size: 18),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    affiliation["name"] ?? "",
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+      padding: const EdgeInsets.all(14.0),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        border: Border.all(color: Colors.grey.shade300, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: accent.withOpacity(0.1),
+                  border: Border.all(color: accent.withOpacity(0.3), width: 1),
+                ),
+                child:
+                    const Icon(Icons.local_hospital, color: accent, size: 18),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  affiliation["name"] ?? "",
+                  style: GoogleFonts.poppins(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                const Icon(Icons.location_on, color: Colors.grey, size: 18),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    affiliation["address"] ?? "",
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      color: Colors.black54,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            if (schedules.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.access_time, color: Colors.grey, size: 18),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: schedules
-                          .map(
-                            (s) => Padding(
-                              padding: const EdgeInsets.only(top: 2.0),
-                              child: Text(
-                                "${s["day"]} | ${s["start"]} - ${s["end"]}",
-                                style: GoogleFonts.poppins(fontSize: 14),
-                              ),
-                            ),
-                          )
-                          .toList(),
-                    ),
-                  ),
-                ],
               ),
             ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              const Icon(Icons.location_on, color: Colors.grey, size: 18),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  affiliation["address"] ?? "",
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: Colors.black54,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (schedules.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.access_time, color: Colors.grey, size: 18),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: schedules
+                        .map(
+                          (s) => Padding(
+                            padding: const EdgeInsets.only(top: 2.0),
+                            child: Text(
+                              "${s["day"]} | ${s["start"]} - ${s["end"]}",
+                              style: GoogleFonts.poppins(fontSize: 14),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ),
+              ],
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -255,171 +275,198 @@ class _MedicalStaffConfirmationPageState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          "Review Information",
-          style: GoogleFonts.poppins(
-            fontWeight: FontWeight.w600,
+      backgroundColor: Colors.black.withOpacity(0.5),
+      body: Center(
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 600, maxHeight: 700),
+          margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+          decoration: BoxDecoration(
             color: Colors.white,
+            border: Border.all(color: Colors.grey.shade300, width: 1),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 20,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-        ),
-        backgroundColor: accent,
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(14.0),
-        children: [
-          // Basic Information Section
-          Text(
-            "Personal Information",
-            style: GoogleFonts.poppins(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              color: accent,
-            ),
-          ),
-          const SizedBox(height: 10),
-          _infoCard(Icons.person, "Full Name", widget.fullName),
-          _infoCard(Icons.email, "Email", widget.email),
-          Card(
-            margin: const EdgeInsets.symmetric(vertical: 6),
-            child: Padding(
-              padding: const EdgeInsets.all(14.0),
-              child: Row(
-                children: [
-                  const Icon(Icons.lock, color: accent, size: 26),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text.rich(
-                      TextSpan(
-                        text: "Password: ",
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.black87,
-                        ),
-                        children: [
-                          TextSpan(
-                            text: widget.password,
-                            style: const TextStyle(
-                              fontFamily: 'monospace',
-                            ),
-                          ),
-                        ],
+          child: Column(
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: accent,
+                  border: Border(
+                    bottom: BorderSide(color: Colors.grey.shade300, width: 1),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        border: Border.all(
+                            color: Colors.white.withOpacity(0.3), width: 1),
+                      ),
+                      child: const Icon(
+                        Icons.check_circle_outline,
+                        color: Colors.white,
+                        size: 24,
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          _infoCard(Icons.medical_services, "Role", widget.role),
-          const SizedBox(height: 24),
-
-          // Role-specific Section
-          Text(
-            widget.role == 'Doctor'
-                ? "Clinical Practice Details"
-                : "Workplace Information",
-            style: GoogleFonts.poppins(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              color: accent,
-            ),
-          ),
-          const SizedBox(height: 10),
-
-          if (widget.role == 'Doctor' && widget.affiliations != null) ...[
-            Text(
-              "TB DOTS Facilities",
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: Colors.black87,
-              ),
-            ),
-            const SizedBox(height: 8),
-            widget.affiliations!.isNotEmpty
-                ? Column(
-                    children: widget.affiliations!
-                        .map((a) => _affiliationCard(a))
-                        .toList(),
-                  )
-                : Text(
-                    "No facilities added",
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      color: Colors.black54,
-                    ),
-                  ),
-          ] else if (widget.role == 'Health Worker' &&
-              widget.facility != null) ...[
-            _infoCard(
-                Icons.business, "TB DOTS Facility", widget.facility!["name"]),
-            Card(
-              margin: const EdgeInsets.symmetric(vertical: 6),
-              child: Padding(
-                padding: const EdgeInsets.all(14.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.location_on, color: accent),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            "Facility Address",
-                            style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.black87,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 36),
+                    const SizedBox(width: 12),
+                    Expanded(
                       child: Text(
-                        widget.facility!["address"],
+                        'Review Information',
                         style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          color: Colors.black54,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          letterSpacing: 0.5,
                         ),
+                      ),
+                    ),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        border: Border.all(
+                            color: Colors.white.withOpacity(0.3), width: 1),
+                      ),
+                      child: IconButton(
+                        icon: const Icon(Icons.close_rounded,
+                            color: Colors.white),
+                        onPressed: () => Navigator.pop(context),
                       ),
                     ),
                   ],
                 ),
               ),
-            ),
-          ],
-          const SizedBox(height: 24),
-          _isSubmitting
-              ? const Center(child: CircularProgressIndicator(color: accent))
-              : ElevatedButton.icon(
-                  onPressed: _handleSubmit,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: accent,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+              // Content
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.all(20),
+                  children: [
+                    // Basic Information Section
+                    Text(
+                      "Personal Information",
+                      style: GoogleFonts.poppins(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        color: accent,
+                      ),
                     ),
-                  ),
-                  icon: const Icon(Icons.check_circle_outline,
-                      color: Colors.white),
-                  label: Text(
-                    "Submit",
-                    style: GoogleFonts.poppins(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
+                    const SizedBox(height: 10),
+                    _infoCard(Icons.person, "Full Name", widget.fullName),
+                    _infoCard(Icons.email, "Email", widget.email),
+                    Container(
+                      margin: const EdgeInsets.symmetric(vertical: 6),
+                      padding: const EdgeInsets.all(14.0),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        border:
+                            Border.all(color: Colors.grey.shade300, width: 1),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: accent.withOpacity(0.1),
+                              border: Border.all(
+                                  color: accent.withOpacity(0.3), width: 1),
+                            ),
+                            child:
+                                const Icon(Icons.lock, color: accent, size: 20),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "Password",
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  widget.password,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black87,
+                                    fontFamily: 'monospace',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ),
-        ],
-      ),
-    );
+                    _infoCard(Icons.medical_services, "Role", widget.role),
+                    const SizedBox(height: 24),
+                    // Submit Button
+                    _isSubmitting
+                        ? const Center(
+                            child: CircularProgressIndicator(color: accent))
+                        : Container(
+                            decoration: BoxDecoration(
+                              color: accent,
+                              border: Border.all(
+                                color: const Color.fromRGBO(230, 74, 74, 1),
+                                width: 1,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: accent.withOpacity(0.2),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: _handleSubmit,
+                                child: Container(
+                                  width: double.infinity,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 16),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(Icons.check_circle_outline,
+                                          color: Colors.white, size: 22),
+                                      const SizedBox(width: 12),
+                                      Text(
+                                        'Submit',
+                                        style: GoogleFonts.poppins(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                  ], // End of ListView children
+                ), // End of ListView
+              ), // End of Expanded
+            ], // End of Column children
+          ), // End of Column (Container child)
+        ), // End of Container (Center child)
+      ), // End of Center (Scaffold body)
+    ); // End of Scaffold
   }
 }

@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/chat_service.dart';
-import '../chat_screens/chat_screen.dart';
+import '../chat_screens/health_chat_screen.dart';
 
 class Pmessages extends StatefulWidget {
   const Pmessages({super.key});
@@ -237,7 +237,7 @@ class _PmessagesState extends State<Pmessages> {
     }
   }
 
-  Future<void> _openChat(String doctorId, String doctorName) async {
+  Future<void> _openChat(String doctorId, String doctorName, {String? role}) async {
     try {
       // Get current patient's ID
       final currentUser = FirebaseAuth.instance.currentUser;
@@ -258,7 +258,7 @@ class _PmessagesState extends State<Pmessages> {
       await _chatService.createUserDoc(
         userId: doctorId,
         name: doctorName,
-        role: 'doctor',
+        role: role ?? 'doctor',
       );
 
       // Navigate to chat screen
@@ -266,9 +266,12 @@ class _PmessagesState extends State<Pmessages> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => ChatScreen(
+            builder: (context) => PatientHealthWorkerChatScreen(
               currentUserId: currentUser.uid,
-              otherUserId: doctorId,
+              healthWorkerId: doctorId,
+              healthWorkerName: doctorName,
+              healthWorkerProfilePicture: null,
+              role: role,
             ),
           ),
         );
@@ -296,7 +299,7 @@ class _PmessagesState extends State<Pmessages> {
 
   // Open chat without restoring conversation state (used in archived messages modal)
   Future<void> _openChatWithoutRestore(
-      String doctorId, String doctorName) async {
+      String doctorId, String doctorName, {String? role}) async {
     try {
       // Get current patient's ID
       final currentUser = FirebaseAuth.instance.currentUser;
@@ -316,7 +319,7 @@ class _PmessagesState extends State<Pmessages> {
       await _chatService.createUserDoc(
         userId: doctorId,
         name: doctorName,
-        role: 'doctor',
+        role: role ?? 'doctor',
       );
 
       // Navigate to chat screen
@@ -324,9 +327,12 @@ class _PmessagesState extends State<Pmessages> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => ChatScreen(
+            builder: (context) => PatientHealthWorkerChatScreen(
               currentUserId: currentUser.uid,
-              otherUserId: doctorId,
+              healthWorkerId: doctorId,
+              healthWorkerName: doctorName,
+              healthWorkerProfilePicture: null,
+              role: role,
             ),
           ),
         );
@@ -513,10 +519,10 @@ class _PmessagesState extends State<Pmessages> {
         final bTime = b['lastTimestamp'] as Timestamp?;
 
         if (aTime == null && bTime == null) return 0;
-        if (aTime == null) return 1;
+        if (aTime == null) return 1;  // null timestamps go to bottom
         if (bTime == null) return -1;
 
-        return bTime.compareTo(aTime); // Descending order
+        return bTime.compareTo(aTime); // Descending order (newest first, recent chats at top)
       });
 
       print('Returning ${messagedDoctors.length} doctors');
@@ -814,7 +820,7 @@ class _PmessagesState extends State<Pmessages> {
                                 HapticFeedback.lightImpact();
                                 print(
                                     'Tapping doctor: $doctorName ($doctorId)');
-                                _openChat(doctorId, doctorName);
+                                _openChat(doctorId, doctorName, role: roleValue);
                               },
                               onLongPress: () {
                                 HapticFeedback.mediumImpact();
@@ -1019,6 +1025,42 @@ class _PmessagesState extends State<Pmessages> {
           // Only include archived and muted conversations (NOT deleted)
           if (state == 'archived' || state == 'muted') {
             final doctorName = await _getDoctorName(doctorId);
+            
+            // Determine role by checking healthcare collection first, then fall back to doctor
+            String contactRole = 'doctor';
+            try {
+              final healthcareDoc = await FirebaseFirestore.instance
+                  .collection('healthcare')
+                  .doc(doctorId)
+                  .get();
+
+              if (healthcareDoc.exists) {
+                contactRole = 'healthcare';
+              } else {
+                final healthcareQuery = await FirebaseFirestore.instance
+                    .collection('healthcare')
+                    .where('authUid', isEqualTo: doctorId)
+                    .limit(1)
+                    .get();
+
+                if (healthcareQuery.docs.isNotEmpty) {
+                  contactRole = 'healthcare';
+                } else {
+                  final userDoc = await FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(doctorId)
+                      .get();
+                  if (userDoc.exists) {
+                    final userData = userDoc.data();
+                    contactRole = userData?['role'] ?? 'doctor';
+                  }
+                }
+              }
+            } catch (e) {
+              print('Error determining role for $doctorId: $e');
+              contactRole = 'doctor';
+            }
+            
             archivedConversations.add({
               'id': doctorId,
               'name': doctorName,
@@ -1026,6 +1068,7 @@ class _PmessagesState extends State<Pmessages> {
               'lastTimestamp': chatData['lastTimestamp'],
               'state': state,
               'archivedAt': conversationState?['timestamp'],
+              'role': contactRole,
             });
           }
         }
@@ -1263,7 +1306,9 @@ class _PmessagesState extends State<Pmessages> {
                               onTap: () {
                                 Navigator.pop(context);
                                 _openChatWithoutRestore(
-                                    conversation['id'], conversation['name']);
+                                    conversation['id'], 
+                                    conversation['name'],
+                                    role: conversation['role']);
                               },
                             ),
                           );

@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'dart:async';
 import '../services/chat_service.dart';
 import '../models/message.dart';
 import '../services/presence_service.dart';
+import '../services/working_hours_service.dart';
 import '../widgets/zoomable_image_viewer.dart';
 
 class GuestHealthWorkerChatScreen extends StatefulWidget {
@@ -39,17 +40,61 @@ class _GuestHealthWorkerChatScreenState
   String _healthWorkerStatus = 'Offline';
   final Map<String, bool> _expandedTimestamps = {};
 
+  // Message blocking tracking (applies all the time)
+  bool _isBlocked = false;
+  int _remainingMessages = WorkingHoursService.maxMessagesBeforeBlock;
+  StreamSubscription<List<Message>>? _messageSubscription;
+  String? _lastProcessedMessageId; // Track last healthcare worker message
+
   @override
   void initState() {
     super.initState();
     _chatId =
         _chatService.generateChatId(widget.guestId, widget.healthWorkerId);
     _monitorHealthWorkerPresence();
+    _checkBlockStatus();
+    _listenToHealthWorkerReplies();
 
     debugPrint('Guest-HealthWorker Chat initialized:');
     debugPrint('Guest: ${widget.guestId}');
     debugPrint('Health Worker: ${widget.healthWorkerId}');
     debugPrint('Chat ID: $_chatId');
+  }
+
+  // Check if patient is blocked
+  void _checkBlockStatus() async {
+    final isBlocked = await WorkingHoursService.isPatientBlocked(_chatId);
+    final remaining = await WorkingHoursService.getRemainingMessages(_chatId);
+
+    setState(() {
+      _isBlocked = isBlocked;
+      _remainingMessages = remaining;
+    });
+  }
+
+  // Listen for healthcare worker replies to reset block
+  void _listenToHealthWorkerReplies() {
+    _messageSubscription = _chatService
+        .getMessages(widget.guestId, widget.healthWorkerId)
+        .listen((messages) async {
+      // Check if there's a new message from healthcare worker
+      if (messages.isNotEmpty) {
+        final lastMessage = messages.first;
+        
+        // Only reset if this is a NEW healthcare worker message we haven't processed yet
+        // AND it's not an auto-reply (auto-replies don't count as real responses)
+        if (lastMessage.senderId == widget.healthWorkerId &&
+            lastMessage.id != _lastProcessedMessageId &&
+            !lastMessage.text.startsWith('🤖 Automated Reply:')) {
+          debugPrint('🔓 Healthcare worker sent new message - resetting block');
+          _lastProcessedMessageId = lastMessage.id; // Mark as processed
+          
+          // Healthcare worker replied - reset block
+          await WorkingHoursService.resetPatientMessageCount(_chatId);
+          _checkBlockStatus();
+        }
+      }
+    });
   }
 
   void _monitorHealthWorkerPresence() {
@@ -357,6 +402,14 @@ class _GuestHealthWorkerChatScreenState
     try {
       await _presenceService.markAsActive();
 
+      // Check if blocked FIRST
+      if (_isBlocked) {
+        debugPrint('🚫 Patient is blocked - cannot send message');
+        return;
+      }
+
+      // ALWAYS send the user's message first
+      debugPrint('📤 Sending user message');
       await _chatService.sendTextMessage(
         senderId: widget.guestId,
         receiverId: widget.healthWorkerId,
@@ -364,7 +417,28 @@ class _GuestHealthWorkerChatScreenState
         senderRole: 'guest', // Guest user sending message
         receiverRole: 'healthcare', // Health worker receiving message
       );
+
       _controller.clear();
+
+      // Increment patient message count
+      await WorkingHoursService.incrementPatientMessageCount(_chatId);
+      
+      // Check if now blocked
+      _checkBlockStatus();
+
+      // Check if within working hours to send auto-reply
+      final isWithinHours = WorkingHoursService.isWithinWorkingHours();
+      debugPrint('� Working Hours Check:');
+      debugPrint('   Current time: ${DateTime.now()}');
+      debugPrint('   Is within working hours: $isWithinHours');
+
+      if (!isWithinHours) {
+        debugPrint('   ⚠️ OUTSIDE working hours - sending auto-reply');
+        final autoReplyMsg = WorkingHoursService.getAvailabilityMessage();
+        // Small delay to ensure user message is saved first
+        await Future.delayed(const Duration(milliseconds: 500));
+        await _sendAutoReply(autoReplyMsg);
+      }
 
       _updateHealthWorkerStatus();
     } catch (e) {
@@ -380,6 +454,37 @@ class _GuestHealthWorkerChatScreenState
           margin: const EdgeInsets.all(16),
         ),
       );
+    }
+  }
+
+  // Send automated reply message as a chat bubble
+  Future<void> _sendAutoReply(String message) async {
+    try {
+      debugPrint('🤖 Sending auto-reply message...');
+      debugPrint('   From: ${widget.healthWorkerId} (healthcare)');
+      debugPrint('   To: ${widget.guestId} (guest)');
+      debugPrint('   Chat ID: $_chatId');
+      debugPrint('   Message: 🤖 Automated Reply:\n\n$message');
+
+      // Send auto-reply as if healthcare worker sent it
+      await _chatService.sendTextMessage(
+        senderId: widget.healthWorkerId, // From healthcare worker
+        receiverId: widget.guestId, // To guest
+        text: '🤖 Automated Reply:\n\n$message',
+        senderRole: 'healthcare',
+        receiverRole: 'guest',
+      );
+
+      debugPrint('   ✅ Auto-reply sent successfully');
+      debugPrint('   ℹ️  Message should appear in chat immediately');
+      
+      // Force UI refresh to show the auto-reply message
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (e, stackTrace) {
+      debugPrint('   ❌ Error sending auto-reply: $e');
+      debugPrint('   Stack trace: $stackTrace');
     }
   }
 
@@ -428,7 +533,7 @@ class _GuestHealthWorkerChatScreenState
                       ),
                     ),
                     const SizedBox(height: 24),
-                    
+
                     Text(
                       'Choose how you want to add an image',
                       style: TextStyle(
@@ -438,7 +543,7 @@ class _GuestHealthWorkerChatScreenState
                       ),
                     ),
                     const SizedBox(height: 32),
-                    
+
                     // Modern option cards
                     Row(
                       children: [
@@ -478,7 +583,7 @@ class _GuestHealthWorkerChatScreenState
                       ],
                     ),
                     const SizedBox(height: 24),
-                    
+
                     // Cancel button
                     Container(
                       width: double.infinity,
@@ -594,7 +699,8 @@ class _GuestHealthWorkerChatScreenState
       print('🔍 DEBUG: Picked file: ${pickedFile?.path}');
 
       if (pickedFile != null) {
-        print('🔍 DEBUG: Image selected successfully, file size: ${await File(pickedFile.path).length()} bytes');
+        print(
+            '🔍 DEBUG: Image selected successfully, file size: ${await File(pickedFile.path).length()} bytes');
         // Show enhanced loading indicator
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -666,13 +772,13 @@ class _GuestHealthWorkerChatScreenState
         print('🔍 DEBUG: Sender ID: ${widget.guestId}');
         print('🔍 DEBUG: Receiver ID: ${widget.healthWorkerId}');
         print('🔍 DEBUG: Image file path: ${pickedFile.path}');
-        
+
         await _chatService.sendImageMessage(
           senderId: widget.guestId,
           receiverId: widget.healthWorkerId,
           imageFile: File(pickedFile.path),
         );
-        
+
         print('🔍 DEBUG: Image message sent successfully!');
 
         // Hide loading indicator and show success
@@ -1003,6 +1109,37 @@ class _GuestHealthWorkerChatScreenState
             ),
           ),
 
+          // Message count indicator - HIDDEN
+          // if (!_isBlocked && _remainingMessages < WorkingHoursService.maxMessagesBeforeBlock)
+          //   Container(
+          //     margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          //     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          //     decoration: BoxDecoration(
+          //       color: Colors.orange.shade50,
+          //       borderRadius: BorderRadius.circular(12),
+          //       border: Border.all(
+          //         color: Colors.orange.shade200,
+          //         width: 1.5,
+          //       ),
+          //     ),
+          //     child: Row(
+          //       children: [
+          //         Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700, size: 18),
+          //         const SizedBox(width: 12),
+          //         Expanded(
+          //           child: Text(
+          //             '$_remainingMessages message${_remainingMessages == 1 ? '' : 's'} remaining before temporary limit',
+          //             style: TextStyle(
+          //               color: Colors.orange.shade900,
+          //               fontSize: 12,
+          //               fontWeight: FontWeight.w500,
+          //             ),
+          //           ),
+          //         ),
+          //       ],
+          //     ),
+          //   ),
+
           // Messages List
           Expanded(
             child: StreamBuilder<List<Message>>(
@@ -1147,20 +1284,77 @@ class _GuestHealthWorkerChatScreenState
             ),
           ),
 
+          // Blocked warning banner
+          if (_isBlocked)
+            Container(
+              margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.red.shade300, width: 2),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.block,
+                      color: Colors.red.shade700, size: 22),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      WorkingHoursService.getBlockMessage(),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.red.shade900,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          // Message count indicator
+          if (!_isBlocked && _remainingMessages < WorkingHoursService.maxMessagesBeforeBlock)
+            Container(
+              margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.info_outline,
+                      color: Colors.blue.shade700, size: 16),
+                  const SizedBox(width: 6),
+                  Text(
+                    '$_remainingMessages message${_remainingMessages != 1 ? 's' : ''} remaining before block',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.blue.shade900,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
           // Compact Input Area
           Container(
             margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: _isBlocked ? Colors.grey.shade100 : Colors.white,
               borderRadius: BorderRadius.circular(25),
               border: Border.all(
-                color: Colors.grey.shade200,
+                color: _isBlocked ? Colors.grey.shade300 : Colors.grey.shade200,
                 width: 1,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
+                  color: Colors.black.withOpacity(_isBlocked ? 0.03 : 0.08),
                   blurRadius: 16,
                   offset: const Offset(0, 4),
                 ),
@@ -1180,15 +1374,19 @@ class _GuestHealthWorkerChatScreenState
                     ),
                     child: IconButton(
                       padding: EdgeInsets.zero,
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.camera_alt_outlined,
-                        color: Color(0xFF6B7280),
+                        color: _isBlocked
+                            ? Colors.grey.shade400
+                            : const Color(0xFF6B7280),
                         size: 20,
                       ),
-                      onPressed: () {
-                        HapticFeedback.lightImpact();
-                        _showImagePickerOptions();
-                      },
+                      onPressed: _isBlocked
+                          ? null
+                          : () {
+                              HapticFeedback.lightImpact();
+                              _showImagePickerOptions();
+                            },
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -1199,30 +1397,37 @@ class _GuestHealthWorkerChatScreenState
                       constraints: const BoxConstraints(minHeight: 36),
                       child: TextField(
                         controller: _controller,
+                        enabled: !_isBlocked,
                         textInputAction: TextInputAction.send,
                         onSubmitted: (_) => _send(),
                         maxLines: 4,
                         minLines: 1,
                         textAlignVertical: TextAlignVertical.center,
                         textCapitalization: TextCapitalization.sentences,
-                        decoration: const InputDecoration(
-                          hintText: 'Type a message...',
+                        decoration: InputDecoration(
+                          hintText: _isBlocked
+                              ? 'Blocked - wait for healthcare worker reply'
+                              : 'Type a message...',
                           hintStyle: TextStyle(
-                            color: Color(0xFF9CA3AF),
+                            color: _isBlocked
+                                ? Colors.grey.shade400
+                                : const Color(0xFF9CA3AF),
                             fontSize: 15,
                             fontWeight: FontWeight.w400,
                           ),
                           border: InputBorder.none,
                           isDense: true,
-                          contentPadding: EdgeInsets.symmetric(
+                          contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12,
                             vertical: 8,
                           ),
                         ),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w400,
-                          color: Color(0xFF1F2937),
+                          color: _isBlocked
+                              ? Colors.grey.shade500
+                              : const Color(0xFF1F2937),
                           height: 1.4,
                         ),
                       ),
@@ -1235,36 +1440,45 @@ class _GuestHealthWorkerChatScreenState
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Colors.redAccent,
-                          Colors.red.shade400,
-                        ],
-                      ),
+                      gradient: _isBlocked
+                          ? null
+                          : LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Colors.redAccent,
+                                Colors.red.shade400,
+                              ],
+                            ),
+                      color: _isBlocked ? Colors.grey.shade300 : null,
                       borderRadius: BorderRadius.circular(18),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.redAccent.withOpacity(0.25),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
+                      boxShadow: _isBlocked
+                          ? null
+                          : [
+                              BoxShadow(
+                                color: Colors.redAccent.withOpacity(0.25),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                     ),
                     child: Material(
                       color: Colors.transparent,
                       borderRadius: BorderRadius.circular(18),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(18),
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          _send();
-                        },
-                        child: const Center(
+                        onTap: _isBlocked
+                            ? null
+                            : () {
+                                HapticFeedback.lightImpact();
+                                _send();
+                              },
+                        child: Center(
                           child: Icon(
                             Icons.send_rounded,
-                            color: Colors.white,
+                            color: _isBlocked
+                                ? Colors.grey.shade500
+                                : Colors.white,
                             size: 16,
                           ),
                         ),
@@ -1283,6 +1497,7 @@ class _GuestHealthWorkerChatScreenState
   @override
   void dispose() {
     _controller.dispose();
+    _messageSubscription?.cancel();
     super.dispose();
   }
 }
@@ -1323,7 +1538,7 @@ class _MessageBubble extends StatelessWidget {
                     constraints: BoxConstraints(
                       maxWidth: MediaQuery.of(context).size.width * 0.7,
                     ),
-                    padding: message.isImage 
+                    padding: message.isImage
                         ? const EdgeInsets.all(4)
                         : const EdgeInsets.symmetric(
                             horizontal: 16, vertical: 10),
@@ -1348,14 +1563,15 @@ class _MessageBubble extends StatelessWidget {
                         ),
                       ],
                     ),
-                    child: message.isImage 
+                    child: message.isImage
                         ? GestureDetector(
                             onTap: () {
                               HapticFeedback.lightImpact();
                               showZoomableImage(
-                                context, 
+                                context,
                                 message.imageUrl!,
-                                heroTag: 'guest_healthworker_image_${message.id}',
+                                heroTag:
+                                    'guest_healthworker_image_${message.id}',
                               );
                             },
                             child: Hero(
@@ -1407,7 +1623,8 @@ class _MessageBubble extends StatelessWidget {
                         : Text(
                             message.text,
                             style: TextStyle(
-                              color: isMe ? Colors.white : const Color(0xFF2C2C2C),
+                              color:
+                                  isMe ? Colors.white : const Color(0xFF2C2C2C),
                               fontSize: 15,
                               height: 1.4,
                             ),

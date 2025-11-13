@@ -4,10 +4,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'dart:async';
 import '../services/chat_service.dart';
 import '../services/alias_service.dart';
 import '../models/message.dart';
 import '../services/presence_service.dart';
+import '../services/working_hours_service.dart';
 import '../widgets/zoomable_image_viewer.dart';
 
 class PatientHealthWorkerChatScreen extends StatefulWidget {
@@ -15,6 +17,7 @@ class PatientHealthWorkerChatScreen extends StatefulWidget {
   final String healthWorkerId;
   final String healthWorkerName;
   final String? healthWorkerProfilePicture;
+  final String? role; // 'doctor' or 'healthcare'
 
   const PatientHealthWorkerChatScreen({
     super.key,
@@ -22,6 +25,7 @@ class PatientHealthWorkerChatScreen extends StatefulWidget {
     required this.healthWorkerId,
     required this.healthWorkerName,
     this.healthWorkerProfilePicture,
+    this.role,
   });
 
   @override
@@ -41,6 +45,13 @@ class _PatientHealthWorkerChatScreenState
   bool _isHealthWorkerOnline = false;
   String _healthWorkerStatus = 'Offline';
   final Map<String, bool> _expandedTimestamps = {};
+  bool _showAliasBanner = true; // Control visibility of alias banner
+  
+  // Blocking system state variables
+  bool _isBlocked = false;
+  int _remainingMessages = WorkingHoursService.maxMessagesBeforeBlock;
+  StreamSubscription<List<Message>>? _messageSubscription;
+  String? _lastProcessedMessageId;
 
   @override
   void initState() {
@@ -49,6 +60,8 @@ class _PatientHealthWorkerChatScreenState
         widget.currentUserId, widget.healthWorkerId);
     _monitorHealthWorkerPresence();
     _monitorMyAlias(); // Changed to use stream instead of one-time check
+    _checkBlockStatus();
+    _listenToHealthWorkerReplies();
 
     debugPrint('Patient-HealthWorker Chat initialized:');
     debugPrint('Patient (Current User): ${widget.currentUserId}');
@@ -88,6 +101,47 @@ class _PatientHealthWorkerChatScreenState
       }
     }, onError: (error) {
       debugPrint('❌ ERROR in alias stream: $error');
+    });
+  }
+
+  void _checkBlockStatus() async {
+    final isBlocked = await WorkingHoursService.isPatientBlocked(_chatId);
+    final msgCount = await WorkingHoursService.getPatientMessageCount(_chatId);
+    
+    if (mounted) {
+      setState(() {
+        _isBlocked = isBlocked;
+        _remainingMessages = WorkingHoursService.maxMessagesBeforeBlock - msgCount;
+      });
+      
+      debugPrint('🔒 Block Status Check:');
+      debugPrint('   Is Blocked: $_isBlocked');
+      debugPrint('   Message Count: $msgCount');
+      debugPrint('   Remaining Messages: $_remainingMessages');
+    }
+  }
+
+  void _listenToHealthWorkerReplies() {
+    _messageSubscription = _chatService
+        .getMessages(widget.currentUserId, widget.healthWorkerId)
+        .listen((messages) async {
+      // Check if there's a new message from healthcare worker
+      if (messages.isNotEmpty) {
+        final lastMessage = messages.first;
+        
+        // Only reset if this is a NEW healthcare worker message we haven't processed yet
+        // AND it's not an auto-reply (auto-replies don't count as real responses)
+        if (lastMessage.senderId == widget.healthWorkerId &&
+            lastMessage.id != _lastProcessedMessageId &&
+            !lastMessage.text.startsWith('🤖 Automated Reply:')) {
+          debugPrint('🔓 Healthcare worker sent new message - resetting block');
+          _lastProcessedMessageId = lastMessage.id; // Mark as processed
+          
+          // Healthcare worker replied - reset block
+          await WorkingHoursService.resetPatientMessageCount(_chatId);
+          _checkBlockStatus();
+        }
+      }
     });
   }
 
@@ -393,7 +447,14 @@ class _PatientHealthWorkerChatScreenState
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
+    // Check if patient is blocked
+    if (_isBlocked) {
+      debugPrint('⛔ Patient is blocked - cannot send message');
+      return;
+    }
+
     try {
+      debugPrint('📤 Sending user message');
       await _presenceService.markAsActive();
 
       await _chatService.sendTextMessage(
@@ -403,7 +464,20 @@ class _PatientHealthWorkerChatScreenState
         senderRole: 'patient', // Patient sending message
         receiverRole: 'healthcare', // Health worker receiving message
       );
+      
+      // Increment patient message count and check block status
+      await WorkingHoursService.incrementPatientMessageCount(_chatId);
+      _checkBlockStatus();
+      
       _controller.clear();
+
+      // Send auto-reply if outside working hours
+      if (!WorkingHoursService.isWithinWorkingHours()) {
+        debugPrint('⏰ Outside working hours - sending auto-reply');
+        // Small delay to ensure user message is saved first
+        await Future.delayed(const Duration(milliseconds: 500));
+        await _sendAutoReply(WorkingHoursService.getAvailabilityMessage());
+      }
 
       _updateHealthWorkerStatus();
     } catch (e) {
@@ -419,6 +493,35 @@ class _PatientHealthWorkerChatScreenState
           margin: const EdgeInsets.all(16),
         ),
       );
+    }
+  }
+
+  Future<void> _sendAutoReply(String message) async {
+    try {
+      debugPrint('🤖 Sending auto-reply message...');
+      debugPrint('   From: ${widget.healthWorkerId} (healthcare)');
+      debugPrint('   To: ${widget.currentUserId} (patient)');
+      debugPrint('   Message: $message');
+      debugPrint('   Chat ID: $_chatId');
+      
+      await _chatService.sendTextMessage(
+        senderId: widget.healthWorkerId,
+        receiverId: widget.currentUserId,
+        text: '🤖 Automated Reply:\n\n$message',
+        senderRole: 'healthcare',
+        receiverRole: 'patient',
+      );
+      
+      debugPrint('   ✅ Auto-reply sent successfully');
+      debugPrint('   ℹ️  Message should appear in chat immediately');
+      
+      // Force UI refresh to show the auto-reply message
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (e, stackTrace) {
+      debugPrint('   ❌ Error sending auto-reply: $e');
+      debugPrint('   Stack trace: $stackTrace');
     }
   }
 
@@ -824,6 +927,13 @@ class _PatientHealthWorkerChatScreenState
   }
 
   @override
+  void dispose() {
+    _messageSubscription?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     // Debug: Print the alias state
     debugPrint('🔍 BUILD - _myAliasFromHealthcare: $_myAliasFromHealthcare');
@@ -1042,202 +1152,108 @@ class _PatientHealthWorkerChatScreenState
             ),
           ),
 
-          // 🔹 Healthcare Worker Nickname Notice (Pinned Warning)
-          if (_myAliasFromHealthcare != null)
+          // Message count indicator - HIDDEN
+          // if (!_isBlocked && _remainingMessages < WorkingHoursService.maxMessagesBeforeBlock)
+          //   Container(
+          //     margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          //     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          //     decoration: BoxDecoration(
+          //       color: Colors.orange.shade50,
+          //       borderRadius: BorderRadius.circular(12),
+          //       border: Border.all(
+          //         color: Colors.orange.shade200,
+          //         width: 1.5,
+          //       ),
+          //     ),
+          //     child: Row(
+          //       children: [
+          //         Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700, size: 18),
+          //         const SizedBox(width: 12),
+          //         Expanded(
+          //           child: Text(
+          //             '$_remainingMessages message${_remainingMessages == 1 ? '' : 's'} remaining before temporary limit',
+          //             style: TextStyle(
+          //               color: Colors.orange.shade900,
+          //               fontSize: 12,
+          //               fontWeight: FontWeight.w500,
+          //             ),
+          //           ),
+          //         ),
+          //       ],
+          //     ),
+          //   ),
+
+          if (_myAliasFromHealthcare != null && _showAliasBanner)
             Container(
-              margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 24),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Colors.amber.shade50,
-                    Colors.orange.shade50,
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(16),
+                color: const Color.fromARGB(255, 67, 67, 67),
+                borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: Colors.orange.shade200,
-                  width: 1.5,
+                  color: const Color.fromARGB(255, 67, 67, 67),
+                  width: 1,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.orange.withOpacity(0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
+                    color: const Color.fromARGB(255, 255, 255, 255)
+                        .withOpacity(0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
                   ),
                 ],
               ),
-              child: Column(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Header with pin icon
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade100.withOpacity(0.3),
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(15),
-                        topRight: Radius.circular(15),
-                      ),
-                    ),
-                    child: Row(
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.shade600,
-                            borderRadius: BorderRadius.circular(8),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.orange.withOpacity(0.3),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
+                        RichText(
+                          text: TextSpan(
+                            style: const TextStyle(
+                              color: Color.fromARGB(255, 255, 255, 255),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            children: [
+                              const TextSpan(text: 'You are identified as '),
+                              TextSpan(
+                                text: _myAliasFromHealthcare ?? '',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold),
                               ),
                             ],
                           ),
-                          child: const Icon(
-                            Icons.push_pin_rounded,
-                            color: Colors.white,
-                            size: 16,
-                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(width: 10),
-                        Text(
-                          'PRIVACY NOTICE',
+                        const SizedBox(height: 2),
+                        const Text(
+                          'This helps protect your identity and privacy.',
                           style: TextStyle(
-                            color: Colors.orange.shade900,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.8,
+                            color: Color.fromARGB(255, 255, 255, 255),
+                            fontSize: 10,
+                            fontStyle: FontStyle.italic,
                           ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
                   ),
-                  // Content
-                  Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                Colors.orange.shade400,
-                                Colors.orange.shade600,
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.orange.withOpacity(0.3),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: const Icon(
-                            Icons.badge_rounded,
-                            color: Colors.white,
-                            size: 24,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Your Healthcare ID',
-                                style: TextStyle(
-                                  color: Colors.orange.shade900,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: -0.2,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              RichText(
-                                text: TextSpan(
-                                  style: TextStyle(
-                                    color: Colors.grey.shade800,
-                                    fontSize: 13,
-                                    height: 1.4,
-                                  ),
-                                  children: [
-                                    const TextSpan(
-                                      text: 'The healthcare worker ',
-                                    ),
-                                    TextSpan(
-                                      text: widget.healthWorkerName,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    const TextSpan(
-                                      text: ' identifies you as ',
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      Colors.orange.shade600,
-                                      Colors.deepOrange.shade600,
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(8),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.orange.withOpacity(0.3),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(
-                                      Icons.person_outline_rounded,
-                                      color: Colors.white,
-                                      size: 16,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      '"$_myAliasFromHealthcare"',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: 0.2,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                'This helps protect your identity and privacy.',
-                                style: TextStyle(
-                                  color: Colors.grey.shade700,
-                                  fontSize: 11,
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded,
+                        color: Color.fromARGB(255, 255, 255, 255),
+                        size: 18),
+                    tooltip: 'Hide banner',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () {
+                      setState(() {
+                        _showAliasBanner = false;
+                      });
+                    },
                   ),
                 ],
               ),
@@ -1357,6 +1373,7 @@ class _PatientHealthWorkerChatScreenState
                 final messages = snapshot.data!;
 
                 return ListView.builder(
+                  reverse: true,
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   itemCount: messages.length,
@@ -1644,6 +1661,40 @@ class _PatientHealthWorkerChatScreenState
             ),
           ),
 
+          // Block warning banner - positioned above input area
+          if (_isBlocked)
+            Container(
+              margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.red.shade200,
+                  width: 1.5,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.block_rounded, color: Colors.red.shade600, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      widget.role == 'doctor' 
+                          ? 'You have reached the message limit. The doctor will reply soon.'
+                          : 'You have reached the message limit. The healthcare worker will reply soon.',
+                      style: TextStyle(
+                        color: Colors.red.shade700,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
           // Compact Input Area
           Container(
             margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
@@ -1677,12 +1728,12 @@ class _PatientHealthWorkerChatScreenState
                     ),
                     child: IconButton(
                       padding: EdgeInsets.zero,
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.camera_alt_outlined,
-                        color: Color(0xFF6B7280),
+                        color: _isBlocked ? Colors.grey.shade400 : const Color(0xFF6B7280),
                         size: 20,
                       ),
-                      onPressed: () {
+                      onPressed: _isBlocked ? null : () {
                         HapticFeedback.lightImpact();
                         _showImagePickerOptions();
                       },
@@ -1696,30 +1747,31 @@ class _PatientHealthWorkerChatScreenState
                       constraints: const BoxConstraints(minHeight: 36),
                       child: TextField(
                         controller: _controller,
+                        enabled: !_isBlocked,
                         textInputAction: TextInputAction.send,
                         onSubmitted: (_) => _send(),
                         maxLines: 4,
                         minLines: 1,
                         textAlignVertical: TextAlignVertical.center,
                         textCapitalization: TextCapitalization.sentences,
-                        decoration: const InputDecoration(
-                          hintText: 'Type a message...',
+                        decoration: InputDecoration(
+                          hintText: _isBlocked ? 'Message limit reached...' : 'Type a message...',
                           hintStyle: TextStyle(
-                            color: Color(0xFF9CA3AF),
+                            color: _isBlocked ? Colors.grey.shade400 : const Color(0xFF9CA3AF),
                             fontSize: 15,
                             fontWeight: FontWeight.w400,
                           ),
                           border: InputBorder.none,
                           isDense: true,
-                          contentPadding: EdgeInsets.symmetric(
+                          contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12,
                             vertical: 8,
                           ),
                         ),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w400,
-                          color: Color(0xFF1F2937),
+                          color: _isBlocked ? Colors.grey.shade400 : const Color(0xFF1F2937),
                           height: 1.4,
                         ),
                       ),
@@ -1735,13 +1787,16 @@ class _PatientHealthWorkerChatScreenState
                       gradient: LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
-                        colors: [
+                        colors: _isBlocked ? [
+                          Colors.grey.shade300,
+                          Colors.grey.shade400,
+                        ] : [
                           Colors.redAccent,
                           Colors.red.shade400,
                         ],
                       ),
                       borderRadius: BorderRadius.circular(18),
-                      boxShadow: [
+                      boxShadow: _isBlocked ? [] : [
                         BoxShadow(
                           color: Colors.redAccent.withOpacity(0.25),
                           blurRadius: 8,
@@ -1754,7 +1809,7 @@ class _PatientHealthWorkerChatScreenState
                       borderRadius: BorderRadius.circular(18),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(18),
-                        onTap: () {
+                        onTap: _isBlocked ? null : () {
                           HapticFeedback.lightImpact();
                           _send();
                         },

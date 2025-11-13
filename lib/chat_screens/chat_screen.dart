@@ -4,10 +4,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'dart:async';
 import '../services/chat_service.dart';
 import '../services/alias_service.dart';
 import '../models/message.dart';
 import '../services/presence_service.dart';
+import '../services/working_hours_service.dart';
 import '../widgets/zoomable_image_viewer.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -41,6 +43,13 @@ class _ChatScreenState extends State<ChatScreen> {
   final Map<String, bool> _expandedTimestamps =
       {}; // Track which messages have expanded timestamps
 
+  // Working hours & blocking tracking (only for patients chatting with healthcare)
+  bool _isBlocked = false;
+  int _remainingMessages = WorkingHoursService.maxMessagesBeforeBlock;
+  StreamSubscription<List<Message>>? _messageSubscription;
+  String? _lastProcessedMessageId; // Track last healthcare worker message
+  String? _currentUserRole; // Track current user's role
+
   @override
   void initState() {
     super.initState();
@@ -55,6 +64,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _getOtherUserName();
     _getOtherUserRole();
     _initializeAliasMonitoring();
+    _initializeCurrentUserRole();
 
     // Start monitoring other user's presence
     _monitorOtherUserPresence();
@@ -64,6 +74,59 @@ class _ChatScreenState extends State<ChatScreen> {
     print('Current User: ${widget.currentUserId}');
     print('Other User: ${widget.otherUserId}');
     print('Chat ID: $_chatId');
+  }
+
+  // Initialize current user role and check if blocking restrictions apply
+  void _initializeCurrentUserRole() async {
+    final role = await _chatService.getUserRole(widget.currentUserId);
+    setState(() {
+      _currentUserRole = role;
+    });
+
+    // Only check block status if current user is patient/guest and other user is healthcare
+    if ((role == 'patient' || role == 'guest') &&
+        _otherUserRole == 'healthcare') {
+      _checkBlockStatus();
+      _listenToHealthWorkerReplies();
+    }
+  }
+
+  // Check block status
+  void _checkBlockStatus() async {
+    final blocked = await WorkingHoursService.isPatientBlocked(_chatId);
+    final msgCount = await WorkingHoursService.getPatientMessageCount(_chatId);
+    final remaining = WorkingHoursService.maxMessagesBeforeBlock - msgCount;
+
+    if (mounted) {
+      setState(() {
+        _isBlocked = blocked;
+        _remainingMessages = remaining > 0 ? remaining : 0;
+      });
+    }
+  }
+
+  // Listen to healthcare worker replies to auto-unblock
+  void _listenToHealthWorkerReplies() {
+    _messageSubscription = _chatService
+        .getMessages(widget.currentUserId, widget.otherUserId)
+        .listen((messages) async {
+      if (messages.isNotEmpty) {
+        final lastMessage = messages.first;
+        
+        // Only reset if this is a NEW healthcare worker message we haven't processed yet
+        // AND it's not an auto-reply (auto-replies don't count as real responses)
+        if (lastMessage.senderId == widget.otherUserId &&
+            lastMessage.id != _lastProcessedMessageId &&
+            !lastMessage.text.startsWith('🤖 Automated Reply:')) {
+          debugPrint('🔓 Healthcare worker sent new message - resetting block');
+          _lastProcessedMessageId = lastMessage.id; // Mark as processed
+          
+          // Healthcare worker replied - reset block
+          await WorkingHoursService.resetPatientMessageCount(_chatId);
+          _checkBlockStatus();
+        }
+      }
+    });
   }
 
   Future<void> _getOtherUserRole() async {
@@ -1190,13 +1253,23 @@ class _ChatScreenState extends State<ChatScreen> {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
+    // Get current user's role
+    final currentUserRole =
+        await _chatService.getUserRole(widget.currentUserId);
+
     try {
+      // Only apply blocking restrictions if patient/guest chatting with healthcare
+      if ((currentUserRole == 'patient' || currentUserRole == 'guest') &&
+          _otherUserRole == 'healthcare') {
+        // Check if blocked
+        if (_isBlocked) {
+          print('🚫 Patient is blocked - cannot send message');
+          return;
+        }
+      }
+
       // Mark current user as active when sending a message
       await _presenceService.markAsActive();
-
-      // Get current user's role
-      final currentUserRole =
-          await _chatService.getUserRole(widget.currentUserId);
 
       print('🚀 CHAT_SCREEN: About to send message');
       print('   Current User ID: ${widget.currentUserId}');
@@ -1205,6 +1278,8 @@ class _ChatScreenState extends State<ChatScreen> {
       print('   Other User Role: $_otherUserRole');
       print('   Text: $text');
 
+      // ALWAYS send the user's message first
+      print('📤 Sending user message');
       await _chatService.sendTextMessage(
         senderId: widget.currentUserId,
         receiverId: widget.otherUserId,
@@ -1212,10 +1287,31 @@ class _ChatScreenState extends State<ChatScreen> {
         senderRole: currentUserRole, // Patient, doctor, healthcare, etc.
         receiverRole: _otherUserRole, // Role of the person receiving
       );
-      
+
       print('✅ CHAT_SCREEN: Message sent successfully');
-      
       _controller.clear();
+
+      // Only apply working hours restrictions if patient/guest chatting with healthcare
+      if ((currentUserRole == 'patient' || currentUserRole == 'guest') &&
+          _otherUserRole == 'healthcare') {
+        // Increment patient message count
+        await WorkingHoursService.incrementPatientMessageCount(_chatId);
+        
+        // Check if now blocked
+        _checkBlockStatus();
+
+        // Check if within working hours to send auto-reply
+        final isWithinHours = WorkingHoursService.isWithinWorkingHours();
+        print('🕐 Working Hours Check:');
+        print('   Current time: ${DateTime.now()}');
+        print('   Is within working hours: $isWithinHours');
+
+        if (!isWithinHours) {
+          print('   ⚠️ OUTSIDE working hours - sending auto-reply');
+          final autoReplyMsg = WorkingHoursService.getAvailabilityMessage();
+          await _sendAutoReply(autoReplyMsg);
+        }
+      }
 
       // Update the other user's status after sending message
       _updateOtherUserStatus();
@@ -1232,6 +1328,29 @@ class _ChatScreenState extends State<ChatScreen> {
           margin: const EdgeInsets.all(16),
         ),
       );
+    }
+  }
+
+  // Send automated reply message as a chat bubble
+  Future<void> _sendAutoReply(String message) async {
+    try {
+      print('🤖 Sending auto-reply message...');
+      print('   From: ${widget.otherUserId} (healthcare)');
+      print('   To: ${widget.currentUserId} (patient/guest)');
+      print('   Message: 🤖 Automated Reply:\n\n$message');
+
+      // Send auto-reply as if healthcare worker sent it
+      await _chatService.sendTextMessage(
+        senderId: widget.otherUserId, // From healthcare worker
+        receiverId: widget.currentUserId, // To patient/guest
+        text: '🤖 Automated Reply:\n\n$message',
+        senderRole: 'healthcare',
+        receiverRole: await _chatService.getUserRole(widget.currentUserId),
+      );
+
+      print('   ✅ Auto-reply sent successfully');
+    } catch (e) {
+      print('   ❌ Error sending auto-reply: $e');
     }
   }
 
@@ -1887,6 +2006,69 @@ class _ChatScreenState extends State<ChatScreen> {
                 ],
               ),
             ),
+
+          // Block warning banner (only for patients/guests chatting with healthcare)
+          if ((_currentUserRole == 'patient' || _currentUserRole == 'guest') &&
+              _otherUserRole == 'healthcare' &&
+              _isBlocked)
+            Container(
+              margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.red.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.block_outlined,
+                      color: Colors.red.shade700, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      WorkingHoursService.getBlockMessage(),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.red.shade900,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          // Message count indicator (only for patients/guests chatting with healthcare) - HIDDEN
+          // if ((_currentUserRole == 'patient' || _currentUserRole == 'guest') &&
+          //     _otherUserRole == 'healthcare' &&
+          //     !_isBlocked &&
+          //     _remainingMessages < WorkingHoursService.maxMessagesBeforeBlock)
+          //   Container(
+          //     margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          //     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          //     decoration: BoxDecoration(
+          //       color: Colors.blue.shade50,
+          //       borderRadius: BorderRadius.circular(12),
+          //       border: Border.all(color: Colors.blue.shade200),
+          //     ),
+          //     child: Row(
+          //       mainAxisSize: MainAxisSize.min,
+          //       children: [
+          //         Icon(Icons.info_outline,
+          //             color: Colors.blue.shade700, size: 16),
+          //         const SizedBox(width: 6),
+          //         Text(
+          //           '$_remainingMessages message${_remainingMessages != 1 ? 's' : ''} remaining before block',
+          //           style: TextStyle(
+          //             fontSize: 12,
+          //             color: Colors.blue.shade900,
+          //             fontWeight: FontWeight.w500,
+          //           ),
+          //         ),
+          //       ],
+          //     ),
+          //   ),
+
           // ...existing code...
           // 🔹 Messages List
           Expanded(
@@ -2277,134 +2459,172 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
 
           // Compact Input Area
-          Container(
-            margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(25),
-              border: Border.all(
-                color: Colors.grey.shade200,
-                width: 1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
+          Builder(builder: (context) {
+            final bool isInputDisabled = _isBlocked &&
+                (_currentUserRole == 'patient' ||
+                    _currentUserRole == 'guest') &&
+                _otherUserRole == 'healthcare';
+
+            return Container(
+              margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+              decoration: BoxDecoration(
+                color: isInputDisabled ? Colors.grey.shade100 : Colors.white,
+                borderRadius: BorderRadius.circular(25),
+                border: Border.all(
+                  color: isInputDisabled
+                      ? Colors.grey.shade300
+                      : Colors.grey.shade200,
+                  width: 1,
                 ),
-              ],
-            ),
-            child: SafeArea(
-              top: false,
-              child: Row(
-                children: [
-                  // Camera Button
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: Colors.transparent,
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: IconButton(
-                      padding: EdgeInsets.zero,
-                      icon: const Icon(
-                        Icons.camera_alt_outlined,
-                        color: Color(0xFF6B7280),
-                        size: 20,
-                      ),
-                      onPressed: () {
-                        HapticFeedback.lightImpact();
-                        _showImagePickerOptions();
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-
-                  // Input Field
-                  Expanded(
-                    child: Container(
-                      constraints: const BoxConstraints(minHeight: 36),
-                      child: TextField(
-                        controller: _controller,
-                        textInputAction: TextInputAction.send,
-                        onSubmitted: (_) => _send(),
-                        maxLines: 4,
-                        minLines: 1,
-                        textAlignVertical: TextAlignVertical.center,
-                        decoration: const InputDecoration(
-                          hintText: 'Type a message...',
-                          hintStyle: TextStyle(
-                            color: Color(0xFF9CA3AF),
-                            fontSize: 15,
-                            fontWeight: FontWeight.w400,
-                          ),
-                          border: InputBorder.none,
-                          isDense: true,
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                        ),
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w400,
-                          color: Color(0xFF1F2937),
-                          height: 1.4,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-
-                  // Send Button
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Colors.redAccent,
-                          Colors.red.shade400,
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(18),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.redAccent.withOpacity(0.25),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      borderRadius: BorderRadius.circular(18),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(18),
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          _send();
-                        },
-                        child: const Center(
-                          child: Icon(
-                            Icons.send_rounded,
-                            color: Colors.white,
-                            size: 16,
-                          ),
-                        ),
-                      ),
-                    ),
+                boxShadow: [
+                  BoxShadow(
+                    color:
+                        Colors.black.withOpacity(isInputDisabled ? 0.03 : 0.08),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
                   ),
                 ],
               ),
-            ),
-          )
+              child: SafeArea(
+                top: false,
+                child: Row(
+                  children: [
+                    // Camera Button
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: IconButton(
+                        padding: EdgeInsets.zero,
+                        icon: Icon(
+                          Icons.camera_alt_outlined,
+                          color: isInputDisabled
+                              ? Colors.grey.shade400
+                              : const Color(0xFF6B7280),
+                          size: 20,
+                        ),
+                        onPressed: isInputDisabled
+                            ? null
+                            : () {
+                                HapticFeedback.lightImpact();
+                                _showImagePickerOptions();
+                              },
+                      ),
+                    ),
+                  const SizedBox(width: 8),
+
+                    // Input Field
+                    Expanded(
+                      child: Container(
+                        constraints: const BoxConstraints(minHeight: 36),
+                        child: TextField(
+                          controller: _controller,
+                          enabled: !isInputDisabled,
+                          textInputAction: TextInputAction.send,
+                          onSubmitted: (_) => _send(),
+                          maxLines: 4,
+                          minLines: 1,
+                          textAlignVertical: TextAlignVertical.center,
+                          textCapitalization: TextCapitalization.sentences,
+                          decoration: InputDecoration(
+                            hintText: isInputDisabled
+                                ? 'Blocked - wait for healthcare worker reply'
+                                : 'Type a message...',
+                            hintStyle: TextStyle(
+                              color: isInputDisabled
+                                  ? Colors.grey.shade400
+                                  : const Color(0xFF9CA3AF),
+                              fontSize: 15,
+                              fontWeight: FontWeight.w400,
+                            ),
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                          ),
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w400,
+                            color: isInputDisabled
+                                ? Colors.grey.shade500
+                                : const Color(0xFF1F2937),
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ),
+                  const SizedBox(width: 8),
+
+                    // Send Button
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        gradient: isInputDisabled
+                            ? null
+                            : LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Colors.redAccent,
+                                  Colors.red.shade400,
+                                ],
+                              ),
+                        color: isInputDisabled ? Colors.grey.shade300 : null,
+                        borderRadius: BorderRadius.circular(18),
+                        boxShadow: isInputDisabled
+                            ? null
+                            : [
+                                BoxShadow(
+                                  color: Colors.redAccent.withOpacity(0.25),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(18),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(18),
+                          onTap: isInputDisabled
+                              ? null
+                              : () {
+                                  HapticFeedback.lightImpact();
+                                  _send();
+                                },
+                          child: Center(
+                            child: Icon(
+                              Icons.send_rounded,
+                              color: isInputDisabled
+                                  ? Colors.grey.shade500
+                                  : Colors.white,
+                              size: 16,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          })
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _messageSubscription?.cancel();
+    super.dispose();
   }
 }

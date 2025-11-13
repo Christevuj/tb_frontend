@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/chat_service.dart';
 import '../chat_screens/guest_chat_screen.dart';
+import '../chat_screens/guest_healthworker_chat_screen.dart';
 
 class Gmessages extends StatefulWidget {
   const Gmessages({super.key});
@@ -268,6 +269,10 @@ class _GmessagesState extends State<Gmessages> {
           currentUser?.email ??
           'Anonymous';
 
+      // Check the role of the person being messaged
+      final contactRole = await _chatService.getUserRole(patientId);
+      debugPrint('Contact role: $contactRole for user: $patientId');
+
       // Register guest with 'guest' role
       await _chatService.createUserDoc(
         userId: guestUid,
@@ -275,25 +280,52 @@ class _GmessagesState extends State<Gmessages> {
         role: 'guest',
       );
 
-      // Register patient with 'patient' role
-      await _chatService.createUserDoc(
-        userId: patientId,
-        name: patientName,
-        role: 'patient',
-      );
-
       if (mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => GuestPatientChatScreen(
-              guestId: guestUid,
-              patientId: patientId,
-              patientName: patientName,
-              patientProfilePicture: profilePicture,
+        // If messaging a healthcare worker, use GuestHealthWorkerChatScreen (with blocking)
+        if (contactRole?.toLowerCase() == 'healthcare') {
+          debugPrint('Opening GuestHealthWorkerChatScreen for healthcare contact');
+          
+          // Register healthcare worker
+          await _chatService.createUserDoc(
+            userId: patientId,
+            name: patientName,
+            role: 'healthcare',
+          );
+          
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => GuestHealthWorkerChatScreen(
+                guestId: guestUid,
+                healthWorkerId: patientId,
+                healthWorkerName: patientName,
+                healthWorkerProfilePicture: profilePicture,
+              ),
             ),
-          ),
-        );
+          );
+        } else {
+          // If messaging a patient, use GuestPatientChatScreen (no blocking)
+          debugPrint('Opening GuestPatientChatScreen for patient contact');
+          
+          // Register patient with 'patient' role
+          await _chatService.createUserDoc(
+            userId: patientId,
+            name: patientName,
+            role: 'patient',
+          );
+          
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => GuestPatientChatScreen(
+                guestId: guestUid,
+                patientId: patientId,
+                patientName: patientName,
+                patientProfilePicture: profilePicture,
+              ),
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -350,6 +382,10 @@ class _GmessagesState extends State<Gmessages> {
           currentUser?.email ??
           'Anonymous';
 
+      // Check the role of the person being messaged
+      final contactRole = await _chatService.getUserRole(patientId);
+      debugPrint('Contact role (without restore): $contactRole for user: $patientId');
+
       // Register guest with 'guest' role
       await _chatService.createUserDoc(
         userId: guestUid,
@@ -357,25 +393,52 @@ class _GmessagesState extends State<Gmessages> {
         role: 'guest',
       );
 
-      // Register patient with 'patient' role
-      await _chatService.createUserDoc(
-        userId: patientId,
-        name: patientName,
-        role: 'patient',
-      );
-
       if (mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => GuestPatientChatScreen(
-              guestId: guestUid,
-              patientId: patientId,
-              patientName: patientName,
-              patientProfilePicture: profilePicture,
+        // If messaging a healthcare worker, use GuestHealthWorkerChatScreen (with blocking)
+        if (contactRole?.toLowerCase() == 'healthcare') {
+          debugPrint('Opening GuestHealthWorkerChatScreen for healthcare contact (archived)');
+          
+          // Register healthcare worker
+          await _chatService.createUserDoc(
+            userId: patientId,
+            name: patientName,
+            role: 'healthcare',
+          );
+          
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => GuestHealthWorkerChatScreen(
+                guestId: guestUid,
+                healthWorkerId: patientId,
+                healthWorkerName: patientName,
+                healthWorkerProfilePicture: profilePicture,
+              ),
             ),
-          ),
-        );
+          );
+        } else {
+          // If messaging a patient, use GuestPatientChatScreen (no blocking)
+          debugPrint('Opening GuestPatientChatScreen for patient contact (archived)');
+          
+          // Register patient with 'patient' role
+          await _chatService.createUserDoc(
+            userId: patientId,
+            name: patientName,
+            role: 'patient',
+          );
+          
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => GuestPatientChatScreen(
+                guestId: guestUid,
+                patientId: patientId,
+                patientName: patientName,
+                patientProfilePicture: profilePicture,
+              ),
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -531,10 +594,10 @@ class _GmessagesState extends State<Gmessages> {
         final bTime = b['lastTimestamp'] as Timestamp?;
 
         if (aTime == null && bTime == null) return 0;
-        if (aTime == null) return 1;
+        if (aTime == null) return 1;  // null timestamps go to bottom
         if (bTime == null) return -1;
 
-        return bTime.compareTo(aTime);
+        return bTime.compareTo(aTime);  // Sort newest first (recent activity at top)
       });
 
       return messagedPatients;

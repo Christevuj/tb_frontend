@@ -3,12 +3,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:io';
 import '../models/message.dart';
 import 'cloudinary_service.dart';
-import 'auto_reply_service.dart';
+// import 'auto_reply_service.dart'; // DISABLED - Using WorkingHoursService instead
 
 class ChatService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final CloudinaryService _cloudinaryService = CloudinaryService.instance;
-  final AutoReplyService _autoReplyService = AutoReplyService();
+  // final AutoReplyService _autoReplyService = AutoReplyService(); // DISABLED
 
   /// --------------------------
   /// 🔹 Generate a unique chatId
@@ -50,7 +50,11 @@ class ChatService {
       'participants': [senderId, receiverId],
     }, SetOptions(merge: true));
 
-    // 🤖 TRIGGER AUTO-REPLY if patient/guest is messaging a health worker or doctor
+    // 🤖 OLD AUTO-REPLY DISABLED - Now using WorkingHoursService in chat screens
+    // The old AutoReplyService sent welcome messages with wrong hours (7AM-3PM)
+    // New system handles auto-replies directly in chat screens with correct hours (8AM-5PM)
+
+    /* DISABLED OLD AUTO-REPLY
     print('🔍 AUTO-REPLY CHECK:');
     print('   Sender Role: $senderRole');
     print('   Receiver Role: $receiverRole');
@@ -74,6 +78,7 @@ class ChatService {
     } else {
       print('⏭️ Auto-reply skipped (role mismatch)');
     }
+    */
   }
 
   /// --------------------------
@@ -89,14 +94,15 @@ class ChatService {
     if (currentUser == null) {
       throw Exception('User not authenticated');
     }
-    
+
     final chatId = generateChatId(senderId, receiverId);
     print('🔍 CHAT_SERVICE: Starting Cloudinary image upload');
     print('🔍 CHAT_SERVICE: Authenticated user: ${currentUser.uid}');
     print('🔍 CHAT_SERVICE: Chat ID: $chatId');
     print('🔍 CHAT_SERVICE: Image file exists: ${await imageFile.exists()}');
-    print('🔍 CHAT_SERVICE: Image file size: ${await imageFile.length()} bytes');
-    
+    print(
+        '🔍 CHAT_SERVICE: Image file size: ${await imageFile.length()} bytes');
+
     try {
       // Upload image to Cloudinary (same approach as pbooking1.dart)
       print('🔍 CHAT_SERVICE: Starting Cloudinary upload...');
@@ -104,11 +110,11 @@ class ChatService {
         imageFile: imageFile,
         folder: 'tb_chat_images', // Organize chat images in a specific folder
       );
-      
+
       if (imageUrl == null || imageUrl.isEmpty) {
         throw Exception('Failed to upload image to Cloudinary');
       }
-      
+
       print('🔍 CHAT_SERVICE: Cloudinary upload successful!');
       print('🔍 CHAT_SERVICE: Image URL: $imageUrl');
 
@@ -126,7 +132,11 @@ class ChatService {
 
       // Save message inside: /chats/{chatId}/messages/{messageId}
       print('🔍 CHAT_SERVICE: Saving message to Firestore...');
-      final docRef = await _db.collection('chats').doc(chatId).collection('messages').add(msg);
+      final docRef = await _db
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .add(msg);
       print('🔍 CHAT_SERVICE: Message saved with ID: ${docRef.id}');
 
       // Update chat document (for displaying in chat list)
@@ -141,17 +151,19 @@ class ChatService {
       print('❌ CHAT_SERVICE ERROR: Failed to upload image');
       print('❌ CHAT_SERVICE ERROR: $e');
       print('❌ CHAT_SERVICE ERROR TYPE: ${e.runtimeType}');
-      
+
       // Provide specific error messages for common issues
       String errorMessage = 'Failed to upload image';
       if (e.toString().contains('Upload failed')) {
-        errorMessage = 'Failed to upload image to Cloudinary. Please try again.';
-      } else if (e.toString().contains('network') || e.toString().contains('internet')) {
+        errorMessage =
+            'Failed to upload image to Cloudinary. Please try again.';
+      } else if (e.toString().contains('network') ||
+          e.toString().contains('internet')) {
         errorMessage = 'Network error. Please check your internet connection.';
       } else if (e.toString().contains('No secure_url')) {
         errorMessage = 'Cloudinary upload failed. Please try again.';
       }
-      
+
       print('❌ CHAT_SERVICE ERROR MESSAGE: $errorMessage');
       print('❌ CHAT_SERVICE STACK TRACE: $stackTrace');
       throw Exception(errorMessage);
@@ -168,7 +180,7 @@ class ChatService {
         .collection('chats')
         .doc(chatId)
         .collection('messages')
-        .orderBy('timestamp', descending: false)
+        .orderBy('timestamp', descending: true)
         .snapshots()
         .map((snap) => snap.docs.map((d) => Message.fromDoc(d)).toList());
   }
@@ -194,7 +206,8 @@ class ChatService {
   /// --------------------------
   /// 🔹 Get unread messages count for a conversation
   /// --------------------------
-  Future<int> getUnreadMessagesCount(String currentUserId, String otherUserId) async {
+  Future<int> getUnreadMessagesCount(
+      String currentUserId, String otherUserId) async {
     final chatId = generateChatId(currentUserId, otherUserId);
     final unread = await _db
         .collection('chats')
@@ -210,9 +223,10 @@ class ChatService {
   /// --------------------------
   /// 🔹 Stream unread messages count for a conversation
   /// --------------------------
-  Stream<int> streamUnreadMessagesCount(String currentUserId, String otherUserId) {
+  Stream<int> streamUnreadMessagesCount(
+      String currentUserId, String otherUserId) {
     final chatId = generateChatId(currentUserId, otherUserId);
-    
+
     return _db
         .collection('chats')
         .doc(chatId)

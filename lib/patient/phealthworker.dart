@@ -601,10 +601,12 @@ class Phealthworker extends StatelessWidget {
         name: patientName,
         role: 'patient',
       );
+      
+      final contactRole = workerType == 'Doctor' ? 'doctor' : 'healthcare';
       await chatService.createUserDoc(
         userId: workerId,
         name: workerName,
-        role: workerType == 'Doctor' ? 'doctor' : 'healthcare',
+        role: contactRole,
       );
 
       debugPrint('✅ Opening chat with $workerType: $workerName');
@@ -619,6 +621,7 @@ class Phealthworker extends StatelessWidget {
               healthWorkerId: workerId,
               healthWorkerName: workerName,
               healthWorkerProfilePicture: profilePicture,
+              role: contactRole,
             ),
           ),
         );
